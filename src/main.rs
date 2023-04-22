@@ -14,6 +14,9 @@ fn main() {
     let append_char = map(String::from("!!!"), |s| "hello world".to_string() + &s);
     println!("{}", append_char);
 
+    let concat_result = concat_func("hello ".to_string(), |t| t + "world", |t| t.to_uppercase());
+    println!("{}", concat_result.to_string());
+
     let is_higher_than_2000 = predicate_func(1981, |n| n > 2000);
     println!("{}", is_higher_than_2000.to_string());
 
@@ -47,6 +50,11 @@ fn map<T>(t: T, m: fn(T) -> T) -> T {
     m(t)
 }
 
+//Function that concatenate two functions, passing the output of one function to the next one.
+fn concat_func<T>(t:T, func1:fn(T) -> T, func2:fn(T)->T)->T {
+    func2(func1(t))
+}
+
 //Predicate function that receive an argument and a predicate func and apply the func over the value.
 fn predicate_func<T>(t: T, func: fn(T) -> bool) -> bool {
     func(t)
@@ -61,6 +69,7 @@ fn consumer_func<T>(t: T, func: fn(T)) {
 fn zip_func(t1:String, t2:String, func_t1: fn(String) -> String, func_t2:fn(String) -> String ) -> String{
     func_t1(t1).to_string() + &func_t2(t2).to_string()
 }
+
 
 
 
