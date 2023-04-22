@@ -20,10 +20,12 @@ fn main() {
     let contains_hello = predicate_func("hello world", |n| n.contains("hello"));
     println!("{}", contains_hello.to_string());
 
-    consumer_func("hello consumer function", |s| println!("{}", s))
+    consumer_func("hello consumer function", |s| println!("{}", s));
+
+
 }
 
-//Rust works with Higher order functions, so we can return a function in a function.
+//Rust works with High order functions, so we can return a function in a function.
 fn hello_world_fun() -> fn(String) -> String {
     |name| String::from("hello world ") + &name
 }
@@ -49,9 +51,10 @@ fn predicate_func<T>(t: T, func: fn(T) -> bool) -> bool {
 }
 
 //A Consumer function that receive a param and just apply the function.
-fn consumer_func<T>(t:T, func:fn(T)){
+fn consumer_func<T>(t: T, func: fn(T)) {
     func(t)
 }
+
 
 
 
