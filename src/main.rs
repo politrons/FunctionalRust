@@ -22,6 +22,8 @@ fn main() {
 
     consumer_func("hello consumer function", |s| println!("{}", s));
 
+    let zip_result = zip_functions("hello".to_string(), "WORLD".to_string(), |t1| t1.to_uppercase(), |t2| t2.to_lowercase());
+    println!("{}", zip_result);
 
 }
 
@@ -53,6 +55,11 @@ fn predicate_func<T>(t: T, func: fn(T) -> bool) -> bool {
 //A Consumer function that receive a param and just apply the function.
 fn consumer_func<T>(t: T, func: fn(T)) {
     func(t)
+}
+
+//A function that receive two functions and zip the result of both functions.
+fn zip_functions(t1:String, t2:String, func_t1: fn(String) -> String, func_t2:fn(String) -> String ) -> String{
+    func_t1(t1).to_string() + &func_t2(t2).to_string()
 }
 
 
