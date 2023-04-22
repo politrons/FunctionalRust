@@ -30,6 +30,9 @@ fn main() {
 
 }
 
+// Functions
+//-----------
+
 //Rust works with High order functions, so we can return a function in a function.
 fn hello_world_fun() -> fn(String) -> String {
     |name| String::from("hello world ") + &name
@@ -69,6 +72,7 @@ fn consumer_func<T>(t: T, func: fn(T)) {
 fn zip_func(t1:String, t2:String, func_t1: fn(String) -> String, func_t2:fn(String) -> String ) -> String{
     func_t1(t1).to_string() + &func_t2(t2).to_string()
 }
+
 
 
 
