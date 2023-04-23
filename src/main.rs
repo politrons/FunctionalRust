@@ -1,11 +1,11 @@
 mod functions;
-mod try_monad;
+mod monad;
 mod type_classes;
 
 
 fn main() {
    // functions::run();
-   try_monad::run();
+   monad::run();
    // type_classes::run();
 }
 
