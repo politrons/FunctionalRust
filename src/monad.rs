@@ -1,8 +1,8 @@
 pub fn run() {
-    let my_monad = MyMonad::of("hello monad try");
+    let my_monad = MyMonad::of("hello monad");
     println!("Try:{}", my_monad.get().to_string());
 
-    let monad_program = MyMonad::of("hello monad try".to_string())
+    let monad_program = MyMonad::of("hello monad".to_string())
         .map(|v| v.to_uppercase())
         .flat_map(|v| MyMonad { value: v + &"!!!"});
     println!("Program:{}", monad_program.get().to_string());
