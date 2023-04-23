@@ -1,4 +1,5 @@
 # FunctionalRust
+![My image](img/rust.jpg)
 
 Author Pablo Perez Garcia
 
