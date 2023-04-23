@@ -1,4 +1,4 @@
-# FunctionalRust
+# Functional Rust
 
 Author Pablo Perez Garcia
 
