@@ -1,5 +1,7 @@
 use std::fmt::Error;
-
+/**
+Having in Rust [Result] monad, this implementation is more a patter to show how we can abstract behavior.
+*/
 pub fn run() {
     let my_monad = TryMonad::of("hello try monad");
     println!("Try:{}", my_monad.get().to_string());

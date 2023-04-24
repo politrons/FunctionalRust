@@ -2,6 +2,7 @@ mod functions;
 mod monad;
 mod type_classes;
 mod try_monad;
+mod effect_system;
 
 
 fn main() {
