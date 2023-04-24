@@ -3,7 +3,7 @@ mod monad;
 mod type_classes;
 mod try_monad;
 mod effect_system;
-mod extension_methods;
+mod extension_method;
 
 
 fn main() {
@@ -11,7 +11,7 @@ fn main() {
    // monad::run();
    // type_classes::run();
    //  try_monad::run()
-    extension_methods::run()
+    extension_method::run()
 }
 
 
