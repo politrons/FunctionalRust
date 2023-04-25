@@ -1,6 +1,5 @@
 pub fn run() {
-    let string_value = "Hello world".to_string();
-    println!("Contains hello:{}",string_value.contains_hello());
+    println!("Contains hello:{}","Hello world".contains_hello());
     println!("Number:{}",1981.multiply_by(10));
 }
 
@@ -13,8 +12,8 @@ trait StringExt {
     fn contains_hello(&self) -> bool;
 }
 
-/**Implementation extension of [String] type*/
-impl StringExt for String {
+/**Implementation extension of [str] type*/
+impl StringExt for str {
     fn contains_hello(&self) -> bool {
         self.contains("Hello")
     }
