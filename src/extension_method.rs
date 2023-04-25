@@ -1,6 +1,7 @@
 pub fn run() {
     println!("Contains hello:{}","Hello world".contains_hello());
     println!("Number:{}",1981.multiply_by(10));
+    println!("Animal info:{}",Animal{ species:"Dog".to_string(), age:5}.animal_description());
 }
 
 /**
@@ -29,4 +30,20 @@ impl NumberExt for i32 {
     fn multiply_by(&self, number: i32) -> i32 {
         self * number
     }
+}
+
+trait AnimalExt {
+    fn animal_description(self)->String;
+}
+
+/**Implementation extension of [Animal] type*/
+impl AnimalExt for Animal{
+    fn animal_description(self) -> String {
+       self.species + &"-" + &self.age.to_string()
+    }
+}
+
+struct Animal {
+    species:String,
+    age:i32,
 }
