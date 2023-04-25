@@ -7,9 +7,10 @@ mod effect_system;
 
 fn main() {
    // functions::run();
-   monad::run();
+   // monad::run();
    // type_classes::run();
    //  try_monad::run()
+    effect_system::run()
 }
 
 
