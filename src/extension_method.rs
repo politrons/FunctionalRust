@@ -1,3 +1,7 @@
+/**
+Once we implement an extension trait over a specific type [String,Integer,Bool...] we can start using
+this new method like part of this API.
+*/
 pub fn run() {
     println!("Contains hello:{}","Hello world".contains_hello());
     println!("Number:{}",1981.multiply_by(10));
