@@ -7,6 +7,7 @@ pub fn run() {
     async_block();
     composition();
     block_on(parallel_tasks());
+    passing_arguments();
 }
 
 
@@ -53,7 +54,7 @@ async fn dependency_c(future_dep_b: impl Future<Output=String>) -> String {
 /**
 We can also create futures just running some logic inside async closures.
 It will automatically return a [future].
-to run both futures in parallel we can use
+to run both futures in parallel we can use [join] operator which it will merge both result in a tuple (v1,v2)
 */
 async fn parallel_tasks(){
     let future1 =async {
@@ -67,5 +68,17 @@ async fn parallel_tasks(){
     let (v1,v2) = futures::join!(future1,future2);
     println!("{} {}", v1, v2)
 
+}
+
+/**
+It's also possible pass arguments into a async task using [async move] closure, where the variable
+it can be used then in the scope of the future.
+*/
+fn passing_arguments() {
+    let value = String::from("hello world out of Thread");
+    let future = async move {
+        println!("Variable:{} in Thread:{:?}", value, thread::current().id())
+    };
+    block_on(future)
 }
 

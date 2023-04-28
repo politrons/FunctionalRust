@@ -16,4 +16,5 @@ Examples of functional programing in Rust
 * **[Extension method](src/extension_method.rs)**
 * **[Memory management](src/memory_management.rs)**
 * **[Collection](src/collection.rs)**
+* **[async-await](src/async_programming.rs)**
 
