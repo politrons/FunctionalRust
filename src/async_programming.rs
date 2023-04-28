@@ -7,7 +7,7 @@ pub fn run() {
     async_block();
     composition();
     block_on(parallel_tasks());
-    passing_arguments();
+    async_with_arguments();
 }
 
 
@@ -74,7 +74,7 @@ async fn parallel_tasks(){
 It's also possible pass arguments into a async task using [async move] closure, where the variable
 it can be used then in the scope of the future.
 */
-fn passing_arguments() {
+fn async_with_arguments() {
     let value = String::from("hello world out of Thread");
     let future = async move {
         println!("Variable:{} in Thread:{:?}", value, thread::current().id())
