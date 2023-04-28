@@ -6,6 +6,7 @@ mod effect_system;
 mod extension_method;
 mod memory_management;
 mod collection;
+mod async_programming;
 
 
 fn main() {
@@ -16,7 +17,8 @@ fn main() {
    //  effect_system::run();
     // extension_method::run()
     // memory_management::run()
-    collection::run()
+    // collection::run()
+    async_programming::run()
 }
 
 
