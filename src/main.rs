@@ -7,7 +7,7 @@ mod extension_method;
 mod memory_management;
 mod collection;
 mod async_programming;
-
+mod channels_feature;
 
 fn main() {
    // functions::run();
@@ -18,7 +18,8 @@ fn main() {
     // extension_method::run()
     // memory_management::run()
     // collection::run()
-    async_programming::run()
+    // async_programming::run()
+    channels_feature::run()
 }
 
 

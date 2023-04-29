@@ -17,4 +17,5 @@ Examples of functional programing in Rust
 * **[Memory management](src/memory_management.rs)**
 * **[Collection](src/collection.rs)**
 * **[async-await](src/async_programming.rs)**
+* **[channels](src/channels_feature.rs)**
 
