@@ -10,14 +10,15 @@ Examples of functional programing in Rust
 
 ## Features
 
-* **[Functions](src/functions.rs)**
-* **[Type Classes](src/type_classes.rs)**
-* **[Monad](src/monad.rs)**
-* **[Try Monad](src/try_monad.rs)**
-* **[Effect system](src/effect_system.rs)**
-* **[Extension method](src/extension_method.rs)**
-* **[Memory management](src/memory_management.rs)**
-* **[Collection](src/collection.rs)**
-* **[async-await](src/async_programming.rs)**
-* **[channels](src/channels_feature.rs)**
+* **[Functions](src/features/functions.rs)**
+* **[Type Classes](src/features/type_classes.rs)**
+* **[Monad](src/features/monad.rs)**
+* **[Try Monad](src/features/try_monad.rs)**
+* **[Effect system](src/features/effect_system.rs)**
+* **[Extension method](src/features/extension_method.rs)**
+* **[Memory management](src/features/memory_management.rs)**
+* **[Collection](src/features/collection.rs)**
+* **[async-await](src/features/async_programming.rs)**
+* **[channels](src/features/channels_feature.rs)**
+* **[pattern matching](src/features/pattern_matching.rs)**
 
