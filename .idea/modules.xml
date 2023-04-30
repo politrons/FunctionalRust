@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/FunctionalRust.iml" filepath="$PROJECT_DIR$/FunctionalRust.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tokio/tokio.iml" filepath="$PROJECT_DIR$/tokio/tokio.iml" />
     </modules>
   </component>
 </project>
