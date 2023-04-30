@@ -8,6 +8,8 @@ Is this repo useful? Please ⭑Star this repository and share the love.
 
 Examples of functional programing in Rust
 
+## Features
+
 * **[Functions](src/functions.rs)**
 * **[Type Classes](src/type_classes.rs)**
 * **[Monad](src/monad.rs)**

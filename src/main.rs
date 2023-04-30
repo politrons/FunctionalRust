@@ -1,25 +1,19 @@
-mod functions;
-mod monad;
-mod type_classes;
-mod try_monad;
-mod effect_system;
-mod extension_method;
-mod memory_management;
-mod collection;
-mod async_programming;
-mod channels_feature;
+mod features;
+
+use crate::features::{async_programming, channels_feature, collection, effect_system, extension_method, functions, memory_management, monad, pattern_matching, try_monad, type_classes};
 
 fn main() {
-   // functions::run();
-   // monad::run();
-   // type_classes::run();
-   //  try_monad::run()
-   //  effect_system::run();
-    // extension_method::run()
-    // memory_management::run()
-    // collection::run()
-    // async_programming::run()
-    channels_feature::run()
+    // functions::run();
+    // monad::run();
+    // type_classes::run();
+    // try_monad::run();
+    // effect_system::run();
+    // extension_method::run();
+    // memory_management::run();
+    // collection::run();
+    // async_programming::run();
+    // channels_feature::run();
+    pattern_matching::run()
 }
 
 
