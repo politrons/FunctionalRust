@@ -47,25 +47,25 @@ pub async fn run_client() -> ResultSolo<()> {
 //-------
 
 /**
-Function to create a Http Server.
+Function to create a Http Server and Service.
 
-*/
+* We use [SocketAddr::from] to pass a tuple of [ip] array and [port]
+* Using [make_service_fn] we implement a function that receive an [AddStream] and return function that return a
+    [Future] of [Result<Response<Body>, Infallible>]
+* Once we have the service function, use it to be [bind] with the [SocketAddress] using [serve] function.
+* Inside the async function we pass to [service_fn] the implementation of our service [create_service] which
+    receive a [Request<Body>], and return [Result<Response<Body>, Infallible>].
+* Then with the response [server] we await forever.
+ */
 pub async fn run_server() {
     println!("Preparing Service...");
     let port = 1981;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-
-    // A `Service` is needed for every connection, so this
-    // creates one from our `hello_world` function.
-    let make_svc = make_service_fn(|_conn| async {
+    let server = Server::bind(&addr).serve(make_service_fn(|_conn| async {
         // service_fn converts our function into a `Service`
         println!("New request received.");
         Ok::<_, Infallible>(service_fn(create_service))
-    });
-
-    let server = Server::bind(&addr).serve(make_svc);
-
-    // Run this server for... forever!
+    }));
     if let Err(e) = server.await {
         println!("server error: {}", e);
     }
@@ -77,13 +77,13 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/hello") => {
             *response.body_mut() = Body::from("Try POSTing data to /echo");
-        },
+        }
         (&Method::POST, "/echo") => {
             // we'll be back
-        },
+        }
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
-        },
+        }
     };
 
     Ok(response)
