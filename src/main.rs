@@ -7,9 +7,9 @@ fn main() {
     // monad::run();
     // type_classes::run();
     // try_monad::run();
-    effect_system::run();
+    // effect_system::run();
     // extension_method::run();
-    // memory_management::run();
+    memory_management::run();
     // collection::run();
     // async_programming::run();
     // channels_feature::run();

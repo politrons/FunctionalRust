@@ -71,20 +71,23 @@ pub async fn run_server() {
     }
 }
 
+/**
+Function to declare service routing and response.
+* We use pattern matching to match the [method] of the request, and the [uri]
+* Once we're in the specific handle, we can set body response using [body_mut] over pointer [response]
+*/
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let mut response = Response::new(Body::empty());
-
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/hello") => {
-            *response.body_mut() = Body::from("Try POSTing data to /echo");
+            *response.body_mut() = Body::from("In the near future, we will implement /world");
         }
-        (&Method::POST, "/echo") => {
-            // we'll be back
+        (&Method::POST, "/world") => {
+            *response.status_mut() = StatusCode::NOT_IMPLEMENTED
         }
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
     };
-
     Ok(response)
 }

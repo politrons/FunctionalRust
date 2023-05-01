@@ -1,6 +1,7 @@
 pub fn run(){
     owner_variable();
     borrow_variable();
+    reference_dereference();
 }
 
 /**
@@ -26,4 +27,16 @@ fn borrow_variable() {
     println!("{}", variable);
     // println!("{}", variable.push_str("Change value"));//It wont compile
     println!("{}", new_variable);
+}
+
+
+/**
+When we use [&] we are creating a reference [pointer] of a variable.
+And when we use [*] we are de-referencing a reference.
+*/
+fn reference_dereference(){
+    let x = 5;
+    let y = &x; //set y to a reference to x
+    assert_eq!(5, x);
+    assert_eq!(5, *y); // dereference y
 }
