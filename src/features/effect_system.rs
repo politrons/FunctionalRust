@@ -6,6 +6,8 @@ pub fn run() {
     result_effect();
     option_effect("hello option monad");
     option_effect("");
+    extract_result_effect();
+    extract_option_effect();
 }
 
 /**
@@ -37,4 +39,32 @@ fn option_effect(value: &str) {
         Some(v) => println!("{}", v.to_string()),
         None => println!("No element found "),
     }
+}
+
+/**
+Using operator [?] is sugar syntax to unwrap the happy path values from [Option] and [Result]
+But compiler will force you to return same Result type in function, just in case of [Error] or [None]
+ */
+fn extract_result_effect() -> Result<String, Error>{
+    let result = get_result_type()?;
+    println!("{}", result);
+    Ok(result)
+}
+
+fn get_result_type() -> Result<String, Error> {
+    Ok(String::from("hello unwrap result"))
+}
+
+/**
+In the example of option using [?] we dont have a value so the lines 63,64 never are executed, and
+we return the [Option] with [None] value
+*/
+fn extract_option_effect() -> Option<String>{
+    let result = get_option_type()?;
+    println!("{}", result);
+    Some(result)
+}
+
+fn get_option_type() -> Option<String> {
+    None
 }
