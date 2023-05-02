@@ -22,3 +22,10 @@ Examples of functional programing in Rust
 * **[channels](src/features/channels_feature.rs)**
 * **[pattern matching](src/features/pattern_matching.rs)**
 
+## Tokio
+
+### Hyper
+
+Fast and safe HTTP for the Rust language.
+
+* **[Client/Server](tokio/src/tokio_http_hyper.rs)**
