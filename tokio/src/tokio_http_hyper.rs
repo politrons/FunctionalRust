@@ -20,30 +20,36 @@ type ResultSolo<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 
 // Client
 //-------
-pub async fn run_client() -> ResultSolo<()> {
 
-// Parse an `http::Uri`...
+/**
+Http client running in [Http2]
+* We parser an Http Uri with the [ip:port/endpoint] that return a [Result] with the [Uri].
+    We use [?] to extract the value from Result, since we result a Result.
+* We use [Client::builder] to create [Client] specifying idle timeout, set to work only in [http2]
+    [retry_canceled_requests] to retry a request in case the idle timeout is reach.
+* We use [client.get] passing the [uri] to make the request, and return a [Future] of [Result] of [Response<Body>].
+    We use [await?] to await for the response, and extract the Body value from Result.
+* A [Response] it contains the [headers] and [status] of the request.
+* Using <await> we are able to await until the response is available, and then using [unwrap]
+    we are able to extract from the [option] the [Result] with the Bytes, so finally using [?]
+    we extract the bytes to be used in the String response.
+*/
+pub async fn run_client() -> ResultSolo<()> {
     let uri = "http://localhost:1981/hello".parse()?;
 
     let client:Client<HttpConnector, Body> = Client::builder()
         .pool_idle_timeout(Duration::from_secs(30))
         .http2_only(true)
+        .retry_canceled_requests(true)
         .build_http();
 
     let mut res = client.get(uri).await?;
-
     println!("Response: {}", res.status());
     println!("Headers: {:#?}\n", res.headers());
 
-    // Stream the body, writing each chunk to stdout as we get it
-    // (instead of buffering and printing at the end).
-    while let Some(next) = res.data().await {
-        let chunk = next?;
-        io::stdout().write_all(&chunk).await?;
-    }
-
-    println!("\n\nDone!");
-
+    let bytes  = res.data().await.unwrap()?;
+    let result = String::from_utf8(bytes.into_iter().collect()).expect("");
+    println!("\n\nnResponse:{}", result);
     Ok(())
 }
 
