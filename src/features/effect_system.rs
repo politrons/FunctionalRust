@@ -52,11 +52,11 @@ fn extract_result_effect() -> Result<String, Error>{
 }
 
 fn get_result_type() -> Result<String, Error> {
-    Ok(String::from("hello unwrap result"))
+    Ok(String::from("hello Result effect"))
 }
 
 /**
-In the example of option using [?] we dont have a value so the lines 63,64 never are executed, and
+In the example of option using [?] we dont have a value so the lines 64,65 never are executed, and
 we return the [Option] with [None] value
 */
 fn extract_option_effect() -> Option<String>{

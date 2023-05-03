@@ -76,7 +76,6 @@ pub async fn run_server() {
     let server = Server::bind(&addr)
         .http2_only(true)
         .serve(make_service_fn(|_conn| async {
-            // service_fn converts our function into a `Service`
             println!("New request received.");
             Ok::<_, Infallible>(service_fn(create_service))
         }));
