@@ -13,4 +13,5 @@ pub mod memory_management;
 pub mod collection;
 pub mod channels_feature;
 pub mod pattern_matching;
+pub mod either_monad;
 
