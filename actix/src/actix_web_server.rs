@@ -14,6 +14,11 @@ async fn index(_req: HttpRequest) -> Result<NamedFile> {
     Ok(NamedFile::open(path)?)
 }
 
+/**
+We cover in [actix_server] how actix server is configured and running.
+In here just to add, using [web::scope] we can specify the path where this server is
+listening. In this case we listen from endpoint [/app]
+*/
 pub async fn run_server() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new().service(
