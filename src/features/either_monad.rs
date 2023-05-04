@@ -1,7 +1,8 @@
 use std::fmt::Error;
 
 /**
-Having in Rust [Result] monad, this implementation is more a patter to show how we can abstract behavior.
+Having in Rust [Either] monad, this implementation is more a patter to show how we can abstract behavior.
+Official documentation https://docs.rs/either/latest/either/enum.Either.html
  */
 pub fn run() {
     let either: EitherMonad<String, String> = EitherMonad::right(String::from("hello either monad"));
