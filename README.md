@@ -30,7 +30,9 @@ Fast and safe HTTP for the Rust language.
 
 * **[Client/Server](tokio/src/tokio_http_hyper.rs)**
 
-## ![My image](img/actix-web.png)
+## Actix
+
+![My image](img/actix-web.png)
 
 Actix Web is a powerful, pragmatic, and extremely fast web framework for Rust.
 
