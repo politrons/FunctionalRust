@@ -25,6 +25,10 @@ Examples of functional programing in Rust
 
 ## Tokio
 
+### Features
+
+* **[select](tokio/src/tokio_select.rs)**
+
 ### Hyper
 
 Fast and safe HTTP for the Rust language.
