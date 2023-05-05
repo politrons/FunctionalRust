@@ -75,7 +75,7 @@ fn zip_func(t1: String, t2: String, func_t1: fn(String) -> String, func_t2: fn(S
     func_t1(t1).to_string() + &func_t2(t2).to_string()
 }
 
-//In Rust we can use [where] syntax to define a generic type after the definition
+//In Rust we can use [where] syntax to define a generic type after the definition adding specific constraints
 fn where_func<F,T>(value:T, handler: F) -> T where F: Fn(T) -> T,
 {
     handler(value)
