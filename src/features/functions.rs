@@ -28,6 +28,8 @@ pub fn run() {
     let zip_result = zip_func("hello".to_string(), "WORLD".to_string(), |t1| t1.to_uppercase(), |t2| t2.to_lowercase());
     println!("{}", zip_result);
 
+    let response = where_func(String::from("hello world"), |v| v.to_uppercase());
+    println!("{}", response);
 }
 
 // Functions
@@ -54,7 +56,7 @@ fn map<T>(t: T, m: fn(T) -> T) -> T {
 }
 
 //Function that concatenate two functions, passing the output of one function to the next one.
-fn concat_func<T>(t:T, func1:fn(T) -> T, func2:fn(T)->T)->T {
+fn concat_func<T>(t: T, func1: fn(T) -> T, func2: fn(T) -> T) -> T {
     func2(func1(t))
 }
 
@@ -69,6 +71,12 @@ fn consumer_func<T>(t: T, func: fn(T)) {
 }
 
 //A function that receive two functions and zip the result of both functions.
-fn zip_func(t1:String, t2:String, func_t1: fn(String) -> String, func_t2:fn(String) -> String ) -> String{
+fn zip_func(t1: String, t2: String, func_t1: fn(String) -> String, func_t2: fn(String) -> String) -> String {
     func_t1(t1).to_string() + &func_t2(t2).to_string()
+}
+
+//In Rust we can use [where] syntax to define a generic type after the definition
+fn where_func<F,T>(value:T, handler: F) -> T where F: Fn(T) -> T,
+{
+    handler(value)
 }
