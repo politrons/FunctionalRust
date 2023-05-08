@@ -14,4 +14,6 @@ pub mod collection;
 pub mod channels_feature;
 pub mod pattern_matching;
 pub mod either_monad;
+pub mod enum_type;
+pub mod smart_pointer;
 
