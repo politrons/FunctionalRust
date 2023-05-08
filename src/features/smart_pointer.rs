@@ -3,16 +3,32 @@ use std::ops::Add;
 use std::rc::Rc;
 
 /**
+RC provides shared ownership of an immutable value.
+Allow you create a pointer over a type, and being able to share in multiple contexts.
+
 RC [Reference Counted] is a single-thread pointer of a specific type using [new]
 Once we have the smart pointer, we can [clone].
 
 In rust [{}] create a new scope, and all variables created inside that scope it will have that lifecycle.
  */
 pub fn run() {
+    boxer_features();
     struct_type();
     primitive_type();
     comparator_pointer();
     mutable_pointer();
+}
+
+/**
+[Box] allow you to store data on the heap rather than the stack.
+It´s useful when you have types that you want to extend their side in runtime.
+The way we can extract the value from a [Box] is using [*]
+ */
+fn boxer_features() {
+    let int_box = Box::new(1981);
+    println!("{}", int_box.gt(&Box::new(100)));
+    let raw_int = *int_box;
+    println!("{}", raw_int);
 }
 
 /**
@@ -42,7 +58,7 @@ fn comparator_pointer() {
 }
 
 /**
-Rc it work also fine with struct types. But since it does not implement comparable, we cannot use the
+Rc it works also fine with struct types. But since it does not implement comparable, we cannot use the
 previous example operators.
  */
 fn struct_type() {
@@ -59,9 +75,13 @@ fn struct_type() {
 }
 
 /**
-One way to
+One way to modify a pointer is to wrap the value of [RC] into [RefCell].
+Then using [borrow_mut] operator we can get a [RefMut] that allow modify a type
+that is the heap memory like String.
 
-*/
+In this example we create [mutable] [borrows] of the original [owner] type, that once we modify,
+the original owner type have the change.
+ */
 fn mutable_pointer() {
     let shared_pointer = Rc::new(RefCell::new("Hello".to_string()));
     //Another scope
