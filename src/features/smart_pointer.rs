@@ -35,13 +35,13 @@ Using [*] we can unwrap the type from the [Rc]
 In rust [{}] create a new scope, and all variables created inside that scope it will have that lifecycle.
  */
 fn primitive_type() {
-    let str_pointer = Rc::new(1981);
+    let int_pointer = Rc::new(1981);
     {
-        let second_pointer = str_pointer.clone();
+        let second_pointer = int_pointer.clone();
         let value = *second_pointer;
         println!("{}", value);
     }
-    println!("{}", *str_pointer);
+    println!("{}", *int_pointer);
 }
 
 /**
@@ -49,11 +49,11 @@ Using [Reference counter] we can use all comparison operator over the value in c
 Like here we can use eq,lt,gt,add over the value.
  */
 fn comparator_pointer() {
-    let str_pointer = Rc::new(1981);
-    println!("Equals:{}", str_pointer.eq(&Rc::new(1981)));
-    println!("Lower than:{}", str_pointer.lt(&Rc::new(100)));
-    println!("Greater than:{}", str_pointer.gt(&Rc::new(100)));
-    println!("Greater than:{}", str_pointer.add(100));
+    let int_pointer = Rc::new(1981);
+    println!("Equals:{}", int_pointer.eq(&Rc::new(1981)));
+    println!("Lower than:{}", int_pointer.lt(&Rc::new(100)));
+    println!("Greater than:{}", int_pointer.gt(&Rc::new(100)));
+    println!("Greater than:{}", int_pointer.add(100));
 }
 
 /**
