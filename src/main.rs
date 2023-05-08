@@ -1,6 +1,6 @@
 mod features;
 
-use crate::features::{async_programming, channels_feature, collection, effect_system, either_monad, extension_method, functions, memory_management, monad, pattern_matching, smart_pointer, try_monad, type_classes};
+use crate::features::{async_programming, channels_feature, collection, currying_function, effect_system, either_monad, extension_method, functions, memory_management, monad, pattern_matching, smart_pointer, try_monad, type_classes};
 
 fn main() {
     functions::run();

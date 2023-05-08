@@ -1,4 +1,8 @@
 pub fn run() {
+    let f = |x: i32, y: i32| x + y;
+    let result = f(10, 20);
+    println!("{}", result);
+
     let sentence = hello_world_fun()(String::from("Paul"));
     println!("{}", sentence);
 
@@ -34,7 +38,7 @@ pub fn run() {
     let response = function_2("hello", "world", |s, s1| s.to_string() + s1);
     println!("{}", response);
 
-    let response = function_3("hello", "world", "!!!", | s, s1, s2 | s.to_string() + s1 + s2);
+    let response = function_3("hello", "world", "!!!", |s, s1, s2| s.to_string() + s1 + s2);
     println!("{}", response);
 }
 
