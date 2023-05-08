@@ -3,7 +3,7 @@ use std::ops::Add;
 use std::rc::Rc;
 
 /**
-RC provides shared ownership of an immutable value.
+RC Also known as ADT(Abstract Data Type) it provides shared ownership of an immutable value.
 Allow you create a pointer over a type, and being able to share in multiple contexts.
 
 RC [Reference Counted] is a single-thread pointer of a specific type using [new]
