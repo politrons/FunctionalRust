@@ -30,6 +30,12 @@ pub fn run() {
 
     let response = where_func(String::from("hello world"), |v| v.to_uppercase());
     println!("{}", response);
+
+    let response = function_2("hello", "world", |s, s1| s.to_string() + s1);
+    println!("{}", response);
+
+    let response = function_3("hello", "world", "!!!", | s, s1, s2 | s.to_string() + s1 + s2);
+    println!("{}", response);
 }
 
 // Functions
@@ -76,7 +82,17 @@ fn zip_func(t1: String, t2: String, func_t1: fn(String) -> String, func_t2: fn(S
 }
 
 //In Rust we can use [where] syntax to define a generic type after the definition adding specific constraints
-fn where_func<F,T>(value:T, handler: F) -> T where F: Fn(T) -> T,
+fn where_func<F, T>(value: T, handler: F) -> T where F: Fn(T) -> T,
 {
     handler(value)
+}
+
+//Function 2 it just a function that expect to receive two arguments in the function
+fn function_2<F, T, X>(f: F, t: T, func_2: fn(s: F, s1: T) -> X) -> X {
+    return func_2(f, t);
+}
+
+//Function 3 it just a function that expect to receive three arguments in the function
+fn function_3<F, T, Z, X>(f: F, t: T, z: Z, func_3: fn(s: F, s1: T, s2: Z) -> X) -> X {
+    return func_3(f, t, z);
 }
