@@ -7,9 +7,7 @@ RC Also known as ADT(Abstract Data Type) it provides shared ownership of an immu
 Allow you create a pointer over a type, and being able to share in multiple contexts.
 
 RC [Reference Counted] is a single-thread pointer of a specific type using [new]
-Once we have the smart pointer, we can [clone].
-
-In rust [{}] create a new scope, and all variables created inside that scope it will have that lifecycle.
+Once we have the smart pointer, we can [clone] to create [borrowers].
  */
 pub fn run() {
     boxer_features();
@@ -34,6 +32,7 @@ fn boxer_features() {
 /**
 In Rc we can create a [clone] from original value.
 Using [*] we can unwrap the type from the [Rc]
+In rust [{}] create a new scope, and all variables created inside that scope it will have that lifecycle.
  */
 fn primitive_type() {
     let str_pointer = Rc::new(1981);
