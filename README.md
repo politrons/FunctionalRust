@@ -22,15 +22,15 @@ Examples of functional programing in Rust
 * **[async-await](src/features/async_programming.rs)**
 * **[channels](src/features/channels_feature.rs)**
 * **[pattern matching](src/features/pattern_matching.rs)**
-* **[smart_pointer](src/features/smart_pointer.rs)**
+* **[smart pointer](src/features/smart_pointer.rs)**
 
 ## Tokio
 
-### Features
+#### Features
 
 * **[select](tokio/src/tokio_select.rs)**
 
-### Hyper
+#### Hyper
 
 Fast and safe HTTP for the Rust language.
 
