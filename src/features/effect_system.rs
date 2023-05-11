@@ -16,7 +16,7 @@ and is not recoverable, so the Thread will die.
 For any other possible side-effect that  might happen when we interact with real world, rust provide by design
 a Monad Error Transformer called [Result] which we can use to map error and compose them, or just pass the successful value.
 Just like a monad it's allow you to use all common functional operations.
-*/
+ */
 fn result_effect() {
     let result: Result<String, Error> =
         Result::Ok("hello world")
@@ -45,7 +45,7 @@ fn option_effect(value: &str) {
 Using operator [?] is sugar syntax to unwrap the happy path values from [Option] and [Result]
 But compiler will force you to return same Result type in function, just in case of [Error] or [None]
  */
-fn extract_result_effect() -> Result<String, Error>{
+fn extract_result_effect() -> Result<String, Error> {
     let result = get_result_type()?;
     println!("{}", result);
     Ok(result)
@@ -58,8 +58,8 @@ fn get_result_type() -> Result<String, Error> {
 /**
 In the example of option using [?] we dont have a value so the lines 64,65 never are executed, and
 we return the [Option] with [None] value
-*/
-fn extract_option_effect() -> Option<String>{
+ */
+fn extract_option_effect() -> Option<String> {
     let result = get_option_type()?;
     println!("{}", result);
     Some(result)

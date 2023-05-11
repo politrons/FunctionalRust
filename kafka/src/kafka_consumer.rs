@@ -1,17 +1,23 @@
 use kafka::consumer::{Consumer, FetchOffset};
 use std::str;
 
-pub fn run () {
-
+pub fn run() {
+    let topic = "topic-name";
     let hosts = vec!["localhost:9092".to_owned()];
+    let consumer = create_consumer(hosts, topic);
+    println!("Kafka Consumer {} subscribe to topic {} ", consumer.client().client_id(), topic);
+    run_consumer(consumer)
+}
 
-    let mut consumer =
-        Consumer::from_hosts(hosts)
-            .with_topic("topic-name".to_owned())
-            .with_fallback_offset(FetchOffset::Latest)
-            .create()
-            .unwrap();
+fn create_consumer(hosts: Vec<String>, topic: &str) -> Consumer {
+    return Consumer::from_hosts(hosts)
+        .with_topic(topic.to_owned())
+        .with_fallback_offset(FetchOffset::Latest)
+        .create()
+        .unwrap();
+}
 
+fn run_consumer(mut consumer: Consumer) {
     loop {
         for ms in consumer.poll().unwrap().iter() {
             for m in ms.messages() {
