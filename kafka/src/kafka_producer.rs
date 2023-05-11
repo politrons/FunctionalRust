@@ -1,5 +1,7 @@
-use std::time;
+use std::{fs, time};
+use std::string::ToString;
 use time::Duration;
+
 use kafka::producer::{Producer, Record};
 
 pub fn run() {
@@ -34,12 +36,13 @@ Then a [Result] type of [Record] is returned to control any possible side-effect
  */
 fn send_records(producer: &mut Producer) {
     let topic = "topic-name";
-    for i in 0..10 {
-        let buf = format!("{i}");
-        match producer.send(&Record::from_key_value(topic, "key", buf.as_bytes())){
-            Ok(_) =>  println!("Record Sent: {i}"),
-            Err(e) =>  println!("Error sending record. Caused by: {}", e)
+    let value = fs::read_to_string("resources/uuid.txt").unwrap();
+    for i in 0..1000 {
+        match producer.send(&Record::from_value(topic, value.as_bytes())) {
+            Ok(_) => println!("Record Sent: {i}"),
+            Err(e) => println!("Error sending record. Caused by: {}", e)
         }
-
     }
 }
+
+
