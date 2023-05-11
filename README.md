@@ -44,3 +44,12 @@ Actix Web is a powerful, pragmatic, and extremely fast web framework for Rust.
 
 * **[Server](actix/src/actix_server.rs)**
 * **[Web-Server](actix/src/actix_web_server.rs)**
+
+## Kafka
+
+![My image](img/kafka.png)
+
+Code example of **Kafka** ```consumer/producer``` and benchmark result ```producing/consuming``` 1000 records with 100kb size.
+
+* **[Consumer](kafka/src/kafka_consumer.rs)**
+* **[Producer](kafka/src/kafka_producer.rs)**
