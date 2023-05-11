@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/FunctionalRust.iml" filepath="$PROJECT_DIR$/FunctionalRust.iml" />
       <module fileurl="file://$PROJECT_DIR$/actix/actix.iml" filepath="$PROJECT_DIR$/actix/actix.iml" />
+      <module fileurl="file://$PROJECT_DIR$/kafka/kafka.iml" filepath="$PROJECT_DIR$/kafka/kafka.iml" />
       <module fileurl="file://$PROJECT_DIR$/tokio/tokio.iml" filepath="$PROJECT_DIR$/tokio/tokio.iml" />
     </modules>
   </component>
