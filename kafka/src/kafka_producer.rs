@@ -3,6 +3,7 @@ use std::string::ToString;
 use time::Duration;
 
 use kafka::producer::{Producer, Record};
+use uuid::Uuid;
 
 pub fn run() {
     let hosts = vec!["localhost:9092".to_owned()];
@@ -38,7 +39,7 @@ fn send_records(producer: &mut Producer) {
     let topic = "topic-name";
     let value = fs::read_to_string("resources/uuid.txt").unwrap();
     for i in 0..1000 {
-        match producer.send(&Record::from_value(topic, value.as_bytes())) {
+        match producer.send(&Record::from_value(topic,value.as_bytes())) {
             Ok(_) => println!("Record Sent: {i}"),
             Err(e) => println!("Error sending record. Caused by: {}", e)
         }
