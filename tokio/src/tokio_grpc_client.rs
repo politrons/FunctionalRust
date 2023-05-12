@@ -2,7 +2,8 @@ use hello_world::greeter_client::GreeterClient;
 use hello_world::HelloRequest;
 
 /**
-For every change in helloworld.proto you need to run the command to re-build the code with protoc [cargo run --bin helloworld-client]
+For every change in grpc_service.proto you need to run the command to re-build the code with protoc [cargo run --bin tokio-grpc--client]
+Using [include_proto] we specify the [package] name we use in proto file
  */
 pub mod hello_world {
     tonic::include_proto!("helloworld");

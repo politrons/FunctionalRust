@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]] # Bin to run the HelloWorld gRPC server
-name = "helloworld-server"
+name = "tokio-grpc-server"
 path = "src/tokio_grpc_server.rs"
 
 [[bin]] # Bin to run the HelloWorld gRPC client
-name = "helloworld-client"
+name = "tokio-grpc-client"
 path = "src/tokio_grpc_client.rs"
 
 
