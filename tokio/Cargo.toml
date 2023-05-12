@@ -3,7 +3,14 @@ name = "FunctionalRust"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]] # Bin to run the HelloWorld gRPC server
+name = "helloworld-server"
+path = "src/tokio_grpc_server.rs"
+
+#[[bin]] # Bin to run the HelloWorld gRPC client
+#name = "helloworld-client"
+#path = "src/client.rs"
+
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -11,3 +18,8 @@ hyper = { version = "0.14", features = ["full"] }
 mini-redis = "0.4"
 futures = "0.3"
 rand = "0.8.5"
+tonic = "0.9"
+prost = "0.11"
+
+[build-dependencies]
+tonic-build = "0.9"
