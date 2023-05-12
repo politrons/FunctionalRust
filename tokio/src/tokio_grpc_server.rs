@@ -6,7 +6,6 @@ use hello_world::{HelloReply, HelloRequest};
 /**
 For every change in helloworld.proto you need to run the command to re-build the code with protoc [cargo run --bin helloworld-server]
 */
-
 pub mod hello_world {
     tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
 }
