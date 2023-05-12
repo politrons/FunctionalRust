@@ -8,7 +8,7 @@ For every change in grpc_service.proto you need to run the command to re-build t
 Using [include_proto] we specify the [package] name we use in proto file
 */
 pub mod grpc_service {
-    tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
+    tonic::include_proto!("grpcservice"); // The string specified here must match the proto package name
 }
 
 #[derive(Debug, Default)]

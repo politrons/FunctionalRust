@@ -1,5 +1,5 @@
 syntax = "proto3";
-package helloworld;
+package grpcservice;
 
 service Greeter {
     // Our SayHello rpc accepts HelloRequests and returns HelloReplies
