@@ -12,16 +12,22 @@ pub mod grpc_service {
     tonic::include_proto!("grpcservice"); // The string specified here must match the proto package name
 }
 
+/**
+Struct type to be used to implement the gRPC service.
+*/
 #[derive(Debug, Default)]
 pub struct MyGrpcService {}
 
 /**
 gRPC [service] implementation defined in [protobuf]. We have to implemented using a struct type.
 
+We use annotation [async_trait] to specify the gRPC communication is [asynchronous], so the implementation it can be
+async, and the client it will receive a [Future].
+
 As a request, we receive a [Request<MyGrpcRequest>] type where [MyGrpcRequest] is the message defined in the protobuf
 We return a Result of [Response<MyGrpcResponse>] type, where also [MyGrpcResponse] is the type defined in the protobuf.
 
-For the successful value, and [Status] for Error channel
+For the successful value we return [Response<MyGrpcResponse>] , and [Status] for Error channel.
  */
 #[tonic::async_trait]
 impl MyGrpc for MyGrpcService {
@@ -34,7 +40,7 @@ impl MyGrpc for MyGrpcService {
 
 /**
 Creation of gRPC response type extracting [name] attribute from request message.
-We must use .into_inner() as the fields of gRPC requests and responses are private
+We must use [into_inner] as the fields of gRPC requests and responses are private
 */
 fn create_response(request: Request<MyGrpcRequest>) -> MyGrpcResponse {
     MyGrpcResponse {
