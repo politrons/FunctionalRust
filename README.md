@@ -36,7 +36,7 @@ Fast and safe HTTP for the Rust language.
 
 * **[Client/Server](tokio/src/tokio_http_hyper.rs)**
 
-#### Topic
+#### Tonic
 
 A gRPC over HTTP/2 implementation focused on high performance, interoperability, and flexibility.
 
