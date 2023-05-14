@@ -26,13 +26,22 @@ For the successful value, and [Status] for Error channel
 #[tonic::async_trait]
 impl MyGrpc for MyGrpcService {
     async fn simple_request(&self, request: Request<MyGrpcRequest>) -> Result<Response<MyGrpcResponse>, Status> {
-        println!("Got a request: {:?}", request);
-        let reply = MyGrpcResponse {
-            message: format!("Hello {}!", request.into_inner().name).into(), // We must use .into_inner() as the fields of gRPC requests and responses are private
-        };
-        Ok(Response::new(reply)) // Send back our formatted greeting
+        println!("Message received: {:?}", request);
+        let response = create_response(request);
+        Ok(Response::new(response))
     }
 }
+
+/**
+Creation of gRPC response type extracting [name] attribute from request message.
+We must use .into_inner() as the fields of gRPC requests and responses are private
+*/
+fn create_response(request: Request<MyGrpcRequest>) -> MyGrpcResponse {
+    MyGrpcResponse {
+        message: format!("How you doing {}!", request.into_inner().name).into(),
+    }
+}
+
 
 /**
 gRPC Server implementation.
@@ -53,10 +62,10 @@ async fn main() -> Result<(), Error> {
         Ok(_) => {
             println!("gRPC server shutdown");
             Ok(())
-        },
+        }
         Err(e) => {
             println!("Error gRPC server");
             Err(e)
         }
-    }
+    };
 }

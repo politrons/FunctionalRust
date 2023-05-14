@@ -1,3 +1,4 @@
+use tonic::Request;
 use grpc_service::my_grpc_client::MyGrpcClient;
 use grpc_service::MyGrpcRequest;
 
@@ -12,14 +13,14 @@ pub mod grpc_service {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = MyGrpcClient::connect("http://[::1]:9100").await?;
-
-    let request = tonic::Request::new(MyGrpcRequest {
-        name: "Tonic".into(),
-    });
-
-    let response = client.simple_request(request).await?;
-
-    println!("RESPONSE={:?}", response);
-
+    let request = create_request();
+    let response = client.simple_request(request).await;
+    println!("Response={:?}", response);
     Ok(())
+}
+
+fn create_request() -> Request<MyGrpcRequest> {
+    Request::new(MyGrpcRequest {
+        name: "Politrons".into(),
+    })
 }
