@@ -1,44 +1,62 @@
 use tonic::{transport::Server, Request, Response, Status};
+use tonic::transport::Error;
 
-use grpc_service::greeter_server::{Greeter, GreeterServer};
-use grpc_service::{HelloReply, HelloRequest};
+use grpc_service::my_grpc_server::{MyGrpc, MyGrpcServer};
+use grpc_service::{MyGrpcResponse, MyGrpcRequest};
 
 /**
 For every change in grpc_service.proto you need to run the command to re-build the code with protoc [cargo run --bin tokio-grpc-server]
 Using [include_proto] we specify the [package] name we use in proto file
-*/
+ */
 pub mod grpc_service {
     tonic::include_proto!("grpcservice"); // The string specified here must match the proto package name
 }
 
 #[derive(Debug, Default)]
-pub struct MyGreeter {}
+pub struct MyGrpcService {}
 
+/**
+gRPC [service] implementation defined in [protobuf]. We have to implemented using a struct type.
+
+As a request, we receive a [Request<MyGrpcRequest>] type where [MyGrpcRequest] is the message defined in the protobuf
+We return a Result of [Response<MyGrpcResponse>] type, where also [MyGrpcResponse] is the type defined in the protobuf.
+
+For the successful value, and [Status] for Error channel
+ */
 #[tonic::async_trait]
-impl Greeter for MyGreeter {
-    async fn say_hello(
-        &self,
-        request: Request<HelloRequest>, // Accept request of type HelloRequest
-    ) -> Result<Response<HelloReply>, Status> { // Return an instance of type HelloReply
+impl MyGrpc for MyGrpcService {
+    async fn simple_request(&self, request: Request<MyGrpcRequest>) -> Result<Response<MyGrpcResponse>, Status> {
         println!("Got a request: {:?}", request);
-
-        let reply = grpc_service::HelloReply {
+        let reply = MyGrpcResponse {
             message: format!("Hello {}!", request.into_inner().name).into(), // We must use .into_inner() as the fields of gRPC requests and responses are private
         };
-
         Ok(Response::new(reply)) // Send back our formatted greeting
     }
 }
 
+/**
+gRPC Server implementation.
+We use [Server] builder and we use [add_service] to specify the service implementation.
+Using Service name [Greeter][Service] we pass the instance of the service [MyGrpcService].
+We use [serve] to pass the address in one particular port.
+Finally we use await to keep the server running until shutdown is received or process is over.
+ */
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
-    let greeter = MyGreeter::default();
-
-    Server::builder()
-        .add_service(GreeterServer::new(greeter))
+async fn main() -> Result<(), Error> {
+    let addr = "[::1]:9100".parse().unwrap();
+    let service = MyGrpcService::default();
+    println!("gRPC server running on port 9100.....");
+    return match Server::builder()
+        .add_service(MyGrpcServer::new(service))
         .serve(addr)
-        .await?;
-
-    Ok(())
+        .await {
+        Ok(_) => {
+            println!("gRPC server shutdown");
+            Ok(())
+        },
+        Err(e) => {
+            println!("Error gRPC server");
+            Err(e)
+        }
+    }
 }

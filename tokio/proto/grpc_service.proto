@@ -1,17 +1,14 @@
 syntax = "proto3";
 package grpcservice;
 
-service Greeter {
-    // Our SayHello rpc accepts HelloRequests and returns HelloReplies
-    rpc SayHello (HelloRequest) returns (HelloReply);
+service MyGrpc {
+    rpc SimpleRequest (MyGrpcRequest) returns (MyGrpcResponse);
 }
 
-message HelloRequest {
-    // Request message contains the name to be greeted
+message MyGrpcRequest {
     string name = 1;
 }
 
-message HelloReply {
-    // Reply contains the greeting message
+message MyGrpcResponse {
     string message = 1;
 }

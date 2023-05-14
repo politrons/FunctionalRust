@@ -1,5 +1,5 @@
-use grpc_service::greeter_client::GreeterClient;
-use grpc_service::HelloRequest;
+use grpc_service::my_grpc_client::MyGrpcClient;
+use grpc_service::MyGrpcRequest;
 
 /**
 For every change in grpc_service.proto you need to run the command to re-build the code with protoc [cargo run --bin tokio-grpc--client]
@@ -11,13 +11,13 @@ pub mod grpc_service {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = GreeterClient::connect("http://[::1]:50051").await?;
+    let mut client = MyGrpcClient::connect("http://[::1]:9100").await?;
 
-    let request = tonic::Request::new(HelloRequest {
+    let request = tonic::Request::new(MyGrpcRequest {
         name: "Tonic".into(),
     });
 
-    let response = client.say_hello(request).await?;
+    let response = client.simple_request(request).await?;
 
     println!("RESPONSE={:?}", response);
 
