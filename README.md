@@ -36,6 +36,13 @@ Fast and safe HTTP for the Rust language.
 
 * **[Client/Server](tokio/src/tokio_http_hyper.rs)**
 
+#### Topic
+
+A gRPC over HTTP/2 implementation focused on high performance, interoperability, and flexibility.
+
+* **[Client](tokio/src/tokio_grpc_client.rs)**
+* **[Server](tokio/src/tokio_grpc_server.rs)**
+
 ## Actix
 
 ![My image](img/actix-web.png)
