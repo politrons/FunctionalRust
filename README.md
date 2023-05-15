@@ -23,6 +23,7 @@ Examples of functional programing in Rust
 * **[channels](src/features/channels_feature.rs)**
 * **[pattern matching](src/features/pattern_matching.rs)**
 * **[smart pointer](src/features/smart_pointer.rs)**
+* **[NewTypes](src/features/new_types.rs)**
 
 ## Tokio
 
