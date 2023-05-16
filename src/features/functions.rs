@@ -40,6 +40,10 @@ pub fn run() {
 
     let response = function_3("hello", "world", "!!!", |s, s1, s2| s.to_string() + s1 + s2);
     println!("{}", response);
+
+    let func = currying_func(1.0);
+    println!("{}", func(1.2));
+
 }
 
 // Functions
@@ -100,3 +104,8 @@ fn function_2<F, T, X>(f: F, t: T, func_2: fn(s: F, s1: T) -> X) -> X {
 fn function_3<F, T, Z, X>(f: F, t: T, z: Z, func_3: fn(s: F, s1: T, s2: Z) -> X) -> X {
     return func_3(f, t, z);
 }
+
+fn currying_func(x: f64) -> impl Fn(f64) -> f64 {
+    move |y| x + y
+}
+
