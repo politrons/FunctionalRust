@@ -8,6 +8,8 @@ pub fn run() {
     option_effect("");
     extract_result_effect();
     extract_option_effect();
+    traverse_feature();
+    traverse_feature_swap();
 }
 
 /**
@@ -68,3 +70,42 @@ fn extract_option_effect() -> Option<String> {
 fn get_option_type() -> Option<String> {
     None
 }
+
+/**
+Traverse can be performance by compiler magically just changing the order of types, when we use a type inside the [map]
+In this example same iterator it can produce a [Result] of [Vector], or a [Vector] of [Results].
+All this magic is thanks to [collect] operator, which it force you to specify types when you define your output,
+just to performance the traverse transformation in compilation time.
+*/
+fn traverse_feature() {
+    let result: Result<Vec<String>, TextError> = vec!["hello", "effect", "world"]
+        .into_iter()
+        .map(|text| {
+            if text.len() > 3 {
+                Ok(text.to_uppercase())
+            } else {
+                Err(TextError)
+            }
+        })
+        .collect();
+    println!("{:?}", result.is_ok());
+}
+
+/**
+Same iteration implementation than previous function, but just changing the type order.
+*/
+fn traverse_feature_swap() {
+    let result: Vec<Result<String, TextError>> = vec!["hello", "effect", "world"]
+        .into_iter()
+        .map(|text| {
+            if text.len() > 3 {
+                Ok(text.to_uppercase())
+            } else {
+                Err(TextError)
+            }
+        })
+        .collect();
+    println!("{:?}", result.len());
+}
+
+struct TextError;

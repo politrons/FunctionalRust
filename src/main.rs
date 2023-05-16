@@ -7,7 +7,7 @@ fn main() {
     // monad::run();
     // type_classes::run();
     // try_monad::run();
-    // effect_system::run();
+    effect_system::run();
     // extension_method::run();
     // memory_management::run();
     // collection::run();
@@ -16,7 +16,7 @@ fn main() {
     // pattern_matching::run()
     // either_monad::run();
     // smart_pointer::run();
-    new_types::run()
+    // new_types::run()
 }
 
 
