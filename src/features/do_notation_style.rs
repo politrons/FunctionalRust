@@ -1,5 +1,9 @@
 use do_notation::m;
 
+/**
+Thanks to crates like [do_notation] https://github.com/phaazon/do-notation we can write our code
+using [do notation] style like in Haskell or Scala with [for-comprehension]
+*/
 pub fn run() {
     option_program();
     result_program();
