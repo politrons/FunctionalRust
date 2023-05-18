@@ -1,4 +1,3 @@
-use std::array::IntoIter;
 #[macro_export]
 macro_rules! io {
   // return
@@ -58,8 +57,6 @@ mod tests {
     #[test]
     fn option() {
 
-        let monad = io!(Some(3));
-
         let r: Option<i32> = io! {
              v <- Some(3);
              Some(v)
@@ -72,6 +69,5 @@ mod tests {
              Some(v * x)
         };
         assert_eq!(r, Some(30));
-
     }
 }
