@@ -8,6 +8,6 @@ mod goose_load_test;
 #[tokio::main]
 async fn main() {
     // mock_http_server::run_server().await;
-    let result = goose_load_test::run_load_test().await;
+    let result = goose_load_test::run().await;
     println!("{:?}", result)
 }
