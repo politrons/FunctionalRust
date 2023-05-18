@@ -13,7 +13,7 @@ async fn main() {
     // tokio_green_thread::run().await;
     // tokio_http_hyper::run_server().await;
     // tokio_http_hyper::run_client().await;
-    tokio_select::race_condition().await;
+    // tokio_select::race_condition().await;
     // server::run_server();
 
 }
