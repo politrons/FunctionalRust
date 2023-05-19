@@ -1,8 +1,12 @@
 use goose::prelude::*;
-use std::time::Duration;
-use goose::config::GooseConfiguration;
-use goose_eggs::{validate_and_load_static_assets, Validate};
+use goose_eggs::{Validate, validate_and_load_static_assets};
 
+/// Simulation of Goose where we can define the [transactions] that we want to run and what configuration
+/// we want to have for the transactions.
+/// We use [GooseAttack::initialize()] to start the builder, then we can register transactions,
+/// where we can pass multiple [TransactionResult]
+/// Once we have all transactions configured, we can configure the simulation overriding
+/// [GooseDefault] using [set_default] operator.
 pub async fn run() -> Result<(), GooseError> {
     GooseAttack::initialize()?
         .register_scenario(scenario!("Mock http server")
@@ -17,6 +21,12 @@ pub async fn run() -> Result<(), GooseError> {
     Ok(())
 }
 
+/// [TransactionResult] is the definition of how we make the call to the service endpoint, and
+/// how we validate the response.
+/// Using from [goose-eggs] dependency [Validate] we can create a validate instance, to be used
+/// to compare with [GooseResponse] from the call.
+/// We can check what is the [status], [text] from the body is what we expect.
+///
 async fn hello_endpoint(user: &mut GooseUser) -> TransactionResult {
     let goose = user.get("/hello").await?;
     let validate = &Validate::builder()
