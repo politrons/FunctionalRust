@@ -1,3 +1,4 @@
+use crate::features::create_macros::MIO::Value;
 #[macro_export]
 macro_rules! io {
   // return
@@ -36,17 +37,43 @@ macro_rules! io {
 pub trait Lift<A> {
     /// Lift a value into a default structure.
     fn lift(a: A) -> Self;
+
+    fn of(a:A) -> Self;
+
+    fn get(self) -> A;
+
+    fn and_then<F: FnOnce(A) -> Self>(self,op: F) -> Self;
+
+
 }
 
-impl<A> Lift<A> for Option<A> {
+#[derive( Debug)]
+enum MIO<T> {
+    Value(T),
+    Empty
+}
+
+impl<A> Lift<A> for MIO<A> {
     fn lift(a: A) -> Self {
-        Some(a)
+        MIO::of(a)
     }
-}
 
-impl<A, E> Lift<A> for Result<A, E> {
-    fn lift(a: A) -> Self {
-        Ok(a)
+    fn of(a: A) -> Self {
+        Value(a)
+    }
+
+    fn get(self) -> A {
+        match self {
+            Value(t) => t,
+            _ => panic!("No value available"),
+        }
+    }
+
+    fn and_then<F: FnOnce(A) -> MIO<A>>(self, op: F) -> MIO<A> {
+        match self {
+            Value(t) => op(t),
+            _ => MIO::Empty,
+        }
     }
 }
 
@@ -56,18 +83,13 @@ mod tests {
 
     #[test]
     fn option() {
-
-        let r: Option<i32> = io! {
-             v <- Some(3);
-             Some(v)
+        let mio_program: MIO<i32> = io! {
+             v <- MIO::of(50);
+             x <- MIO::of(100);
+             MIO::of(v + x)
         };
-        assert_eq!(r, Some(3));
+        println!("${:?}",mio_program);
+        assert_eq!(mio_program.get(), 150);
 
-        let r: Option<i32> = io! {
-            v <- r;
-            x <- Some(10);
-             Some(v * x)
-        };
-        assert_eq!(r, Some(30));
     }
 }
