@@ -60,6 +60,8 @@ pub trait Lift<A, T> {
     fn is_empty(&self) -> bool;
 
     fn map<F: FnOnce(A) -> A>(self, op: F) -> Self;
+
+    fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -147,6 +149,15 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             _ => self,
         }
     }
+
+    fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self {
+        match self {
+            Value(t) => op(t),
+            Empty() => Empty(),
+            Right(a) => op(a),
+            Wrong(e) => Wrong(e)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -181,6 +192,21 @@ mod tests {
                         .map(|v| v.to_uppercase());
              i <- RustIO::of(String::from("!!"));
              RustIO::of(v + &x + &i)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "HELLO WORLD!!");
+    }
+
+    #[test]
+    fn rio_composition() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello")))
+                        .flat_map(|v| RustIO::of( v + &String::from(" world")))
+                        .map(|v| v.to_uppercase());
+             i <- RustIO::of(String::from("!!"));
+             RustIO::of(v + &i)
         };
         println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
