@@ -43,6 +43,10 @@ pub trait Lift<A, T> {
 
     fn from_func(f: fn() -> A) -> Self;
 
+    fn from_option_func(f: fn() -> Option<A>) -> Self;
+
+    fn from_result_func(f: fn() -> Result<A, T>) -> Self;
+
     fn from_option(a: Option<A>) -> Self;
 
     fn from_result(a: Result<A, T>) -> Self;
@@ -75,6 +79,14 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn from_func(f: fn() -> A) -> Self {
         Value(f())
+    }
+
+    fn from_option_func(f: fn() -> Option<A>) -> Self {
+        RustIO::from_option(f())
+    }
+
+    fn from_result_func(f: fn() -> Result<A, T>) -> Self {
+        RustIO::from_result(f())
     }
 
     fn from_option(a: Option<A>) -> Self {
@@ -133,29 +145,30 @@ mod tests {
     fn rio() {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")));
+             t <- RustIO::from_option_func(|| Some(String::from(" pure")));
              z <- RustIO::from_func(|| String::from(" functional"));
              x <- RustIO::from_result(Ok(String::from(" world")));
-             i <-  RustIO::of(String::from("!!"));
-             RustIO::of(v + &z + &x + &i)
+             i <- RustIO::of(String::from("!!"));
+             y <- RustIO::from_result_func(|| Ok(String::from("!!")));
+
+             RustIO::of(v + &t + &z + &x + &i + &y)
         };
         println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
-        assert_eq!(rio_program.get(), "hello functional world!!");
+        assert_eq!(rio_program.get(), "hello pure functional world!!!!");
     }
 
     #[test]
     fn rio_error() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, i32> = rust_io! {
+             x <- RustIO::from_result(Err(503));
              v <- RustIO::from_option(Some(String::from("hello")));
-             z <- RustIO::from_func(|| String::from(" functional"));
-             x <- RustIO::from_result(Ok(String::from(" world")));
-             i <-  RustIO::of(String::from("!!"));
-             RustIO::of(v + &z + &x + &i)
+             RustIO::of(v)
         };
         println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
-        assert_eq!(rio_program.get(), "hello functional world!!");
+        assert_eq!(false, rio_program.is_ok());
     }
 }
