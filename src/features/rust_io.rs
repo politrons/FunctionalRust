@@ -1,7 +1,7 @@
 use crate::features::rust_io::RustIO::{Empty, Right, Value, Wrong};
 
 #[macro_export]
-macro_rules! io {
+macro_rules! rust_io {
   // return
   (return $r:expr ;) => {
     $crate::Lift::lift($r)
@@ -10,22 +10,22 @@ macro_rules! io {
   // let-binding
   (let $p:pat = $e:expr ; $($r:tt)*) => {{
     let $p = $e;
-    io!($($r)*)
+    rust_io!($($r)*)
   }};
 
   // const-bind
   (_ <- $x:expr ; $($r:tt)*) => {
-    $x.and_then(move |_| { io!($($r)*) })
+    $x.and_then(move |_| { rust_io!($($r)*) })
   };
 
   // bind
   ($binding:ident <- $x:expr ; $($r:tt)*) => {
-    $x.and_then(move |$binding| { io!($($r)*) })
+    $x.and_then(move |$binding| { rust_io!($($r)*) })
   };
 
   // const-bind
   ($e:expr ; $($a:tt)*) => {
-    $e.and_then(move |_| io!($($a)*))
+    $e.and_then(move |_| rust_io!($($a)*))
   };
 
   // pure
@@ -40,6 +40,8 @@ pub trait Lift<A, T> {
     fn lift(a: A) -> Self;
 
     fn of(a: A) -> Self;
+
+    fn from_func(f: fn() -> A) -> Self;
 
     fn from_option(a: Option<A>) -> Self;
 
@@ -69,6 +71,10 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn of(a: A) -> Self {
         Value(a)
+    }
+
+    fn from_func(f: fn() -> A) -> Self {
+        Value(f())
     }
 
     fn from_option(a: Option<A>) -> Self {
@@ -125,29 +131,31 @@ mod tests {
 
     #[test]
     fn rio() {
-        let rio_program: RustIO<String, String> = io! {
+        let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")));
+             z <- RustIO::from_func(|| String::from(" functional"));
              x <- RustIO::from_result(Ok(String::from(" world")));
              i <-  RustIO::of(String::from("!!"));
-             RustIO::of(v + &x + &i)
+             RustIO::of(v + &z + &x + &i)
         };
         println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
-        assert_eq!(rio_program.get(), "hello world!!");
+        assert_eq!(rio_program.get(), "hello functional world!!");
     }
 
     #[test]
     fn rio_error() {
-        let rio_program: RustIO<String, String> = io! {
+        let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")));
+             z <- RustIO::from_func(|| String::from(" functional"));
              x <- RustIO::from_result(Ok(String::from(" world")));
              i <-  RustIO::of(String::from("!!"));
-             RustIO::of(v + &x + &i)
+             RustIO::of(v + &z + &x + &i)
         };
         println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
-        assert_eq!(rio_program.get(), "hello world!!");
+        assert_eq!(rio_program.get(), "hello functional world!!");
     }
 }
