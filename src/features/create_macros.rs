@@ -67,11 +67,17 @@ impl<A, T> Lift<A,T> for RustIO<A, T> {
     }
 
     fn from_option(a: Option<A>) -> Self {
-        todo!()
+        match a {
+            None => Empty(),
+            Some(v) => Value(v)
+        }
     }
 
     fn from_result(a: Result<A, T>) -> Self {
-        todo!()
+        match a {
+            Ok(v) => Right(v),
+            Err(t) => Wrong(t)
+        }
     }
 
     fn get(self) -> A {
@@ -99,8 +105,8 @@ mod tests {
     #[test]
     fn rio() {
         let rio_program: RustIO<String, String> = io! {
-             v <- RustIO::of(String::from("hello"));
-             x <- RustIO::of(String::from(" world"));
+             v <- RustIO::from_option(Some(String::from("hello")));
+             x <- RustIO::from_result(Ok(String::from(" world")));
              RustIO::of(v + &x)
         };
         println!("${:?}", rio_program);
