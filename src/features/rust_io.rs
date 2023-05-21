@@ -1,5 +1,6 @@
 use crate::features::rust_io::RustIO::{Empty, Right, Value, Wrong};
-
+/// Macro implementation for [rust_io] defining several operators to be used emulating
+/// Haskel [do notation]
 #[macro_export]
 macro_rules! rust_io {
   // return
@@ -7,36 +8,32 @@ macro_rules! rust_io {
     $crate::Lift::lift($r)
   };
 
-  // let-binding
+  // let variable bind
   (let $p:pat = $e:expr ; $($r:tt)*) => {{
     let $p = $e;
     rust_io!($($r)*)
   }};
 
-  // const-bind
+  // unused variable bind
   (_ <- $x:expr ; $($r:tt)*) => {
     $x.and_then(move |_| { rust_io!($($r)*) })
   };
 
   // bind
-  ($binding:ident <- $x:expr ; $($r:tt)*) => {
-    $x.and_then(move |$binding| { rust_io!($($r)*) })
+  ($bind:ident <- $x:expr ; $($r:tt)*) => {
+    $x.and_then(move |$bind| { rust_io!($($r)*) })
   };
 
-  // const-bind
-  ($e:expr ; $($a:tt)*) => {
-    $e.and_then(move |_| rust_io!($($a)*))
-  };
-
-  // pure
+  // return type from do-notation
   ($a:expr) => {
     $a
   }
 }
 
-/// Lift a value inside a monad.
+///Specification to be implemented by a monad.
+/// Operators:
+/// [lift] a value into a default structure.
 pub trait Lift<A, T> {
-    /// Lift a value into a default structure.
     fn lift(a: A) -> Self;
 
     fn of(a: A) -> Self;
@@ -60,6 +57,7 @@ pub trait Lift<A, T> {
     fn is_empty(&self) -> bool;
 }
 
+///Data structure to be used as the monad to be implemented as [Lift]
 #[derive(Debug)]
 enum RustIO<A, T> {
     Right(A),
@@ -68,6 +66,7 @@ enum RustIO<A, T> {
     Empty(),
 }
 
+/// Implementation of the Monad Lift.
 impl<A, T> Lift<A, T> for RustIO<A, T> {
     fn lift(a: A) -> Self {
         RustIO::of(a)
@@ -144,6 +143,8 @@ mod tests {
     #[test]
     fn rio() {
         let rio_program: RustIO<String, String> = rust_io! {
+            let a = 1981;
+             _ <- RustIO::of(String::from("1981"));
              v <- RustIO::from_option(Some(String::from("hello")));
              t <- RustIO::from_option_func(|| Some(String::from(" pure")));
              z <- RustIO::from_func(|| String::from(" functional"));
