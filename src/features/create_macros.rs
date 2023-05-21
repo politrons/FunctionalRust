@@ -1,10 +1,9 @@
-use crate::features::create_macros::MIO::Value;
-use crate::features::create_macros::RIO::{Right, Wrong};
+use crate::features::create_macros::RustIO::{Empty, Right, Value, Wrong};
 #[macro_export]
 macro_rules! io {
   // return
   (return $r:expr ;) => {
-    $crate::MLift::lift($r)
+    $crate::Lift::lift($r)
   };
 
   // let-binding
@@ -35,93 +34,60 @@ macro_rules! io {
 }
 
 /// Lift a value inside a monad.
-pub trait MLift<A> {
+pub trait Lift<A,T> {
     /// Lift a value into a default structure.
     fn lift(a: A) -> Self;
 
     fn of(a: A) -> Self;
+
+    fn from_option(a: Option<A>) -> Self;
+
+    fn from_result(a: Result<A, T>) -> Self;
 
     fn get(self) -> A;
 
     fn and_then<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 }
 
-pub trait RLift<A, T> {
-    /// Lift a value into a default structure.
-    fn lift(a: A) -> Self;
-
-    fn of(a: A) -> Self;
-
-    fn get(self) -> A;
-
-    fn and_then<F: FnOnce(A) -> Self>(self, op: F) -> Self;
-
-    fn error(self) -> T;
-}
-
 #[derive(Debug)]
-enum MIO<T> {
-    Value(T),
-    Empty,
-}
-
-#[derive(Debug)]
-enum RIO<A, T> {
+enum RustIO<A, T> {
     Right(A),
     Wrong(T),
+    Value(A),
+    Empty(),
 }
 
-impl<A> MLift<A> for MIO<A> {
+impl<A, T> Lift<A,T> for RustIO<A, T> {
     fn lift(a: A) -> Self {
-        MIO::of(a)
-    }
-
-    fn of(a: A) -> Self {
-        Value(a)
-    }
-
-    fn get(self) -> A {
-        match self {
-            Value(t) => t,
-            _ => panic!("No value available"),
-        }
-    }
-
-    fn and_then<F: FnOnce(A) -> MIO<A>>(self, op: F) -> MIO<A> {
-        match self {
-            Value(t) => op(t),
-            _ => MIO::Empty,
-        }
-    }
-}
-
-impl<A, T> RLift<A, T> for RIO<A, T> {
-    fn lift(a: A) -> Self {
-        RIO::of(a)
+        RustIO::of(a)
     }
 
     fn of(a: A) -> Self {
         Right(a)
     }
 
+    fn from_option(a: Option<A>) -> Self {
+        todo!()
+    }
+
+    fn from_result(a: Result<A, T>) -> Self {
+        todo!()
+    }
+
     fn get(self) -> A {
         match self {
+            Value(v) => v,
             Right(t) => t,
             _ => panic!("Error, value not available"),
         }
     }
 
-    fn and_then<F: FnOnce(A) -> RIO<A, T>>(self, op: F) -> RIO<A, T> {
+    fn and_then<F: FnOnce(A) -> RustIO<A, T>>(self, op: F) -> RustIO<A, T> {
         match self {
+            Value(t) => op(t),
+            Empty() => Empty(),
             Right(a) => op(a),
             Wrong(e) => Wrong(e)
-        }
-    }
-
-    fn error(self) -> T {
-        match self {
-            Wrong(t) => t,
-            _ => panic!("Error, value not available"),
         }
     }
 }
@@ -131,35 +97,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mio() {
-        let mio_program: MIO<i32> = io! {
-             v <- MIO::of(50);
-             x <- MIO::of(100);
-             MIO::of(v + x)
-        };
-        println!("${:?}", mio_program);
-        assert_eq!(mio_program.get(), 150);
-    }
-
-    #[test]
     fn rio() {
-        let rio_program: RIO<String, String> = io! {
-             v <- RIO::of(String::from("hello"));
-             x <- RIO::of(String::from(" world"));
-             RIO::of(v + &x)
+        let rio_program: RustIO<String, String> = io! {
+             v <- RustIO::of(String::from("hello"));
+             x <- RustIO::of(String::from(" world"));
+             RustIO::of(v + &x)
         };
         println!("${:?}", rio_program);
         assert_eq!(rio_program.get(), "hello world");
     }
-
-    // #[test]
-    // fn mio_rio() {
-    //     let rio_program: RIO<String, String> = io! {
-    //          v <- RIO::of(String::from("hello"));
-    //          x <- MIO::of(String::from(" world"));
-    //          RIO::of(v + &x)
-    //     };
-    //     println!("${:?}", rio_program);
-    //     assert_eq!(rio_program.get(), "hello world");
-    // }
 }
