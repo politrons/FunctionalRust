@@ -1,4 +1,5 @@
-use crate::features::create_macros::RustIO::{Empty, Right, Value, Wrong};
+use crate::features::rust_io::RustIO::{Empty, Right, Value, Wrong};
+
 #[macro_export]
 macro_rules! io {
   // return
@@ -34,7 +35,7 @@ macro_rules! io {
 }
 
 /// Lift a value inside a monad.
-pub trait Lift<A,T> {
+pub trait Lift<A, T> {
     /// Lift a value into a default structure.
     fn lift(a: A) -> Self;
 
@@ -47,6 +48,10 @@ pub trait Lift<A,T> {
     fn get(self) -> A;
 
     fn and_then<F: FnOnce(A) -> Self>(self, op: F) -> Self;
+
+    fn is_ok(&self) -> bool;
+
+    fn is_empty(&self) -> bool;
 }
 
 #[derive(Debug)]
@@ -57,13 +62,13 @@ enum RustIO<A, T> {
     Empty(),
 }
 
-impl<A, T> Lift<A,T> for RustIO<A, T> {
+impl<A, T> Lift<A, T> for RustIO<A, T> {
     fn lift(a: A) -> Self {
         RustIO::of(a)
     }
 
     fn of(a: A) -> Self {
-        Right(a)
+        Value(a)
     }
 
     fn from_option(a: Option<A>) -> Self {
@@ -96,6 +101,22 @@ impl<A, T> Lift<A,T> for RustIO<A, T> {
             Wrong(e) => Wrong(e)
         }
     }
+
+    fn is_ok(&self) -> bool {
+        match self {
+            Value(_) => true,
+            Right(_) => true,
+            _ => false,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Value(_) => true,
+            Right(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -107,9 +128,26 @@ mod tests {
         let rio_program: RustIO<String, String> = io! {
              v <- RustIO::from_option(Some(String::from("hello")));
              x <- RustIO::from_result(Ok(String::from(" world")));
-             RustIO::of(v + &x)
+             i <-  RustIO::of(String::from("!!"));
+             RustIO::of(v + &x + &i)
         };
         println!("${:?}", rio_program);
-        assert_eq!(rio_program.get(), "hello world");
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_error() {
+        let rio_program: RustIO<String, String> = io! {
+             v <- RustIO::from_option(Some(String::from("hello")));
+             x <- RustIO::from_result(Ok(String::from(" world")));
+             i <-  RustIO::of(String::from("!!"));
+             RustIO::of(v + &x + &i)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
     }
 }
