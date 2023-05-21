@@ -58,6 +58,8 @@ pub trait Lift<A, T> {
     fn is_ok(&self) -> bool;
 
     fn is_empty(&self) -> bool;
+
+    fn map<F: FnOnce(A) -> A>(self, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -137,6 +139,14 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             _ => false,
         }
     }
+
+    fn map<F: FnOnce(A) -> A>(self, op: F) -> Self {
+        match self {
+            Value(v) => Value(op(v)),
+            Right(v) => Right(op(v)),
+            _ => self,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -160,6 +170,22 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello pure functional world!!!!");
+    }
+
+    #[test]
+    fn rio_transformation() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello")))
+                        .map(|v| v.to_uppercase());
+             x <- RustIO::from_result(Ok(String::from(" world")))
+                        .map(|v| v.to_uppercase());
+             i <- RustIO::of(String::from("!!"));
+             RustIO::of(v + &x + &i)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "HELLO WORLD!!");
     }
 
     #[test]
