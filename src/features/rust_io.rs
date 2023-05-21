@@ -165,9 +165,10 @@ mod tests {
     #[test]
     fn rio_error() {
         let rio_program: RustIO<String, i32> = rust_io! {
-             x <- RustIO::from_result(Err(503));
-             v <- RustIO::from_option(Some(String::from("hello")));
-             RustIO::of(v)
+             i <- RustIO::from_option(Some(String::from("hello")));
+             _ <- RustIO::from_result(Err(503));
+             v <- RustIO::from_option(Some(String::from("world")));
+             RustIO::of(i + &v)
         };
         println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
