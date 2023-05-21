@@ -62,6 +62,8 @@ pub trait Lift<A, T> {
     fn map<F: FnOnce(A) -> A>(self, op: F) -> Self;
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
+
+    fn filter<F: FnOnce(A) -> bool>(self, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -157,6 +159,22 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Right(a) => op(a),
             Wrong(e) => Wrong(e)
         }
+    }
+
+    fn filter<F: FnOnce(A) -> bool>(self, op: F) -> Self {
+        let x = match self {
+            Value(t) => {
+                return if op(t) {
+                    Value(t)
+                } else {
+                    Empty()
+                };
+            }
+            Empty() => Empty(),
+            // Right(a) => op(a),
+            Wrong(e) => Wrong(e),
+            _ => self
+        };
     }
 }
 
