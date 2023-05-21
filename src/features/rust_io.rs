@@ -31,8 +31,11 @@ macro_rules! rust_io {
 }
 
 ///Specification to be implemented by a monad.
-/// Operators:
 /// [lift] a value into a default structure.
+/// Operators to create monad:
+/// [of][from_func][from_option_func][from_result_func][from_option][from_result]
+/// Operators to compose monads
+/// [and_then]
 pub trait Lift<A, T> {
     fn lift(a: A) -> Self;
 
@@ -143,7 +146,6 @@ mod tests {
     #[test]
     fn rio() {
         let rio_program: RustIO<String, String> = rust_io! {
-            let a = 1981;
              _ <- RustIO::of(String::from("1981"));
              v <- RustIO::from_option(Some(String::from("hello")));
              t <- RustIO::from_option_func(|| Some(String::from(" pure")));
