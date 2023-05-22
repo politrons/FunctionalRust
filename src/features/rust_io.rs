@@ -47,6 +47,8 @@ macro_rules! rust_io {
 /// [recover][recover_with]
 /// To slow the monad execution
 /// [delay]
+/// To unwrap the value from monad.
+/// [get][get_or_else]
 pub trait Lift<A, T> {
     fn lift(a: A) -> Self;
 
