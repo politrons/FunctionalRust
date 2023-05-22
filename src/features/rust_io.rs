@@ -240,6 +240,26 @@ mod tests {
         assert_eq!(rio_program.get(), "hello world!!");
     }
 
+    #[test]
+    fn rio_compose_two_programs() {
+        let rio_program_1: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello")));
+             RustIO::of(v + &" ".to_string())
+        };
+        let rio_program_2: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("world")));
+             RustIO::of(v + &"!!".to_string())
+        };
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- rio_program_1;
+             i <- rio_program_2;
+             RustIO::of(v + &i).map(|v| v.to_uppercase())
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "HELLO WORLD!!");
+    }
 
     #[test]
     fn rio_error() {
