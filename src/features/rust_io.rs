@@ -488,7 +488,9 @@ mod tests {
     #[test]
     fn rio_zip() {
         let rio_program: RustIO<String, String> = rust_io! {
-             v <- RustIO::zip(|| RustIO::from_option(Some("hello".to_string())), || RustIO::from_option(Some(" world!!".to_string())),|a,b| RustIO::from_option(Some(a + &b)));
+             v <- RustIO::zip(
+                || RustIO::from_option(Some("hello".to_string())), || RustIO::from_option(Some(" world!!".to_string())),
+                |a,b| RustIO::from_option(Some(a + &b)));
              RustIO::of(v)
         };
         println!("${:?}", rio_program);
