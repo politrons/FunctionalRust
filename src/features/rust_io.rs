@@ -67,6 +67,8 @@ pub trait Lift<A, T> {
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self;
+
+    fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -169,6 +171,15 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Wrong(e) => Wrong(e),
         };
     }
+
+    fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self {
+        match self {
+            Value(v) => Value(op(v)),
+            Right(v) => Right(op(v)),
+            Empty() => Value(default),
+            _ => self
+        }
+    }
 }
 
 #[cfg(test)]
@@ -259,6 +270,19 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "HELLO WORLD!!");
+    }
+
+    #[test]
+    fn rio_fold() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(None)
+                        .fold("hello world!!".to_string(), |v| v.to_uppercase());
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
     }
 
     #[test]
