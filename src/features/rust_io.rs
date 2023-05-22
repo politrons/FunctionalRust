@@ -16,12 +16,12 @@ macro_rules! rust_io {
 
   // unused variable bind
   (_ <- $x:expr ; $($r:tt)*) => {
-    $x.and_then(move |_| { rust_io!($($r)*) })
+    $x.flat_map(move |_| { rust_io!($($r)*) })
   };
 
   // bind
   ($bind:ident <- $x:expr ; $($r:tt)*) => {
-    $x.and_then(move |$bind| { rust_io!($($r)*) })
+    $x.flat_map(move |$bind| { rust_io!($($r)*) })
   };
 
   // return type from do-notation
@@ -34,8 +34,12 @@ macro_rules! rust_io {
 /// [lift] a value into a default structure.
 /// Operators to create monad:
 /// [of][from_func][from_option_func][from_result_func][from_option][from_result]
+/// Operators to transform monads
+/// [map]
 /// Operators to compose monads
-/// [and_then]
+/// [flat_map]
+/// Operators to filter monads
+/// [filter]
 pub trait Lift<A, T> {
     fn lift(a: A) -> Self;
 
@@ -53,8 +57,6 @@ pub trait Lift<A, T> {
 
     fn get(self) -> A;
 
-    fn and_then<F: FnOnce(A) -> Self>(self, op: F) -> Self;
-
     fn is_ok(&self) -> bool;
 
     fn is_empty(&self) -> bool;
@@ -63,7 +65,7 @@ pub trait Lift<A, T> {
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 
-    // fn filter<F: FnOnce(A) -> bool>(self, op: F) -> Self;
+    fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -119,15 +121,6 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
-    fn and_then<F: FnOnce(A) -> RustIO<A, T>>(self, op: F) -> RustIO<A, T> {
-        match self {
-            Value(t) => op(t),
-            Empty() => Empty(),
-            Right(a) => op(a),
-            Wrong(e) => Wrong(e)
-        }
-    }
-
     fn is_ok(&self) -> bool {
         match self {
             Value(_) => true,
@@ -138,9 +131,9 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn is_empty(&self) -> bool {
         match self {
-            Value(_) => true,
-            Right(_) => true,
-            _ => false,
+            Value(_) => false,
+            Right(_) => false,
+            _ => true,
         }
     }
 
@@ -161,21 +154,20 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
-    // fn filter<F: FnOnce(A) -> bool>(self, op: F) -> Self {
-    //     let x = match self {
-    //         Value(t) => {
-    //             return if op(t) {
-    //                 Value(t)
-    //             } else {
-    //                 Empty()
-    //             };
-    //         }
-    //         Empty() => Empty(),
-    //         // Right(a) => op(a),
-    //         Wrong(e) => Wrong(e),
-    //         _ => self
-    //     };
-    // }
+    fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self {
+        return match self {
+            Value(t) => {
+                let x = t;
+                return if op(&x) { Value(x) } else { Empty() };
+            }
+            Empty() => Empty(),
+            Right(a) => {
+                let x = a;
+                return if op(&x) { Right(x) } else { Empty() };
+            }
+            Wrong(e) => Wrong(e),
+        };
+    }
 }
 
 #[cfg(test)]
@@ -233,6 +225,22 @@ mod tests {
     }
 
     #[test]
+    fn rio_filter() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello")))
+                        .flat_map(|v| RustIO::of( v + &String::from(" world")))
+                        .filter(|v| v.len() > 5);
+             i <- RustIO::of(String::from("!!"));
+             RustIO::of(v + &i)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+
+    #[test]
     fn rio_error() {
         let rio_program: RustIO<String, i32> = rust_io! {
              i <- RustIO::from_option(Some(String::from("hello")));
@@ -244,5 +252,19 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(false, rio_program.is_ok());
+    }
+
+    #[test]
+    fn rio_filter_empty() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello")))
+                        .filter(|v| v.len() > 10);
+             i <- RustIO::of(String::from("!!"));
+             RustIO::of(v + &i)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(true, rio_program.is_empty());
     }
 }
