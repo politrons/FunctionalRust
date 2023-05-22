@@ -41,6 +41,8 @@ macro_rules! rust_io {
 /// [flat_map]
 /// Operators to filter monads
 /// [filter]
+/// Operators to recover from side-effects
+/// [recover][recover_with]
 pub trait Lift<A, T> {
     fn lift(a: A) -> Self;
 
@@ -71,6 +73,9 @@ pub trait Lift<A, T> {
     fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self;
 
     fn recover<F: FnOnce() -> A>(self, op: F) -> Self;
+
+    fn recover_with<F: FnOnce() -> Self>(self, op: F) -> Self;
+
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -187,6 +192,14 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         match self {
             Wrong(_) => Right(op()),
             Empty() => Value(op()),
+            _ => self
+        }
+    }
+
+    fn recover_with<F: FnOnce() -> Self>(self, op: F) -> Self {
+        match self {
+            Wrong(_) => op(),
+            Empty() => op(),
             _ => self
         }
     }
@@ -313,6 +326,32 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Err("".to_string()))
                         .recover(|| "hello world!!".to_string());
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_option_recover_with() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(None)
+                        .recover_with(|| RustIO::from_option(Some("hello world!!".to_string())));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_error_recover_with() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Err("".to_string()))
+                        .recover_with(|| RustIO::from_result(Ok("hello world!!".to_string())));
              RustIO::of(v)
         };
         println!("${:?}", rio_program);
