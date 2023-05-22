@@ -64,6 +64,8 @@ pub trait Lift<A, T> {
 
     fn get(self) -> A;
 
+    fn get_or_else(self, default: A) -> A;
+
     fn is_ok(&self) -> bool;
 
     fn is_empty(&self) -> bool;
@@ -133,6 +135,14 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Value(v) => v,
             Right(t) => t,
             _ => panic!("Error, value not available"),
+        }
+    }
+
+    fn get_or_else(self, default: A) -> A {
+        match self {
+            Empty() => default,
+            Wrong(_) => default,
+            _ => self.get()
         }
     }
 
@@ -412,5 +422,17 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_get_or_else() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Err("".to_string()));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get_or_else("hello world!!".to_string()), "hello world!!");
     }
 }
