@@ -1,5 +1,6 @@
 use std::thread;
 use std::time::Duration;
+use futures::executor::block_on;
 use crate::features::rust_io::RustIO::{Empty, Right, Value, Wrong};
 /// Macro implementation for [rust_io] defining several operators to be used emulating
 /// Haskel [do notation]
@@ -36,11 +37,11 @@ macro_rules! rust_io {
 ///Specification to be implemented by a monad.
 /// [lift] a value into a default structure.
 /// Operators to create monad:
-/// [of][from_func][from_option_func][from_result_func][from_option][from_result]
+/// [of][from_func][from_option_func][from_result_func][from_option][from_result][merge]
 /// Operators to transform monads
 /// [map][fold]
 /// Operators to compose monads
-/// [flat_map]
+/// [flat_map][zip]
 /// Operators to filter monads
 /// [filter]
 /// Operators to recover from side-effects
@@ -64,6 +65,8 @@ pub trait Lift<A, T> {
 
     fn from_result(a: Result<A, T>) -> Self;
 
+    fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self;
+
     fn get(self) -> A;
 
     fn get_or_else(self, default: A) -> A;
@@ -76,6 +79,8 @@ pub trait Lift<A, T> {
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 
+    fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>( a: Z1, b: Z2, op: F) -> Self;
+
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self;
 
     fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self;
@@ -85,8 +90,6 @@ pub trait Lift<A, T> {
     fn recover_with<F: FnOnce() -> Self>(self, op: F) -> Self;
 
     fn delay(self, time: Duration) -> Self;
-
-    fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -132,6 +135,13 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Ok(v) => Right(v),
             Err(t) => Wrong(t)
         }
+    }
+
+    fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self {
+        let x1 = a.get();
+        let x = x1;
+        let y = b.get();
+        op(x, y)
     }
 
     fn get(self) -> A {
@@ -182,6 +192,15 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
+    fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self {
+        let empty = RustIO::Empty();
+        let (zip_1, zip_2) = block_on(empty.run_future_zip_tasks(a, b));
+        if (zip_1.is_ok() || !zip_1.is_empty()) && (zip_2.is_ok() || !zip_2.is_empty()) {
+            return op(zip_1.get(), zip_2.get());
+        }
+        return empty;
+    }
+
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self {
         return match self {
             Value(t) => {
@@ -230,12 +249,17 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             _ => self
         }
     }
+}
 
-    fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self {
-        let x1 = a.get();
-        let x = x1;
-        let y = b.get();
-        op(x, y)
+impl<A, T> RustIO<A, T> {
+    async fn run_future_zip_tasks<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self>(&self, a: Z1, b: Z2) -> (RustIO<A, T>, RustIO<A, T>) {
+        let future_zip1 = async {
+            a()
+        };
+        let future_zip2 = async {
+            b()
+        };
+        return futures::join!(future_zip1,future_zip2);
     }
 }
 
@@ -453,6 +477,18 @@ mod tests {
              v <- RustIO::merge(
                 RustIO::from_option(Some("hello".to_string())), RustIO::from_option(Some(" world!!".to_string())),
                 |a,b| RustIO::from_option(Some(a + &b)));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_zip() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::zip(|| RustIO::from_option(Some("hello".to_string())), || RustIO::from_option(Some(" world!!".to_string())),|a,b| RustIO::from_option(Some(a + &b)));
              RustIO::of(v)
         };
         println!("${:?}", rio_program);
