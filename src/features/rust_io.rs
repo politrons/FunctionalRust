@@ -1,6 +1,7 @@
 use crate::features::rust_io::RustIO::{Empty, Right, Value, Wrong};
 /// Macro implementation for [rust_io] defining several operators to be used emulating
 /// Haskel [do notation]
+/// Work based on original idea of crate [do-notation]
 #[macro_export]
 macro_rules! rust_io {
   // return
