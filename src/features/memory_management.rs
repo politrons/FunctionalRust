@@ -38,5 +38,6 @@ fn reference_dereference(){
     let x = 5;
     let y = &x; //set y to a reference to x
     assert_eq!(5, x);
-    assert_eq!(5, *y); // dereference y
+    let i = *y;
+    assert_eq!(5, i); // dereference y
 }

@@ -85,10 +85,12 @@ pub trait Lift<A, T> {
     fn recover_with<F: FnOnce() -> Self>(self, op: F) -> Self;
 
     fn delay(self, time: Duration) -> Self;
+
+    fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 enum RustIO<A, T> {
     Right(A),
     Wrong(T),
@@ -227,6 +229,13 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             }
             _ => self
         }
+    }
+
+    fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self {
+        let x1 = a.get();
+        let x = x1;
+        let y = b.get();
+        op(x, y)
     }
 }
 
@@ -436,5 +445,19 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get_or_else("hello world!!".to_string()), "hello world!!");
+    }
+
+    #[test]
+    fn rio_merge() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::merge(
+                RustIO::from_option(Some("hello".to_string())), RustIO::from_option(Some(" world!!".to_string())),
+                |a,b| RustIO::from_option(Some(a + &b)));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
     }
 }
