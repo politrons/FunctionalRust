@@ -36,7 +36,7 @@ macro_rules! rust_io {
 /// Operators to create monad:
 /// [of][from_func][from_option_func][from_result_func][from_option][from_result]
 /// Operators to transform monads
-/// [map]
+/// [map][fold]
 /// Operators to compose monads
 /// [flat_map]
 /// Operators to filter monads
