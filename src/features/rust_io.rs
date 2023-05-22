@@ -69,6 +69,8 @@ pub trait Lift<A, T> {
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self;
 
     fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self;
+
+    fn recover<F: FnOnce() -> A>(self, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -180,6 +182,14 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             _ => self
         }
     }
+
+    fn recover<F: FnOnce() -> A>(self, op: F) -> Self {
+        match self {
+            Wrong(_) => Right(op()),
+            Empty() => Value(op()),
+            _ => self
+        }
+    }
 }
 
 #[cfg(test)]
@@ -277,6 +287,32 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(None)
                         .fold("hello world!!".to_string(), |v| v.to_uppercase());
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_empty_recover() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(None)
+                        .recover(|| "hello world!!".to_string());
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_error_recover() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Err("".to_string()))
+                        .recover(|| "hello world!!".to_string());
              RustIO::of(v)
         };
         println!("${:?}", rio_program);
