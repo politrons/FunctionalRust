@@ -1,3 +1,5 @@
+use std::thread;
+use std::time::Duration;
 use crate::features::rust_io::RustIO::{Empty, Right, Value, Wrong};
 /// Macro implementation for [rust_io] defining several operators to be used emulating
 /// Haskel [do notation]
@@ -43,6 +45,8 @@ macro_rules! rust_io {
 /// [filter]
 /// Operators to recover from side-effects
 /// [recover][recover_with]
+/// To slow the monad execution
+/// [delay]
 pub trait Lift<A, T> {
     fn lift(a: A) -> Self;
 
@@ -76,6 +80,7 @@ pub trait Lift<A, T> {
 
     fn recover_with<F: FnOnce() -> Self>(self, op: F) -> Self;
 
+    fn delay(self, time: Duration) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -157,9 +162,8 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self {
         match self {
-            Value(t) => op(t),
+            Value(a) | Right(a) => op(a),
             Empty() => Empty(),
-            Right(a) => op(a),
             Wrong(e) => Wrong(e)
         }
     }
@@ -198,8 +202,17 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn recover_with<F: FnOnce() -> Self>(self, op: F) -> Self {
         match self {
-            Wrong(_) => op(),
-            Empty() => op(),
+            Wrong(_) | Empty() => op(),
+            _ => self
+        }
+    }
+
+    fn delay(self, time: Duration) -> Self {
+        match self {
+            Value(_) | Right(_) => {
+                thread::sleep(time);
+                self
+            }
             _ => self
         }
     }
@@ -386,5 +399,18 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(true, rio_program.is_empty());
+    }
+
+    #[test]
+    fn rio_delay() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some("hello world!!".to_string()))
+                        .delay(Duration::from_secs(2));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
     }
 }
