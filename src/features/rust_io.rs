@@ -52,6 +52,8 @@ macro_rules! rust_io {
 /// [flat_map][zip][parallel]
 /// Operators to filter monads
 /// [filter]
+/// Operators to filter and transform monad in one transaction
+/// [when]
 /// Operators to recover from side-effects
 /// [recover][recover_with]
 /// To slow the monad execution
@@ -94,6 +96,8 @@ pub trait Lift<A, T> {
     fn map_error<F: FnOnce(T) -> T>(self, op: F) -> Self;
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
+
+    fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P,op:F ) -> Self;
 
     fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self;
 
@@ -227,6 +231,21 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Empty() => Empty(),
             Wrong(e) => Wrong(e)
         }
+    }
+
+    fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P, op: F) -> Self {
+        return match self {
+            Value(t) => {
+                let x = t;
+                return if predicate(&x) { Value(op(x)) } else { Empty() };
+            }
+            Empty() => Empty(),
+            Right(a) => {
+                let x = a;
+                return if predicate(&x) { Right(op(x)) } else { Empty() };
+            }
+            Wrong(e) => Wrong(e),
+        };
     }
 
     fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self {
@@ -604,5 +623,18 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.failed(), "Error B");
+    }
+
+    #[test]
+    fn rio_when() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello")))
+                        .when(|v| v.len() > 3, |v| v + &" world!!".to_string());
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
     }
 }
