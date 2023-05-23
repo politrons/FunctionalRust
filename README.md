@@ -26,6 +26,8 @@ Examples of functional programing in Rust
 
 ## Monads
 
+Implementation of some of the most famous Monads you can find in ```Haskel``` or ```Scala```
+
 * **[IO Monad](src/features/rust_io.rs)**
 * **[Monad](src/features/monad.rs)**
 * **[Try Monad](src/features/try_monad.rs)**
