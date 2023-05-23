@@ -83,6 +83,8 @@ pub trait Lift<A, T> {
 
     fn is_ok(&self) -> bool;
 
+    fn is_failed(&self) -> bool;
+
     fn is_empty(&self) -> bool;
 
     fn map<F: FnOnce(A) -> A>(self, op: F) -> Self;
@@ -183,6 +185,14 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Value(_) => true,
             Right(_) => true,
             _ => false,
+        }
+    }
+
+    fn is_failed(&self) -> bool {
+        match self {
+            Value(_) => false,
+            Right(_) => false,
+            _ => true,
         }
     }
 
