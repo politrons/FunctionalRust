@@ -148,7 +148,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
     }
 
     fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self {
-        return  a.flat_map(|x| b.flat_map(|y| op(x,y)));
+        return a.flat_map(|x| b.flat_map(|y| op(x, y)));
     }
 
     fn get(self) -> A {
@@ -200,7 +200,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
     }
 
     fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self {
-        let empty = RustIO::Empty();
+        let empty = Empty();
         let (zip_1, zip_2) = block_on(empty.run_future_zip_tasks(a, b));
         if (zip_1.is_ok() || !zip_1.is_empty()) && (zip_2.is_ok() || !zip_2.is_empty()) {
             return op(zip_1.get(), zip_2.get());
@@ -210,7 +210,6 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self {
         let empty = Empty();
-        let mut rios: Vec<_> = vec!();
         let tasks_done = block_on(empty.run_future_tasks(tasks));
         let find_error_tasks = &tasks_done;
         return match find_error_tasks.into_iter().find(|rio| rio.is_empty() || !rio.is_ok()) {
@@ -219,9 +218,10 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
                 empty
             }
             None => {
-                for rio in tasks_done {
-                    rios.push(rio.get());
-                }
+                let rios = tasks_done.into_iter()
+                    .fold(vec!(), |rios, task_done| {
+                        return rios.into_iter().chain(vec![task_done.get()]).collect::<Vec<_>>();
+                    });
                 op(rios)
             }
         };
@@ -531,7 +531,7 @@ mod tests {
         println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
-        assert_eq!(rio_program.is_ok(),false);
+        assert_eq!(rio_program.is_ok(), false);
     }
 
     #[test]
