@@ -99,6 +99,8 @@ pub trait Lift<A, T> {
 
     fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P,op:F ) -> Self;
 
+    fn when_rio<P: FnOnce(&A) -> bool, F: FnOnce(A) -> Self>(self, predicate: P,op:F ) -> Self;
+
     fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self;
 
     fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self;
@@ -243,6 +245,21 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Right(a) => {
                 let x = a;
                 return if predicate(&x) { Right(op(x)) } else { Empty() };
+            }
+            Wrong(e) => Wrong(e),
+        };
+    }
+
+    fn when_rio<P: FnOnce(&A) -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self {
+        return match self {
+            Value(t) => {
+                let x = t;
+                return if predicate(&x) { op(x) } else { Empty() };
+            }
+            Empty() => Empty(),
+            Right(a) => {
+                let x = a;
+                return if predicate(&x) { op(x) } else { Empty() };
             }
             Wrong(e) => Wrong(e),
         };
@@ -630,6 +647,19 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .when(|v| v.len() > 3, |v| v + &" world!!".to_string());
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_when_rio() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello")))
+                        .when_rio(|v| v.len() > 3, |v| RustIO::from_option(Some(v + &" world!!".to_string())));
              RustIO::of(v)
         };
         println!("${:?}", rio_program);
