@@ -12,9 +12,7 @@ Examples of functional programing in Rust
 
 * **[Functions](src/features/functions.rs)**
 * **[Type Classes](src/features/type_classes.rs)**
-* **[Monad](src/features/monad.rs)**
-* **[Try Monad](src/features/try_monad.rs)**
-* **[Either Monad](src/features/either_monad.rs)**
+
 * **[Effect system](src/features/effect_system.rs)**
 * **[Extension method](src/features/extension_method.rs)**
 * **[Memory management](src/features/memory_management.rs)**
@@ -25,7 +23,13 @@ Examples of functional programing in Rust
 * **[smart pointer](src/features/smart_pointer.rs)**
 * **[NewTypes](src/features/new_types.rs)**
 * **[Do notation](src/features/do_notation_style.rs)**
+
+## Monads
+
 * **[IO Monad](src/features/rust_io.rs)**
+* **[Monad](src/features/monad.rs)**
+* **[Try Monad](src/features/try_monad.rs)**
+* **[Either Monad](src/features/either_monad.rs)**
 
 ## Tokio
 

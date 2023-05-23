@@ -1,7 +1,15 @@
+use std::future::Future;
+use std::process::Output;
 use std::thread;
 use std::time::Duration;
+
 use futures::executor::block_on;
+use futures::future;
+use futures::stream::iter;
+use futures::future::{join_all};
+
 use crate::features::rust_io::RustIO::{Empty, Right, Value, Wrong};
+
 /// Macro implementation for [rust_io] defining several operators to be used emulating
 /// Haskel [do notation]
 /// Work based on original idea of crate [do-notation]
@@ -41,7 +49,7 @@ macro_rules! rust_io {
 /// Operators to transform monads
 /// [map][fold]
 /// Operators to compose monads
-/// [flat_map][zip]
+/// [flat_map][zip][parallel]
 /// Operators to filter monads
 /// [filter]
 /// Operators to recover from side-effects
@@ -79,7 +87,9 @@ pub trait Lift<A, T> {
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 
-    fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>( a: Z1, b: Z2, op: F) -> Self;
+    fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self;
+
+    fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self;
 
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self;
 
@@ -201,6 +211,25 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         return empty;
     }
 
+    fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self {
+        let empty = Empty();
+        let mut rios: Vec<_> = vec!();
+        let tasks_done = block_on(empty.run_future_tasks(tasks));
+        let find_error_tasks = &tasks_done;
+        return match find_error_tasks.into_iter().find(|rio| rio.is_empty() || !rio.is_ok()) {
+            Some(_) => {
+                println!("Some of the task failed. Returning Empty value");
+                empty
+            },
+            None => {
+                for rio in tasks_done {
+                    rios.push(rio.get());
+                }
+                op(rios)
+            }
+        };
+    }
+
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self {
         return match self {
             Value(t) => {
@@ -260,6 +289,16 @@ impl<A, T> RustIO<A, T> {
             b()
         };
         return futures::join!(future_zip1,future_zip2);
+    }
+
+    async fn run_future_tasks<Task: FnOnce() -> Self>(&self, tasks: Vec<Task>) -> Vec<RustIO<A, T>> {
+        let mut futures: Vec<_> = vec!();
+        for task in tasks {
+            futures.push(async {
+                return task();
+            })
+        };
+        return join_all(futures).await;
     }
 }
 
@@ -491,6 +530,21 @@ mod tests {
              v <- RustIO::zip(
                 || RustIO::from_option(Some("hello".to_string())), || RustIO::from_option(Some(" world!!".to_string())),
                 |a,b| RustIO::from_option(Some(a + &b)));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_parallel() {
+        let mut parallel_tasks:Vec<fn ()-> RustIO<String,String>> = vec!();
+        parallel_tasks.push(|| RustIO::from_option(Some("hello".to_string())));
+        parallel_tasks.push(|| RustIO::from_option(Some(" world!!".to_string())));
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::parallel(parallel_tasks,|tasks| RustIO::of(tasks.into_iter().collect()));
              RustIO::of(v)
         };
         println!("${:?}", rio_program);
