@@ -47,7 +47,7 @@ macro_rules! rust_io {
 /// Operators to create monad:
 /// [of][from_func][from_option_func][from_result_func][from_option][from_result][merge]
 /// Operators to transform monads
-/// [map][fold]
+/// [map][fold][map_error]
 /// Operators to compose monads
 /// [flat_map][zip][parallel]
 /// Operators to filter monads
@@ -58,6 +58,8 @@ macro_rules! rust_io {
 /// [delay]
 /// To unwrap the value from monad.
 /// [get][get_or_else]
+/// Check the state of the monad
+/// [is_ok][is_failed][is_empty]
 pub trait Lift<A, T> {
     fn lift(a: A) -> Self;
 
