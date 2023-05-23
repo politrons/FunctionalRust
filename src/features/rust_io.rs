@@ -77,6 +77,8 @@ pub trait Lift<A, T> {
 
     fn get(self) -> A;
 
+    fn failed(self) -> T;
+
     fn get_or_else(self, default: A) -> A;
 
     fn is_ok(&self) -> bool;
@@ -84,6 +86,8 @@ pub trait Lift<A, T> {
     fn is_empty(&self) -> bool;
 
     fn map<F: FnOnce(A) -> A>(self, op: F) -> Self;
+
+    fn map_error<F: FnOnce(T) -> T>(self, op: F) -> Self;
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 
@@ -159,6 +163,13 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
+    fn failed(self) -> T {
+        match self {
+            Value(_) |Right(_) | Empty() =>panic!("Error, value not available"),
+            Wrong(e) => e,
+        }
+    }
+
     fn get_or_else(self, default: A) -> A {
         match self {
             Empty() => default,
@@ -188,6 +199,13 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Value(v) => Value(op(v)),
             Right(v) => Right(op(v)),
             _ => self,
+        }
+    }
+
+    fn map_error<F: FnOnce(T) -> T>(self, op: F) -> Self {
+        match self {
+            Wrong(e) => Wrong(op(e)),
+            _ => self
         }
     }
 
@@ -561,5 +579,18 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_map_error() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Err(String::from("Error A")))
+                .map_error(|t| String::from("Error B"));
+            RustIO::of(v)
+        };
+        println!("${:?}", rio_program);
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.failed(), "Error B");
     }
 }
