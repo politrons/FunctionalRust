@@ -220,7 +220,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Some(_) => {
                 println!("Some of the task failed. Returning Empty value");
                 empty
-            },
+            }
             None => {
                 for rio in tasks_done {
                     rios.push(rio.get());
@@ -292,13 +292,12 @@ impl<A, T> RustIO<A, T> {
     }
 
     async fn run_future_tasks<Task: FnOnce() -> Self>(&self, tasks: Vec<Task>) -> Vec<RustIO<A, T>> {
-        let mut futures: Vec<_> = vec!();
-        for task in tasks {
-            futures.push(async {
-                return task();
-            })
-        };
-        return join_all(futures).await;
+        let future_tasks = tasks.into_iter()
+            .fold(vec!(), |futures, task: Task| {
+                let future_task = vec![async { return task(); }];
+                return futures.into_iter().chain(future_task).collect::<Vec<_>>();
+            });
+        return join_all(future_tasks).await;
     }
 }
 
@@ -540,7 +539,7 @@ mod tests {
 
     #[test]
     fn rio_parallel() {
-        let mut parallel_tasks:Vec<fn ()-> RustIO<String,String>> = vec!();
+        let mut parallel_tasks: Vec<fn() -> RustIO<String, String>> = vec!();
         parallel_tasks.push(|| RustIO::from_option(Some("hello".to_string())));
         parallel_tasks.push(|| RustIO::from_option(Some(" world!!".to_string())));
         let rio_program: RustIO<String, String> = rust_io! {

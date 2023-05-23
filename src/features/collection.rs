@@ -8,6 +8,7 @@ pub fn run() {
     flat_map_list();
     immutable_map_collection();
     mutable_map_collection();
+    append_vectors();
 }
 
 /**
@@ -84,4 +85,10 @@ fn mutable_map_collection() {
     map.insert(3, "map");
     map.into_iter()
         .for_each(|(k, v)| println!("Key:{} Value:{}", k, v))
+}
+
+fn append_vectors(){
+        let a = vec![1, 2, 3];
+        let b = vec![7, 8, 9];
+        println!("{:?}", [a, b].concat());
 }

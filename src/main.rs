@@ -10,14 +10,14 @@ fn main() {
     // effect_system::run();
     // extension_method::run();
     // memory_management::run();
-    // collection::run();
+    collection::run();
     // async_programming::run();
     // channels_feature::run();
     // pattern_matching::run()
     // either_monad::run();
     // smart_pointer::run();
     // new_types::run()
-    do_notation_style::run();
+    // do_notation_style::run();
 }
 
 
