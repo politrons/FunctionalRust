@@ -1,14 +1,16 @@
 use std::future::Future;
+use std::pin::Pin;
 use std::process::Output;
+use std::task::{Context, Poll};
 use std::thread;
 use std::time::Duration;
 
 use futures::executor::block_on;
-use futures::future;
+use futures::{future, FutureExt};
 use futures::stream::iter;
-use futures::future::{join_all};
+use futures::future::{BoxFuture, join_all, LocalBoxFuture};
 
-use crate::features::rust_io::RustIO::{Empty, Right, Value, Wrong};
+use crate::features::rust_io::RustIO::{Empty, Fut, Right, Value, Wrong};
 
 /// Macro implementation for [rust_io] defining several operators to be used emulating
 /// Haskel [do notation]
@@ -97,9 +99,9 @@ pub trait Lift<A, T> {
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 
-    fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P,op:F ) -> Self;
+    fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P, op: F) -> Self;
 
-    fn when_rio<P: FnOnce(&A) -> bool, F: FnOnce(A) -> Self>(self, predicate: P,op:F ) -> Self;
+    fn when_rio<P: FnOnce(&A) -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self;
 
     fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self;
 
@@ -114,15 +116,20 @@ pub trait Lift<A, T> {
     fn recover_with<F: FnOnce() -> Self>(self, op: F) -> Self;
 
     fn delay(self, time: Duration) -> Self;
+
+    /// Provide [A:'static] in the definition it can extend the lifetime of a specific type
+    fn fork<F: FnOnce(A) -> A>(self, op: F) -> Self where A: 'static, F: 'static;
+
+    fn join(self) -> Self where A: 'static;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
-#[derive(Debug, Copy, Clone)]
 enum RustIO<A, T> {
     Right(A),
     Wrong(T),
     Value(A),
     Empty(),
+    Fut(LocalBoxFuture<'static, A>),
 }
 
 /// Implementation of the Monad Lift.
@@ -175,7 +182,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn failed(self) -> T {
         match self {
-            Value(_) |Right(_) | Empty() =>panic!("Error, value not available"),
+            Value(_) | Right(_) | Empty() | Fut(_) => panic!("Error, value not available"),
             Wrong(e) => e,
         }
     }
@@ -231,7 +238,8 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         match self {
             Value(a) | Right(a) => op(a),
             Empty() => Empty(),
-            Wrong(e) => Wrong(e)
+            Wrong(e) => Wrong(e),
+            _ => self
         }
     }
 
@@ -247,6 +255,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
                 return if predicate(&x) { Right(op(x)) } else { Empty() };
             }
             Wrong(e) => Wrong(e),
+            _ => self
         };
     }
 
@@ -262,6 +271,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
                 return if predicate(&x) { op(x) } else { Empty() };
             }
             Wrong(e) => Wrong(e),
+            _ => self
         };
     }
 
@@ -305,6 +315,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
                 return if op(&x) { Right(x) } else { Empty() };
             }
             Wrong(e) => Wrong(e),
+            _ => self
         };
     }
 
@@ -341,6 +352,17 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             _ => self
         }
     }
+
+    fn fork<F: FnOnce(A) -> A>(self, op: F) -> Self where A: 'static, F: 'static {
+        match self {
+            Value(v) | Right(v) => Fut(async { op(v) }.boxed_local()),
+            _ => self,
+        }
+    }
+
+    fn join(self) -> Self  where A: 'static {
+        block_on(self.unbox_fork())
+    }
 }
 
 impl<A, T> RustIO<A, T> {
@@ -362,6 +384,18 @@ impl<A, T> RustIO<A, T> {
             });
         return join_all(future_tasks).await;
     }
+
+    async fn unbox_fork(self) -> RustIO<A, T> where A: 'static {
+        match self {
+            Fut(fut_box) => {
+                println!("Extracting future");
+                let f = fut_box;
+                let a = f.await;
+                Value(a)
+            }
+            _ => Empty(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -381,14 +415,13 @@ mod tests {
 
              RustIO::of(v + &t + &z + &x + &i + &y)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello pure functional world!!!!");
     }
 
     #[test]
-    fn rio_transformation() {
+    fn rio_map() {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .map(|v| v.to_uppercase());
@@ -397,14 +430,13 @@ mod tests {
              i <- RustIO::of(String::from("!!"));
              RustIO::of(v + &x + &i)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "HELLO WORLD!!");
     }
 
     #[test]
-    fn rio_composition() {
+    fn rio_flat_map() {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .flat_map(|v| RustIO::of( v + &String::from(" world")))
@@ -412,7 +444,6 @@ mod tests {
              i <- RustIO::of(String::from("!!"));
              RustIO::of(v + &i)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "HELLO WORLD!!");
@@ -427,7 +458,6 @@ mod tests {
              i <- RustIO::of(String::from("!!"));
              RustIO::of(v + &i)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -448,7 +478,6 @@ mod tests {
              i <- rio_program_2;
              RustIO::of(v + &i).map(|v| v.to_uppercase())
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "HELLO WORLD!!");
@@ -461,7 +490,6 @@ mod tests {
                         .fold("hello world!!".to_string(), |v| v.to_uppercase());
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -474,7 +502,6 @@ mod tests {
                         .recover(|| "hello world!!".to_string());
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -487,7 +514,6 @@ mod tests {
                         .recover(|| "hello world!!".to_string());
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -500,7 +526,6 @@ mod tests {
                         .recover_with(|| RustIO::from_option(Some("hello world!!".to_string())));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -513,7 +538,6 @@ mod tests {
                         .recover_with(|| RustIO::from_result(Ok("hello world!!".to_string())));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -527,7 +551,6 @@ mod tests {
              v <- RustIO::from_option(Some(String::from("world")));
              RustIO::of(i + &v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(false, rio_program.is_ok());
@@ -541,7 +564,6 @@ mod tests {
              i <- RustIO::of(String::from("!!"));
              RustIO::of(v + &i)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(true, rio_program.is_empty());
@@ -554,7 +576,6 @@ mod tests {
                         .delay(Duration::from_secs(2));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -566,7 +587,6 @@ mod tests {
              v <- RustIO::from_result(Err("".to_string()));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get_or_else("hello world!!".to_string()), "hello world!!");
@@ -580,7 +600,6 @@ mod tests {
                 |a,b| RustIO::from_option(Some(a + &b)));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -594,7 +613,6 @@ mod tests {
                 |a,b| RustIO::from_option(Some(a + &b)));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.is_ok(), false);
@@ -608,7 +626,6 @@ mod tests {
                 |a,b| RustIO::from_option(Some(a + &b)));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -623,7 +640,6 @@ mod tests {
              v <- RustIO::parallel(parallel_tasks,|tasks| RustIO::of(tasks.into_iter().collect()));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -636,7 +652,6 @@ mod tests {
                 .map_error(|t| String::from("Error B"));
             RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.failed(), "Error B");
@@ -649,7 +664,6 @@ mod tests {
                         .when(|v| v.len() > 3, |v| v + &" world!!".to_string());
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
@@ -662,10 +676,25 @@ mod tests {
                         .when_rio(|v| v.len() > 3, |v| RustIO::from_option(Some(v + &" world!!".to_string())));
              RustIO::of(v)
         };
-        println!("${:?}", rio_program);
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
     }
 
+    #[test]
+    fn rio_fork() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello")))
+                        .fork(|v| {
+                            println!("Variable:{} in Thread:{:?}", v, thread::current().id());
+                            return v.to_uppercase();
+                        })
+                        .join();
+             x <- RustIO::from_option(Some(String::from(" world!!")));
+             RustIO::of(v + &x)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "HELLO world!!");
+    }
 }
