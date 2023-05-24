@@ -125,6 +125,8 @@ pub trait Lift<A, T> {
     /// Provide [A:'static] in the definition it can extend the lifetime of a specific type
     fn join(self) -> Self where A: 'static;
 
+    fn daemon<F: FnOnce(&A) -> ()>(self, op: F) -> Self where A: 'static ;
+
     fn peek<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
 }
 
@@ -339,7 +341,9 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
-
+    /// Operator to run every task in the Vector asynchronously using async.
+    /// After we create the list of Futures, we use [join_all] to run all futures in parallel.
+    /// Once all of them are finished, we invoke the passed function with [Vector<A>] as input param
     fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self {
         let empty = Empty();
         let tasks_done = block_on(empty.run_future_tasks(tasks));
@@ -370,9 +374,14 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
-    ///Join the [LocalBoxFuture<A>] into the main thread execution.
+    ///Join the [LocalBoxFuture<A>].
     fn join(self) -> Self where A: 'static {
        block_on(self.unbox_fork())
+    }
+
+    /// async consumer function that does not affect the current value of the monad.
+    fn daemon<F: FnOnce(&A) -> ()>(self, op: F) -> Self where A: 'static {
+        return block_on(self.run_daemon(op));
     }
 
     fn peek<F: FnOnce(&A) -> ()>(self, op: F) -> Self {
@@ -419,6 +428,22 @@ impl<A, T> RustIO<A, T> {
                 Value(fut_box.await)
             }
             _ => Empty(),
+        }
+    }
+
+    async fn run_daemon<F: FnOnce(&A) -> ()>(self, op: F)  -> RustIO<A, T> where A: 'static {
+        return match self {
+            Value(v) => {
+                let x = v;
+                async { op(&x) }.await;
+                Value(x)
+            }
+            Right(v) => {
+                let x = v;
+                async { op(&x) }.await;
+                Right(x)
+            }
+            _ => self
         }
     }
 }
@@ -734,5 +759,17 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "HELLO world!!");
+    }
+
+    #[test]
+    fn rio_daemon() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello world!!")))
+                .daemon(|v| println!("${}",v));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
     }
 }
