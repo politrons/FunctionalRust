@@ -51,7 +51,7 @@ macro_rules! rust_io {
 /// Operators to transform monads
 /// [map][fold][map_error]
 /// Operators to compose monads
-/// [flat_map][zip][parallel]
+/// [flat_map][zip]
 /// Operators to filter monads
 /// [filter]
 /// Operators to filter and transform monad in one transaction
@@ -64,6 +64,8 @@ macro_rules! rust_io {
 /// [get][get_or_else]
 /// Check the state of the monad
 /// [is_ok][is_failed][is_empty]
+/// Async task executions
+/// [parallel][fork]
 pub trait Lift<A, T> {
     fn lift(a: A) -> Self;
 
@@ -105,8 +107,6 @@ pub trait Lift<A, T> {
 
     fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self;
 
-    fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self;
-
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self;
 
     fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self;
@@ -117,10 +117,15 @@ pub trait Lift<A, T> {
 
     fn delay(self, time: Duration) -> Self;
 
+    fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self;
+
     /// Provide [A:'static] in the definition it can extend the lifetime of a specific type
     fn fork<F: FnOnce(A) -> A>(self, op: F) -> Self where A: 'static, F: 'static;
 
+    /// Provide [A:'static] in the definition it can extend the lifetime of a specific type
     fn join(self) -> Self where A: 'static;
+
+    fn peek<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -284,25 +289,6 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         return empty;
     }
 
-    fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self {
-        let empty = Empty();
-        let tasks_done = block_on(empty.run_future_tasks(tasks));
-        let find_error_tasks = &tasks_done;
-        return match find_error_tasks.into_iter().find(|rio| rio.is_empty() || !rio.is_ok()) {
-            Some(_) => {
-                println!("Some of the task failed. Returning Empty value");
-                empty
-            }
-            None => {
-                let rios = tasks_done.into_iter()
-                    .fold(vec!(), |rios, task_done| {
-                        return rios.into_iter().chain(vec![task_done.get()]).collect::<Vec<_>>();
-                    });
-                op(rios)
-            }
-        };
-    }
-
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self {
         return match self {
             Value(t) => {
@@ -353,15 +339,56 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
+
+    fn parallel<Task: FnOnce() -> Self, F: FnOnce(Vec<A>) -> Self>(tasks: Vec<Task>, op: F) -> Self {
+        let empty = Empty();
+        let tasks_done = block_on(empty.run_future_tasks(tasks));
+        let find_error_tasks = &tasks_done;
+        return match find_error_tasks.into_iter().find(|rio| rio.is_empty() || !rio.is_ok()) {
+            Some(_) => {
+                println!("Some of the task failed. Returning Empty value");
+                empty
+            }
+            None => {
+                let rios = tasks_done.into_iter()
+                    .fold(vec!(), |rios, task_done| {
+                        return rios.into_iter().chain(vec![task_done.get()]).collect::<Vec<_>>();
+                    });
+                op(rios)
+            }
+        };
+    }
+
+    /// It run the execution of the task in another green thread
+    /// We use type [Fut] to wrap the [LocalBoxFuture<A>] which it contains the output of the function execution.
     fn fork<F: FnOnce(A) -> A>(self, op: F) -> Self where A: 'static, F: 'static {
         match self {
-            Value(v) | Right(v) => Fut(async { op(v) }.boxed_local()),
+            Value(v) | Right(v) => {
+                Fut(async { op(v) }.boxed_local())
+            },
             _ => self,
         }
     }
 
-    fn join(self) -> Self  where A: 'static {
-        block_on(self.unbox_fork())
+    ///Join the [LocalBoxFuture<A>] into the main thread execution.
+    fn join(self) -> Self where A: 'static {
+       block_on(self.unbox_fork())
+    }
+
+    fn peek<F: FnOnce(&A) -> ()>(self, op: F) -> Self {
+        return match self {
+            Value(v) => {
+                let x = v;
+                op(&x);
+                Value(x)
+            }
+            Right(v) => {
+                let x = v;
+                op(&x);
+                Right(x)
+            }
+            _ => self
+        };
     }
 }
 
@@ -389,9 +416,7 @@ impl<A, T> RustIO<A, T> {
         match self {
             Fut(fut_box) => {
                 println!("Extracting future");
-                let f = fut_box;
-                let a = f.await;
-                Value(a)
+                Value(fut_box.await)
             }
             _ => Empty(),
         }
@@ -682,15 +707,28 @@ mod tests {
     }
 
     #[test]
+    fn rio_peek() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_option(Some(String::from("hello world!!")))
+                .peek(|v| println!("${}",v));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
     fn rio_fork() {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .fork(|v| {
-                            println!("Variable:{} in Thread:{:?}", v, thread::current().id());
+                            println!("Fork. Variable:{} in Thread:{:?}", v, thread::current().id());
                             return v.to_uppercase();
                         })
                         .join();
-             x <- RustIO::from_option(Some(String::from(" world!!")));
+             x <- RustIO::from_option(Some(String::from(" world!!")))
+                    .peek(|v| println!("Join. Variable:{} in Thread:{:?}", v, thread::current().id()));
              RustIO::of(v + &x)
         };
         println!("${:?}", rio_program.is_empty());
