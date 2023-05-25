@@ -41,3 +41,7 @@ fn reference_dereference(){
     let i = *y;
     assert_eq!(5, i); // dereference y
 }
+
+fn extend_lifetime(){
+
+}

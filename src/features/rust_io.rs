@@ -123,9 +123,9 @@ pub trait Lift<A, T> {
     fn fork<F: FnOnce(A) -> A>(self, op: F) -> Self where A: 'static, F: 'static;
 
     /// Provide [A:'static] in the definition it can extend the lifetime of a specific type
-    fn join(self) -> Self where A: 'static;
+    fn join(self) -> Self;
 
-    fn daemon<F: FnOnce(&A) -> ()>(self, op: F) -> Self where A: 'static ;
+    fn daemon<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
 
     fn peek<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
 }
@@ -369,18 +369,18 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         match self {
             Value(v) | Right(v) => {
                 Fut(async { op(v) }.boxed_local())
-            },
+            }
             _ => self,
         }
     }
 
     ///Join the [LocalBoxFuture<A>].
-    fn join(self) -> Self where A: 'static {
-       block_on(self.unbox_fork())
+    fn join(self) -> Self {
+        block_on(self.unbox_fork())
     }
 
     /// async consumer function that does not affect the current value of the monad.
-    fn daemon<F: FnOnce(&A) -> ()>(self, op: F) -> Self where A: 'static {
+    fn daemon<F: FnOnce(&A) -> ()>(self, op: F) -> Self {
         return block_on(self.run_daemon(op));
     }
 
@@ -421,7 +421,7 @@ impl<A, T> RustIO<A, T> {
         return join_all(future_tasks).await;
     }
 
-    async fn unbox_fork(self) -> RustIO<A, T> where A: 'static {
+    async fn unbox_fork(self) -> RustIO<A, T> {
         match self {
             Fut(fut_box) => {
                 println!("Extracting future");
@@ -431,7 +431,7 @@ impl<A, T> RustIO<A, T> {
         }
     }
 
-    async fn run_daemon<F: FnOnce(&A) -> ()>(self, op: F)  -> RustIO<A, T> where A: 'static {
+    async fn run_daemon<F: FnOnce(&A) -> ()>(self, op: F) -> RustIO<A, T> {
         return match self {
             Value(v) => {
                 let x = v;
@@ -444,7 +444,7 @@ impl<A, T> RustIO<A, T> {
                 Right(x)
             }
             _ => self
-        }
+        };
     }
 }
 
