@@ -1,4 +1,4 @@
-pub fn run(){
+pub fn run() {
     owner_variable();
     borrow_variable();
     reference_dereference();
@@ -8,7 +8,7 @@ pub fn run(){
 One of the best feature of [rust] by design is the memory management, and how protect our programs in compilation time.
 Every variable allocated in heap memory, can only have one owner. So in case we decide to transfer the content of one
 variable to another, the old one cannot be used anymore, and it wont compile if you want to use it.
-*/
+ */
 fn owner_variable() {
     let variable = String::from("Memory management:Transferring");
     let transfer_variable = variable;
@@ -20,7 +20,7 @@ fn owner_variable() {
 One way that we can assign the content of one variable into another, is not doing a copy, but passing
 a reference(pointer) [&] just like in c, c++.
 Once we do that we can continue using the old variable since what we made with the new allocation is pass a reference.
-*/
+ */
 fn borrow_variable() {
     let variable = String::from("Memory management:Borrowing");
     let new_variable = &variable;
@@ -33,8 +33,8 @@ fn borrow_variable() {
 /**
 When we use [&] we are creating a reference [pointer] of a variable.
 And when we use [*] we are de-referencing a reference.
-*/
-fn reference_dereference(){
+ */
+fn reference_dereference() {
     let x = 5;
     let y = &x; //set y to a reference to x
     assert_eq!(5, x);
@@ -42,6 +42,27 @@ fn reference_dereference(){
     assert_eq!(5, i); // dereference y
 }
 
-fn extend_lifetime(){
+fn extend_lifetime() {
+    let x = "hello world".to_string();
+    let y = &x;
+    foo(y)
+}
 
+/// [z] is marked with the explicit lifetime, and is failing since [d] not living long enough, since once
+/// is copy, is destroyed.
+fn foo<'a>(x: &'a String) {
+    println!("${}", x);
+    let d = "hello again".to_string();
+    // let z: &'a String = &d;
+    // println!("${}", z);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extend_lifetime_test() {
+        extend_lifetime()
+    }
 }

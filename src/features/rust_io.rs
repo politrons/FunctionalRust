@@ -128,6 +128,11 @@ pub trait Lift<A, T> {
     fn daemon<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
 
     fn peek<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
+
+    fn on_error<F: FnOnce(&T) -> ()>(self, op: F) -> Self;
+
+    fn on_success<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
+
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -391,6 +396,28 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
                 op(&x);
                 Value(x)
             }
+            Right(v) => {
+                let x = v;
+                op(&x);
+                Right(x)
+            }
+            _ => self
+        };
+    }
+
+    fn on_error<F: FnOnce(&T) -> ()>(self, op: F) -> Self {
+        return match self {
+            Wrong(v) => {
+                let x = v;
+                op(&x);
+                Wrong(x)
+            }
+            _ => self
+        };
+    }
+
+    fn on_success<F: FnOnce(&A) -> ()>(self, op: F) -> Self {
+        return match self {
             Right(v) => {
                 let x = v;
                 op(&x);
@@ -771,5 +798,29 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_on_success() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Ok(String::from("hello world!!")))
+                .on_success(|v| println!("Success program: ${}",v));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello world!!");
+    }
+
+    #[test]
+    fn rio_on_error() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Err(String::from("burning world!!")))
+                .on_error(|v| println!("Error program: ${}",v));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.is_failed(), true);
     }
 }
