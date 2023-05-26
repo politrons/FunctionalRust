@@ -768,7 +768,9 @@ mod tests {
     fn rio_parallel() {
         let mut parallel_tasks: Vec<fn() -> RustIO<String, String>> = vec!();
         parallel_tasks.push(|| RustIO::from_option(Some("hello".to_string())));
-        parallel_tasks.push(|| RustIO::from_option(Some(" world!!".to_string())));
+        parallel_tasks.push(|| RustIO::from_result(Ok(" world".to_string())));
+        parallel_tasks.push(|| RustIO::of("!!".to_string()));
+
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::parallel(parallel_tasks,|tasks| RustIO::of(tasks.into_iter().collect()));
              RustIO::of(v)
