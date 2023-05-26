@@ -106,6 +106,8 @@ pub trait Lift<A, T> {
 
     fn at_some_point_while<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone;
 
+    fn at_some_point_until<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone;
+
     fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P, op: F) -> Self;
 
     fn when_rio<P: FnOnce(&A) -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self;
@@ -154,6 +156,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         RustIO::of(a)
     }
 
+    /// Pure value to create RustIO monad without side-effects.
     fn of(a: A) -> Self {
         Value(a)
     }
@@ -277,6 +280,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
+    /// Retry pattern of a task while a predicate condition is [true]
     fn at_some_point_while<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone {
         match self {
             Value(a) | Right(a) => {
@@ -286,6 +290,24 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
                     let a_copy = a.clone();
                     let result = op_copy(a_copy);
                     if result.is_ok() || !predicate_copy() {
+                        break result;
+                    }
+                }
+            }
+            _ => self
+        }
+    }
+
+    /// Retry pattern of a task while a predicate condition is [false]
+    fn at_some_point_until<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone {
+        match self {
+            Value(a) | Right(a) => {
+                loop {
+                    let op_copy = op.clone();
+                    let predicate_copy = predicate.clone();
+                    let a_copy = a.clone();
+                    let result = op_copy(a_copy);
+                    if result.is_ok() || predicate_copy() {
                         break result;
                     }
                 }
@@ -880,6 +902,18 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
                 .at_some_point_while(|| throw_coin(),|v| get_eventual_result( v));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.is_failed(), false);
+    }
+
+    #[test]
+    fn rio_eventually_until() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Ok("hello".to_string()))
+                .at_some_point_until(|| throw_coin(),|v| get_eventual_result( v));
              RustIO::of(v)
         };
         println!("${:?}", rio_program.is_empty());
