@@ -263,7 +263,9 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
     }
 
     ///Returns an effect that ignores errors and runs repeatedly until it [at_some_point] succeeds
-    /// We mark A type as Clone since we need a clone of the value for each iteration in the loop
+    /// We mark A type as Clone since we need a clone of the value for each iteration in the loop.
+    /// In case you need a backoff between iterations, or a escape clause, you can use
+    /// [until] or [while] [at_some_point] operator conditions.
     fn at_some_point<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone {
         match self {
             Value(a) | Right(a) => {
@@ -282,38 +284,12 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     /// Retry pattern of a task while a predicate condition is [true]
     fn at_some_point_while<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone {
-        match self {
-            Value(a) | Right(a) => {
-                loop {
-                    let op_copy = op.clone();
-                    let predicate_copy = predicate.clone();
-                    let a_copy = a.clone();
-                    let result = op_copy(a_copy);
-                    if result.is_ok() || !predicate_copy() {
-                        break result;
-                    }
-                }
-            }
-            _ => self
-        }
+        self.at_some_point_cond(false, predicate, op)
     }
 
     /// Retry pattern of a task while a predicate condition is [false]
     fn at_some_point_until<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone {
-        match self {
-            Value(a) | Right(a) => {
-                loop {
-                    let op_copy = op.clone();
-                    let predicate_copy = predicate.clone();
-                    let a_copy = a.clone();
-                    let result = op_copy(a_copy);
-                    if result.is_ok() || predicate_copy() {
-                        break result;
-                    }
-                }
-            }
-            _ => self
-        }
+        self.at_some_point_cond(true, predicate, op)
     }
 
     fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P, op: F) -> Self {
@@ -533,6 +509,24 @@ impl<A, T> RustIO<A, T> {
             }
             _ => self
         };
+    }
+
+    /// Generic function to cover [at_some_point] [while] and [until]
+    fn at_some_point_cond<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, cond: bool, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone {
+        match self {
+            Value(a) | Right(a) => {
+                loop {
+                    let op_copy = op.clone();
+                    let predicate_copy = predicate.clone();
+                    let a_copy = a.clone();
+                    let result = op_copy(a_copy);
+                    if result.is_ok() || predicate_copy() == cond {
+                        break result;
+                    }
+                }
+            }
+            _ => self
+        }
     }
 }
 
@@ -901,7 +895,7 @@ mod tests {
     fn rio_eventually_while() {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
-                .at_some_point_while(|| throw_coin(),|v| get_eventual_result( v));
+                .at_some_point_while(|| true,|v| get_eventual_result( v));
              RustIO::of(v)
         };
         println!("${:?}", rio_program.is_empty());
@@ -913,7 +907,10 @@ mod tests {
     fn rio_eventually_until() {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
-                .at_some_point_until(|| throw_coin(),|v| get_eventual_result( v));
+                .at_some_point_until(|| {
+                    std::thread::sleep(Duration::from_millis(100));
+                    false
+                },|v| get_eventual_result( v));
              RustIO::of(v)
         };
         println!("${:?}", rio_program.is_empty());
@@ -932,11 +929,5 @@ mod tests {
             eprintln!("Returning success");
             RustIO::from_result(Ok(v + &"world".to_string()))
         }
-    }
-
-    fn throw_coin() -> bool {
-        let mut rng = thread_rng();
-        let n: i32 = rng.gen_range(0..100);
-        return n < 90;
     }
 }
