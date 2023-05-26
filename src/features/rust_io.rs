@@ -4,6 +4,7 @@ use std::process::Output;
 use std::task::{Context, Poll};
 use std::thread;
 use std::time::Duration;
+use rand::{thread_rng, Rng};
 
 use futures::executor::block_on;
 use futures::{future, FutureExt};
@@ -55,9 +56,9 @@ macro_rules! rust_io {
 /// Operators to filter monads
 /// [filter]
 /// Operators to filter and transform monad in one transaction
-/// [when]
+/// [when][when_rio]
 /// Operators to recover from side-effects
-/// [recover][recover_with]
+/// [recover][recover_with][eventually]
 /// To slow the monad execution
 /// [delay]
 /// To unwrap the value from monad.
@@ -101,6 +102,8 @@ pub trait Lift<A, T> {
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 
+    fn eventually<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone;
+
     fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P, op: F) -> Self;
 
     fn when_rio<P: FnOnce(&A) -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self;
@@ -132,7 +135,6 @@ pub trait Lift<A, T> {
     fn on_error<F: FnOnce(&T) -> ()>(self, op: F) -> Self;
 
     fn on_success<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
-
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
@@ -251,6 +253,26 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Value(a) | Right(a) => op(a),
             Empty() => Empty(),
             Wrong(e) => Wrong(e),
+            _ => self
+        }
+    }
+
+    ///Returns an effect that ignores errors and runs repeatedly until it [eventually] succeeds
+    /// We mark A type as Clone since we need a clone of the value for each iteration in the loop
+    fn eventually<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone {
+        println!("Evaluating function");
+        match self {
+            Value(a) | Right(a) => {
+                loop {
+                    let s = op.clone();
+                    let x = a.clone();
+                    println!("Running function");
+                    let result = Empty().run_eventually(x, s);
+                    if result.is_ok() {
+                        break result;
+                    }
+                }
+            }
             _ => self
         }
     }
@@ -472,6 +494,10 @@ impl<A, T> RustIO<A, T> {
             }
             _ => self
         };
+    }
+
+    fn run_eventually<F: FnOnce(A) -> Self>(self, a: A, op: F) -> Self where A: Clone {
+        return op(a);
     }
 }
 
@@ -822,5 +848,30 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.is_failed(), true);
+    }
+
+    #[test]
+    fn rio_eventually() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Ok("hello".to_string()))
+                .eventually(|v| get_eventual_result( v));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.is_failed(), false);
+    }
+
+    fn get_eventual_result(v: String) -> RustIO<String, String> {
+        let mut rng = thread_rng();
+        let n: i32 = rng.gen_range(0..100);
+        println!("${}", n);
+        if n < 90  {
+            eprintln!("Returning error");
+            RustIO::from_result(Err("Error".to_string()))
+        } else {
+            eprintln!("Returning success");
+            RustIO::from_result(Ok(v + &"world".to_string()))
+        }
     }
 }
