@@ -260,14 +260,12 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
     ///Returns an effect that ignores errors and runs repeatedly until it [eventually] succeeds
     /// We mark A type as Clone since we need a clone of the value for each iteration in the loop
     fn eventually<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone {
-        println!("Evaluating function");
         match self {
             Value(a) | Right(a) => {
                 loop {
-                    let s = op.clone();
-                    let x = a.clone();
-                    println!("Running function");
-                    let result = Empty().run_eventually(x, s);
+                    let op_copy = op.clone();
+                    let a_copy = a.clone();
+                    let result = op_copy(a_copy);
                     if result.is_ok() {
                         break result;
                     }
@@ -494,10 +492,6 @@ impl<A, T> RustIO<A, T> {
             }
             _ => self
         };
-    }
-
-    fn run_eventually<F: FnOnce(A) -> Self>(self, a: A, op: F) -> Self where A: Clone {
-        return op(a);
     }
 }
 
