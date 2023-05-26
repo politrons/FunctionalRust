@@ -67,7 +67,7 @@ macro_rules! rust_io {
 /// [is_ok][is_failed][is_empty]
 /// Async task executions
 /// [parallel][fork]
-pub trait Lift<A, T> {
+pub trait Lift<A, E, T> {
     fn lift(a: A) -> Self;
 
     fn of(a: A) -> Self;
@@ -81,6 +81,8 @@ pub trait Lift<A, T> {
     fn from_option(a: Option<A>) -> Self;
 
     fn from_result(a: Result<A, T>) -> Self;
+
+    fn with_env(self, e: E) -> Self;
 
     fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self;
 
@@ -141,29 +143,34 @@ pub trait Lift<A, T> {
     fn on_success<F: FnOnce(&A) -> ()>(self, op: F) -> Self;
 }
 
+struct IOEnv<A, E> {
+    env: Option<E>,
+    value: A,
+}
+
 ///Data structure to be used as the monad to be implemented as [Lift]
 /// RustIO monad can have the list of possible states.
-enum RustIO<A, T> {
-    Right(A),
-    Wrong(T),
-    Value(A),
+enum RustIO<A, E, T> {
+    Right(IOEnv<A, E>),
+    Wrong(IOEnv<T, E>),
+    Value(IOEnv<A, E>),
     Empty(),
     Fut(LocalBoxFuture<'static, A>),
 }
 
 /// Implementation of the Monad Lift.
-impl<A, T> Lift<A, T> for RustIO<A, T> {
+impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
     fn lift(a: A) -> Self {
         RustIO::of(a)
     }
 
     /// Pure value to create RustIO monad without side-effects.
     fn of(a: A) -> Self {
-        Value(a)
+        Value(IOEnv { env: None, value: a })
     }
 
     fn from_func(f: fn() -> A) -> Self {
-        Value(f())
+        Value(IOEnv { env: None, value: f() })
     }
 
     fn from_option_func(f: fn() -> Option<A>) -> Self {
@@ -177,14 +184,14 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
     fn from_option(a: Option<A>) -> Self {
         match a {
             None => Empty(),
-            Some(v) => Value(v)
+            Some(v) => Value(IOEnv { env: None, value: v })
         }
     }
 
     fn from_result(a: Result<A, T>) -> Self {
         match a {
-            Ok(v) => Right(v),
-            Err(t) => Wrong(t)
+            Ok(v) => Right(IOEnv { env: None, value: v }),
+            Err(t) => Wrong(IOEnv { env: None, value: t })
         }
     }
 
@@ -194,8 +201,8 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn get(self) -> A {
         match self {
-            Value(v) => v,
-            Right(t) => t,
+            Value(v) => v.value,
+            Right(t) => t.value,
             _ => panic!("Error, value not available"),
         }
     }
@@ -203,7 +210,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
     fn failed(self) -> T {
         match self {
             Value(_) | Right(_) | Empty() | Fut(_) => panic!("Error, value not available"),
-            Wrong(e) => e,
+            Wrong(e) => e.value,
         }
     }
 
@@ -241,22 +248,22 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn map<F: FnOnce(A) -> A>(self, op: F) -> Self {
         match self {
-            Value(v) => Value(op(v)),
-            Right(v) => Right(op(v)),
+            Value(v) => Value(IOEnv { env: v.env, value: op(v.value) }),
+            Right(v) => Right(IOEnv { env: v.env, value: op(v.value) }),
             _ => self,
         }
     }
 
     fn map_error<F: FnOnce(T) -> T>(self, op: F) -> Self {
         match self {
-            Wrong(e) => Wrong(op(e)),
+            Wrong(e) => Wrong(IOEnv { env: e.env, value: op(e.value) }),
             _ => self
         }
     }
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self {
         match self {
-            Value(a) | Right(a) => op(a),
+            Value(a) | Right(a) => op(a.value),
             Empty() => Empty(),
             Wrong(e) => Wrong(e),
             _ => self
@@ -272,7 +279,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             Value(a) | Right(a) => {
                 loop {
                     let op_copy = op.clone();
-                    let a_copy = a.clone();
+                    let a_copy = a.value.clone();
                     let result = op_copy(a_copy);
                     if result.is_ok() {
                         break result;
@@ -297,12 +304,12 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         return match self {
             Value(t) => {
                 let x = t;
-                return if predicate(&x) { Value(op(x)) } else { Empty() };
+                return if predicate(&x.value) { Value(IOEnv { env: x.env, value: op(x.value) }) } else { Empty() };
             }
             Empty() => Empty(),
             Right(a) => {
                 let x = a;
-                return if predicate(&x) { Right(op(x)) } else { Empty() };
+                return if predicate(&x.value) { Right(IOEnv { env: x.env, value: op(x.value) }) } else { Empty() };
             }
             Wrong(e) => Wrong(e),
             _ => self
@@ -313,12 +320,12 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         return match self {
             Value(t) => {
                 let x = t;
-                return if predicate(&x) { op(x) } else { Empty() };
+                return if predicate(&x.value) { op(x.value) } else { Empty() };
             }
             Empty() => Empty(),
             Right(a) => {
                 let x = a;
-                return if predicate(&x) { op(x) } else { Empty() };
+                return if predicate(&x.value) { op(x.value) } else { Empty() };
             }
             Wrong(e) => Wrong(e),
             _ => self
@@ -338,12 +345,12 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         return match self {
             Value(t) => {
                 let x = t;
-                return if op(&x) { Value(x) } else { Empty() };
+                return if op(&x.value) { Value(x) } else { Empty() };
             }
             Empty() => Empty(),
             Right(a) => {
                 let x = a;
-                return if op(&x) { Right(x) } else { Empty() };
+                return if op(&x.value) { Right(x) } else { Empty() };
             }
             Wrong(e) => Wrong(e),
             _ => self
@@ -352,17 +359,17 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self {
         match self {
-            Value(v) => Value(op(v)),
-            Right(v) => Right(op(v)),
-            Empty() => Value(default),
+            Value(v) => Value(IOEnv { env: v.env, value: op(v.value) }),
+            Right(v) => Right(IOEnv { env: v.env, value: op(v.value) }),
+            Empty() => Value(IOEnv { env: None, value: default }),
             _ => self
         }
     }
 
     fn recover<F: FnOnce() -> A>(self, op: F) -> Self {
         match self {
-            Wrong(_) => Right(op()),
-            Empty() => Value(op()),
+            Wrong(t) => Right(IOEnv { env: t.env, value: op() }),
+            Empty() => Value(IOEnv { env: None, value: op() }),
             _ => self
         }
     }
@@ -411,7 +418,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
     fn fork<F: FnOnce(A) -> A>(self, op: F) -> Self where A: 'static, F: 'static {
         match self {
             Value(v) | Right(v) => {
-                Fut(async { op(v) }.boxed_local())
+                Fut(async { op(v.value) }.boxed_local())
             }
             _ => self,
         }
@@ -431,12 +438,12 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         return match self {
             Value(v) => {
                 let x = v;
-                op(&x);
+                op(&x.value);
                 Value(x)
             }
             Right(v) => {
                 let x = v;
-                op(&x);
+                op(&x.value);
                 Right(x)
             }
             _ => self
@@ -447,7 +454,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         return match self {
             Wrong(v) => {
                 let x = v;
-                op(&x);
+                op(&x.value);
                 Wrong(x)
             }
             _ => self
@@ -458,16 +465,26 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         return match self {
             Right(v) => {
                 let x = v;
-                op(&x);
+                op(&x.value);
                 Right(x)
             }
             _ => self
         };
     }
+
+    fn with_env(self, e: E) -> Self {
+        return match self {
+            Value(t) => Value(IOEnv { env: Some(e), value: t.value }),
+            Empty() => Empty(),
+            Right(a) => Right(IOEnv { env: Some(e), value: a.value }),
+            Wrong(t) => Wrong(IOEnv { env: Some(e), value: t.value }),
+            _ => self
+        };
+    }
 }
 
-impl<A, T> RustIO<A, T> {
-    async fn run_future_zip_tasks<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self>(&self, a: Z1, b: Z2) -> (RustIO<A, T>, RustIO<A, T>) {
+impl<A, E, T> RustIO<A, E, T> {
+    async fn run_future_zip_tasks<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self>(&self, a: Z1, b: Z2) -> (RustIO<A, E, T>, RustIO<A, E, T>) {
         let future_zip1 = async {
             a()
         };
@@ -477,7 +494,7 @@ impl<A, T> RustIO<A, T> {
         return futures::join!(future_zip1,future_zip2);
     }
 
-    async fn run_future_tasks<Task: FnOnce() -> Self>(&self, tasks: Vec<Task>) -> Vec<RustIO<A, T>> {
+    async fn run_future_tasks<Task: FnOnce() -> Self>(&self, tasks: Vec<Task>) -> Vec<RustIO<A, E, T>> {
         let future_tasks = tasks.into_iter()
             .fold(vec!(), |futures, task: Task| {
                 let future_task = vec![async { return task(); }];
@@ -486,26 +503,26 @@ impl<A, T> RustIO<A, T> {
         return join_all(future_tasks).await;
     }
 
-    async fn unbox_fork(self) -> RustIO<A, T> {
+    async fn unbox_fork(self) -> RustIO<A, E, T> {
         match self {
             Fut(fut_box) => {
                 println!("Extracting future");
-                Value(fut_box.await)
+                Value(IOEnv { env: None, value: fut_box.await })
             }
             _ => Empty(),
         }
     }
 
-    async fn run_daemon<F: FnOnce(&A) -> ()>(self, op: F) -> RustIO<A, T> {
+    async fn run_daemon<F: FnOnce(&A) -> ()>(self, op: F) -> RustIO<A, E, T> {
         return match self {
             Value(v) => {
                 let x = v;
-                async { op(&x) }.await;
+                async { op(&x.value) }.await;
                 Value(x)
             }
             Right(v) => {
                 let x = v;
-                async { op(&x) }.await;
+                async { op(&x.value) }.await;
                 Right(x)
             }
             _ => self
@@ -519,7 +536,7 @@ impl<A, T> RustIO<A, T> {
                 loop {
                     let op_copy = op.clone();
                     let predicate_copy = predicate.clone();
-                    let a_copy = a.clone();
+                    let a_copy = a.value.clone();
                     let result = op_copy(a_copy);
                     if result.is_ok() || predicate_copy() == cond {
                         break result;
@@ -537,7 +554,7 @@ mod tests {
 
     #[test]
     fn rio() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              _ <- RustIO::of(String::from("1981"));
              v <- RustIO::from_option(Some(String::from("hello")));
              t <- RustIO::from_option_func(|| Some(String::from(" pure")));
@@ -555,7 +572,7 @@ mod tests {
 
     #[test]
     fn rio_map() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .map(|v| v.to_uppercase());
              x <- RustIO::from_result(Ok(String::from(" world")))
@@ -570,7 +587,7 @@ mod tests {
 
     #[test]
     fn rio_flat_map() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .flat_map(|v| RustIO::of( v + &String::from(" world")))
                         .map(|v| v.to_uppercase());
@@ -584,7 +601,7 @@ mod tests {
 
     #[test]
     fn rio_filter() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .flat_map(|v| RustIO::of( v + &String::from(" world")))
                         .filter(|v| v.len() > 5);
@@ -598,15 +615,15 @@ mod tests {
 
     #[test]
     fn rio_compose_two_programs() {
-        let rio_program_1: RustIO<String, String> = rust_io! {
+        let rio_program_1: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")));
              RustIO::of(v + &" ".to_string())
         };
-        let rio_program_2: RustIO<String, String> = rust_io! {
+        let rio_program_2: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("world")));
              RustIO::of(v + &"!!".to_string())
         };
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- rio_program_1;
              i <- rio_program_2;
              RustIO::of(v + &i).map(|v| v.to_uppercase())
@@ -618,7 +635,7 @@ mod tests {
 
     #[test]
     fn rio_fold() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(None)
                         .fold("hello world!!".to_string(), |v| v.to_uppercase());
              RustIO::of(v)
@@ -630,7 +647,7 @@ mod tests {
 
     #[test]
     fn rio_empty_recover() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(None)
                         .recover(|| "hello world!!".to_string());
              RustIO::of(v)
@@ -642,7 +659,7 @@ mod tests {
 
     #[test]
     fn rio_error_recover() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Err("".to_string()))
                         .recover(|| "hello world!!".to_string());
              RustIO::of(v)
@@ -654,7 +671,7 @@ mod tests {
 
     #[test]
     fn rio_option_recover_with() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(None)
                         .recover_with(|| RustIO::from_option(Some("hello world!!".to_string())));
              RustIO::of(v)
@@ -666,7 +683,7 @@ mod tests {
 
     #[test]
     fn rio_error_recover_with() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Err("".to_string()))
                         .recover_with(|| RustIO::from_result(Ok("hello world!!".to_string())));
              RustIO::of(v)
@@ -678,7 +695,7 @@ mod tests {
 
     #[test]
     fn rio_error() {
-        let rio_program: RustIO<String, i32> = rust_io! {
+        let rio_program: RustIO<String, String, i32> = rust_io! {
              i <- RustIO::from_option(Some(String::from("hello")));
              _ <- RustIO::from_result(Err(503));
              v <- RustIO::from_option(Some(String::from("world")));
@@ -691,7 +708,7 @@ mod tests {
 
     #[test]
     fn rio_filter_empty() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .filter(|v| v.len() > 10);
              i <- RustIO::of(String::from("!!"));
@@ -704,7 +721,7 @@ mod tests {
 
     #[test]
     fn rio_delay() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some("hello world!!".to_string()))
                         .delay(Duration::from_secs(2));
              RustIO::of(v)
@@ -716,7 +733,7 @@ mod tests {
 
     #[test]
     fn rio_get_or_else() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Err("".to_string()));
              RustIO::of(v)
         };
@@ -727,7 +744,7 @@ mod tests {
 
     #[test]
     fn rio_merge() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::merge(
                 RustIO::from_option(Some("hello".to_string())), RustIO::from_option(Some(" world!!".to_string())),
                 |a,b| RustIO::from_option(Some(a + &b)));
@@ -740,7 +757,7 @@ mod tests {
 
     #[test]
     fn rio_merge_error() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::merge(
                 RustIO::from_option(Some("hello".to_string())), RustIO::from_option(None),
                 |a,b| RustIO::from_option(Some(a + &b)));
@@ -753,7 +770,7 @@ mod tests {
 
     #[test]
     fn rio_zip() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::zip(
                 || RustIO::from_option(Some("hello".to_string())), || RustIO::from_option(Some(" world!!".to_string())),
                 |a,b| RustIO::from_option(Some(a + &b)));
@@ -766,12 +783,12 @@ mod tests {
 
     #[test]
     fn rio_parallel() {
-        let mut parallel_tasks: Vec<fn() -> RustIO<String, String>> = vec!();
+        let mut parallel_tasks: Vec<fn() -> RustIO<String, String, String>> = vec!();
         parallel_tasks.push(|| RustIO::from_option(Some("hello".to_string())));
         parallel_tasks.push(|| RustIO::from_result(Ok(" world".to_string())));
         parallel_tasks.push(|| RustIO::of("!!".to_string()));
 
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::parallel(parallel_tasks,|tasks| RustIO::of(tasks.into_iter().collect()));
              RustIO::of(v)
         };
@@ -782,7 +799,7 @@ mod tests {
 
     #[test]
     fn rio_map_error() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Err(String::from("Error A")))
                 .map_error(|t| String::from("Error B"));
             RustIO::of(v)
@@ -794,7 +811,7 @@ mod tests {
 
     #[test]
     fn rio_when() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .when(|v| v.len() > 3, |v| v + &" world!!".to_string());
              RustIO::of(v)
@@ -806,7 +823,7 @@ mod tests {
 
     #[test]
     fn rio_when_rio() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .when_rio(|v| v.len() > 3, |v| RustIO::from_option(Some(v + &" world!!".to_string())));
              RustIO::of(v)
@@ -818,7 +835,7 @@ mod tests {
 
     #[test]
     fn rio_peek() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello world!!")))
                 .peek(|v| println!("${}",v));
              RustIO::of(v)
@@ -830,7 +847,7 @@ mod tests {
 
     #[test]
     fn rio_fork() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .fork(|v| {
                             println!("Fork. Variable:{} in Thread:{:?}", v, thread::current().id());
@@ -848,7 +865,7 @@ mod tests {
 
     #[test]
     fn rio_daemon() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello world!!")))
                 .daemon(|v| println!("${}",v));
              RustIO::of(v)
@@ -860,7 +877,7 @@ mod tests {
 
     #[test]
     fn rio_on_success() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Ok(String::from("hello world!!")))
                 .on_success(|v| println!("Success program: ${}",v));
              RustIO::of(v)
@@ -872,7 +889,7 @@ mod tests {
 
     #[test]
     fn rio_on_error() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Err(String::from("burning world!!")))
                 .on_error(|v| println!("Error program: ${}",v));
              RustIO::of(v)
@@ -884,7 +901,7 @@ mod tests {
 
     #[test]
     fn rio_eventually() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
                 .at_some_point(|v| get_eventual_result( v));
              RustIO::of(v)
@@ -896,7 +913,7 @@ mod tests {
 
     #[test]
     fn rio_eventually_while() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
                 .at_some_point_while(|| true,|v| get_eventual_result( v));
              RustIO::of(v)
@@ -908,7 +925,7 @@ mod tests {
 
     #[test]
     fn rio_eventually_until() {
-        let rio_program: RustIO<String, String> = rust_io! {
+        let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
                 .at_some_point_until(|| {
                     std::thread::sleep(Duration::from_millis(100));
@@ -921,7 +938,19 @@ mod tests {
         assert_eq!(rio_program.is_failed(), false);
     }
 
-    fn get_eventual_result(v: String) -> RustIO<String, String> {
+    #[test]
+    fn rio_with_environment() {
+        let rio_program: RustIO<String, String, String> = rust_io! {
+             v <- RustIO::from_result(Ok("hello environment world".to_string()))
+                            .with_env("This is a config environment".to_string());
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello environment world");
+    }
+
+    fn get_eventual_result(v: String) -> RustIO<String, String, String> {
         let mut rng = thread_rng();
         let n: i32 = rng.gen_range(0..100);
         println!("${}", n);
