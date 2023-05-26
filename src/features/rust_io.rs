@@ -82,6 +82,8 @@ pub trait Lift<A, E, T> {
 
     fn from_result(a: Result<A, T>) -> Self;
 
+    fn with_env(self, e: E) -> Self;
+
     fn merge<F: FnOnce(A, A) -> Self>(a: Self, b: Self, op: F) -> Self;
 
     fn get(self) -> A;
@@ -182,14 +184,14 @@ impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
     fn from_option(a: Option<A>) -> Self {
         match a {
             None => Empty(),
-            Some(v) => Value(IOEnv { env: None, value:v})
+            Some(v) => Value(IOEnv { env: None, value: v })
         }
     }
 
     fn from_result(a: Result<A, T>) -> Self {
         match a {
-            Ok(v) => Right(IOEnv { env: None, value:v}),
-            Err(t) => Wrong(IOEnv { env: None, value:t})
+            Ok(v) => Right(IOEnv { env: None, value: v }),
+            Err(t) => Wrong(IOEnv { env: None, value: t })
         }
     }
 
@@ -246,15 +248,15 @@ impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
 
     fn map<F: FnOnce(A) -> A>(self, op: F) -> Self {
         match self {
-            Value(v) => Value(IOEnv { env: v.env, value:op(v.value)}),
-            Right(v) => Right(IOEnv { env: v.env, value:op(v.value)}),
+            Value(v) => Value(IOEnv { env: v.env, value: op(v.value) }),
+            Right(v) => Right(IOEnv { env: v.env, value: op(v.value) }),
             _ => self,
         }
     }
 
     fn map_error<F: FnOnce(T) -> T>(self, op: F) -> Self {
         match self {
-            Wrong(e) => Wrong(IOEnv { env: e.env, value:op(e.value)}),
+            Wrong(e) => Wrong(IOEnv { env: e.env, value: op(e.value) }),
             _ => self
         }
     }
@@ -357,17 +359,17 @@ impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
 
     fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self {
         match self {
-            Value(v) => Value(IOEnv { env: v.env, value:op(v.value)}),
-            Right(v) => Right(IOEnv { env: v.env, value:op(v.value)}),
-            Empty() => Value(IOEnv { env: None, value:default}),
+            Value(v) => Value(IOEnv { env: v.env, value: op(v.value) }),
+            Right(v) => Right(IOEnv { env: v.env, value: op(v.value) }),
+            Empty() => Value(IOEnv { env: None, value: default }),
             _ => self
         }
     }
 
     fn recover<F: FnOnce() -> A>(self, op: F) -> Self {
         match self {
-            Wrong(t) => Right(IOEnv { env: t.env, value:op()}),
-            Empty() => Value(IOEnv { env: None, value:op()}),
+            Wrong(t) => Right(IOEnv { env: t.env, value: op() }),
+            Empty() => Value(IOEnv { env: None, value: op() }),
             _ => self
         }
     }
@@ -469,6 +471,16 @@ impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
             _ => self
         };
     }
+
+    fn with_env(self, e: E) -> Self {
+        return match self {
+            Value(t) => Value(IOEnv { env: Some(e), value: t.value }),
+            Empty() => Empty(),
+            Right(a) => Right(IOEnv { env: Some(e), value: a.value }),
+            Wrong(t) => Wrong(IOEnv { env: Some(e), value: t.value }),
+            _ => self
+        };
+    }
 }
 
 impl<A, E, T> RustIO<A, E, T> {
@@ -495,7 +507,7 @@ impl<A, E, T> RustIO<A, E, T> {
         match self {
             Fut(fut_box) => {
                 println!("Extracting future");
-                Value(IOEnv { env: None, value:fut_box.await})
+                Value(IOEnv { env: None, value: fut_box.await })
             }
             _ => Empty(),
         }
@@ -924,6 +936,18 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.is_failed(), false);
+    }
+
+    #[test]
+    fn rio_with_environment() {
+        let rio_program: RustIO<String, String, String> = rust_io! {
+             v <- RustIO::from_result(Ok("hello environment world".to_string()))
+                            .with_env("This is a config environment".to_string());
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello environment world");
     }
 
     fn get_eventual_result(v: String) -> RustIO<String, String, String> {
