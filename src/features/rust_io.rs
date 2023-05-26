@@ -246,15 +246,15 @@ impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
 
     fn map<F: FnOnce(A) -> A>(self, op: F) -> Self {
         match self {
-            Value(v) => Value(IOEnv { env: None, value:op(v.value)}),
-            Right(v) => Right(IOEnv { env: None, value:op(v.value)}),
+            Value(v) => Value(IOEnv { env: v.env, value:op(v.value)}),
+            Right(v) => Right(IOEnv { env: v.env, value:op(v.value)}),
             _ => self,
         }
     }
 
     fn map_error<F: FnOnce(T) -> T>(self, op: F) -> Self {
         match self {
-            Wrong(e) => Wrong(IOEnv { env: None, value:op(e.value)}),
+            Wrong(e) => Wrong(IOEnv { env: e.env, value:op(e.value)}),
             _ => self
         }
     }
@@ -357,8 +357,8 @@ impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
 
     fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self {
         match self {
-            Value(v) => Value(IOEnv { env: None, value:op(v.value)}),
-            Right(v) => Right(IOEnv { env: None, value:op(v.value)}),
+            Value(v) => Value(IOEnv { env: v.env, value:op(v.value)}),
+            Right(v) => Right(IOEnv { env: v.env, value:op(v.value)}),
             Empty() => Value(IOEnv { env: None, value:default}),
             _ => self
         }
@@ -366,7 +366,7 @@ impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
 
     fn recover<F: FnOnce() -> A>(self, op: F) -> Self {
         match self {
-            Wrong(_) => Right(IOEnv { env: None, value:op()}),
+            Wrong(t) => Right(IOEnv { env: t.env, value:op()}),
             Empty() => Value(IOEnv { env: None, value:op()}),
             _ => self
         }
