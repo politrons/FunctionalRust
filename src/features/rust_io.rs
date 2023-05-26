@@ -142,6 +142,7 @@ pub trait Lift<A, T> {
 }
 
 ///Data structure to be used as the monad to be implemented as [Lift]
+/// RustIO monad can have the list of possible states.
 enum RustIO<A, T> {
     Right(A),
     Wrong(T),
