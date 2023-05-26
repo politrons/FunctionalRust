@@ -282,12 +282,12 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
-    /// Retry pattern of a task while a predicate condition is [true]
+    /// Retry pattern of a task while a predicate condition is [false]
     fn at_some_point_while<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone {
         self.at_some_point_cond(false, predicate, op)
     }
 
-    /// Retry pattern of a task while a predicate condition is [false]
+    /// Retry pattern of a task while a predicate condition is [true]
     fn at_some_point_until<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone {
         self.at_some_point_cond(true, predicate, op)
     }
