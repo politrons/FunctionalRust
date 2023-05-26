@@ -102,7 +102,9 @@ pub trait Lift<A, T> {
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
 
-    fn eventually<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone;
+    fn at_some_point<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone;
+
+    fn at_some_point_while<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone;
 
     fn when<P: FnOnce(&A) -> bool, F: FnOnce(A) -> A>(self, predicate: P, op: F) -> Self;
 
@@ -257,9 +259,9 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
-    ///Returns an effect that ignores errors and runs repeatedly until it [eventually] succeeds
+    ///Returns an effect that ignores errors and runs repeatedly until it [at_some_point] succeeds
     /// We mark A type as Clone since we need a clone of the value for each iteration in the loop
-    fn eventually<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone {
+    fn at_some_point<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone {
         match self {
             Value(a) | Right(a) => {
                 loop {
@@ -267,6 +269,23 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
                     let a_copy = a.clone();
                     let result = op_copy(a_copy);
                     if result.is_ok() {
+                        break result;
+                    }
+                }
+            }
+            _ => self
+        }
+    }
+
+    fn at_some_point_while<P: FnOnce() -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self where A: Clone, P: Clone, F: Clone {
+        match self {
+            Value(a) | Right(a) => {
+                loop {
+                    let op_copy = op.clone();
+                    let predicate_copy = predicate.clone();
+                    let a_copy = a.clone();
+                    let result = op_copy(a_copy);
+                    if result.is_ok() || !predicate_copy() {
                         break result;
                     }
                 }
@@ -848,7 +867,19 @@ mod tests {
     fn rio_eventually() {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
-                .eventually(|v| get_eventual_result( v));
+                .at_some_point(|v| get_eventual_result( v));
+             RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.is_failed(), false);
+    }
+
+    #[test]
+    fn rio_eventually_while() {
+        let rio_program: RustIO<String, String> = rust_io! {
+             v <- RustIO::from_result(Ok("hello".to_string()))
+                .at_some_point_while(|| throw_coin(),|v| get_eventual_result( v));
              RustIO::of(v)
         };
         println!("${:?}", rio_program.is_empty());
@@ -860,12 +891,18 @@ mod tests {
         let mut rng = thread_rng();
         let n: i32 = rng.gen_range(0..100);
         println!("${}", n);
-        if n < 90  {
+        if n < 90 {
             eprintln!("Returning error");
             RustIO::from_result(Err("Error".to_string()))
         } else {
             eprintln!("Returning success");
             RustIO::from_result(Ok(v + &"world".to_string()))
         }
+    }
+
+    fn throw_coin() -> bool {
+        let mut rng = thread_rng();
+        let n: i32 = rng.gen_range(0..100);
+        return n < 90;
     }
 }
