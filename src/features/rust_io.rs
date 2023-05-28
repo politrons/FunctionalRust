@@ -19,7 +19,7 @@ use crate::features::rust_io::RustIO::{Empty, Fut, Right, Value, Wrong};
 #[macro_export]
 macro_rules! rust_io {
   // return
-  (return $r:expr ;) => {
+  (yield $r:expr ;) => {
     $crate::features::rust_io::Lift::lift($r)
   };
 
@@ -546,7 +546,7 @@ mod tests {
              i <- RustIO::of(String::from("!!"));
              y <- RustIO::from_result_func(|| Ok(String::from("!!")));
 
-             return v + &t + &z + &x + &i + &y;
+             yield v + &t + &z + &x + &i + &y;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -561,7 +561,7 @@ mod tests {
              x <- RustIO::from_result(Ok(String::from(" world")))
                         .map(|v| v.to_uppercase());
              i <- RustIO::of(String::from("!!"));
-             return v + &x + &i;
+             yield v + &x + &i;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -575,7 +575,7 @@ mod tests {
                         .flat_map(|v| RustIO::of( v + &String::from(" world")))
                         .map(|v| v.to_uppercase());
              i <- RustIO::of(String::from("!!"));
-             return v + &i;
+             yield v + &i;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -589,7 +589,7 @@ mod tests {
                         .flat_map(|v| RustIO::of( v + &String::from(" world")))
                         .filter(|v| v.len() > 5);
              i <- RustIO::of(String::from("!!"));
-             return v + &i;
+             yield v + &i;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -600,11 +600,11 @@ mod tests {
     fn rio_compose_two_programs() {
         let rio_program_1: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")));
-             return v + &" ".to_string();
+             yield v + &" ".to_string();
         };
         let rio_program_2: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("world")));
-             return v + &"!!".to_string();
+             yield v + &"!!".to_string();
         };
         let rio_program: RustIO<String, String> = rust_io! {
              v <- rio_program_1;
@@ -621,7 +621,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(None)
                         .fold("hello world!!".to_string(), |v| v.to_uppercase());
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -633,7 +633,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(None)
                         .recover(|| "hello world!!".to_string());
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -645,7 +645,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Err("".to_string()))
                         .recover(|| "hello world!!".to_string());
-            return v;
+            yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -657,7 +657,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(None)
                         .recover_with(|| RustIO::from_option(Some("hello world!!".to_string())));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -669,7 +669,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Err("".to_string()))
                         .recover_with(|| RustIO::from_result(Ok("hello world!!".to_string())));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -682,7 +682,7 @@ mod tests {
              i <- RustIO::from_option(Some(String::from("hello")));
              _ <- RustIO::from_result(Err(503));
              v <- RustIO::from_option(Some(String::from("world")));
-             return (i + &v);
+             yield (i + &v);
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -695,7 +695,7 @@ mod tests {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .filter(|v| v.len() > 10);
              i <- RustIO::of(String::from("!!"));
-             return (v + &i);
+             yield (v + &i);
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -707,7 +707,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some("hello world!!".to_string()))
                         .delay(Duration::from_secs(2));
-            return v;
+            yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -718,7 +718,7 @@ mod tests {
     fn rio_get_or_else() {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Err("".to_string()));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -731,7 +731,7 @@ mod tests {
              v <- RustIO::merge(
                 RustIO::from_option(Some("hello".to_string())), RustIO::from_option(Some(" world!!".to_string())),
                 |a,b| RustIO::from_option(Some(a + &b)));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -744,7 +744,7 @@ mod tests {
              v <- RustIO::merge(
                 RustIO::from_option(Some("hello".to_string())), RustIO::from_option(None),
                 |a,b| RustIO::from_option(Some(a + &b)));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -757,7 +757,7 @@ mod tests {
              v <- RustIO::zip(
                 || RustIO::from_option(Some("hello".to_string())), || RustIO::from_option(Some(" world!!".to_string())),
                 |a,b| RustIO::from_option(Some(a + &b)));
-            return v;
+            yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -773,7 +773,7 @@ mod tests {
 
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::parallel(parallel_tasks,|tasks| RustIO::of(tasks.into_iter().collect()));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -785,7 +785,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Err(String::from("Error A")))
                 .map_error(|t| String::from("Error B"));
-            return v;
+            yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -797,7 +797,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .when(|v| v.len() > 3, |v| v + &" world!!".to_string());
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -809,7 +809,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello")))
                         .when_rio(|v| v.len() > 3, |v| RustIO::from_option(Some(v + &" world!!".to_string())));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -821,7 +821,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello world!!")))
                 .peek(|v| println!("${}",v));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -839,7 +839,7 @@ mod tests {
                         .join();
              x <- RustIO::from_option(Some(String::from(" world!!")))
                     .peek(|v| println!("Join. Variable:{} in Thread:{:?}", v, thread::current().id()));
-             return v + &x;
+             yield v + &x;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -851,7 +851,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello world!!")))
                 .daemon(|v| println!("${}",v));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -863,7 +863,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Ok(String::from("hello world!!")))
                 .on_success(|v| println!("Success program: ${}",v));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -875,7 +875,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Err(String::from("burning world!!")))
                 .on_error(|v| println!("Error program: ${}",v));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -887,7 +887,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
                 .at_some_point(|v| get_eventual_result( v));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -899,7 +899,7 @@ mod tests {
         let rio_program: RustIO<String, String> = rust_io! {
              v <- RustIO::from_result(Ok("hello".to_string()))
                 .at_some_point_while(|| true,|v| get_eventual_result( v));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -914,7 +914,7 @@ mod tests {
                     std::thread::sleep(Duration::from_millis(100));
                     false
                 },|v| get_eventual_result( v));
-             return v;
+             yield v;
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
