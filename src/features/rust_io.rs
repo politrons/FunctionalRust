@@ -18,11 +18,10 @@ use crate::features::rust_io::RustIO::{Empty, Fut, Right, Value, Wrong};
 /// Work based on original idea of crate [do-notation]
 #[macro_export]
 macro_rules! rust_io {
-  // return
-  (return $r:expr ;) => {
-    $crate::Lift::lift($r)
-  };
 
+  (return $r:expr ;) => {
+    $crate::features::rust_io::Lift::lift($r)
+  };
   // let variable bind
   (let $p:pat = $e:expr ; $($r:tt)*) => {{
     let $p = $e;
@@ -37,6 +36,11 @@ macro_rules! rust_io {
   // bind
   ($bind:ident <- $x:expr ; $($r:tt)*) => {
     $x.flat_map(move |$bind| { rust_io!($($r)*) })
+      .with_env("hello".to_string())
+  };
+
+  ($bind:ident <= $x:expr ; $($r:tt)*) => {
+    $x.environment({ rust_io!($($r)*) })
   };
 
   // return type from do-notation
@@ -68,6 +72,12 @@ macro_rules! rust_io {
 /// Async task executions
 /// [parallel][fork]
 pub trait Lift<A, E, T> {
+
+    fn get_env() {
+        static COUNTER: u32 = 1981;
+    }
+
+
     fn lift(a: A) -> Self;
 
     fn of(a: A) -> Self;
@@ -103,6 +113,8 @@ pub trait Lift<A, E, T> {
     fn map_error<F: FnOnce(T) -> T>(self, op: F) -> Self;
 
     fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self;
+
+    fn environment<F: FnOnce(Option<E>) -> Self>(self, op: F) -> Self;
 
     fn at_some_point<F: FnOnce(A) -> Self>(self, op: F) -> Self where A: Clone, F: Clone;
 
@@ -160,6 +172,7 @@ enum RustIO<A, E, T> {
 
 /// Implementation of the Monad Lift.
 impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
+
     fn lift(a: A) -> Self {
         RustIO::of(a)
     }
@@ -481,6 +494,13 @@ impl<A, E, T> Lift<A, E, T> for RustIO<A, E, T> {
             _ => self
         };
     }
+
+    fn environment<F: FnOnce(Option<E>) -> Self>(self, op: F) -> Self {
+        match self {
+            Value(a) | Right(a) => op(a.env),
+            _ => self
+        }
+    }
 }
 
 impl<A, E, T> RustIO<A, E, T> {
@@ -563,7 +583,7 @@ mod tests {
              i <- RustIO::of(String::from("!!"));
              y <- RustIO::from_result_func(|| Ok(String::from("!!")));
 
-             RustIO::of(v + &t + &z + &x + &i + &y)
+             return (v + &t + &z + &x + &i + &y);
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -838,7 +858,7 @@ mod tests {
         let rio_program: RustIO<String, String, String> = rust_io! {
              v <- RustIO::from_option(Some(String::from("hello world!!")))
                 .peek(|v| println!("${}",v));
-             RustIO::of(v)
+             return RustIO::of(v)
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
@@ -944,6 +964,18 @@ mod tests {
              v <- RustIO::from_result(Ok("hello environment world".to_string()))
                             .with_env("This is a config environment".to_string());
              RustIO::of(v)
+        };
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(rio_program.get(), "hello environment world");
+    }
+
+    #[test]
+    fn rio_environment() {
+        let rio_program: RustIO<String, String, String> = rust_io! {
+             program <- RustIO::from_result(Ok("${}".to_string()))
+                    .with_env("hello environment world".to_string());
+            RustIO::of(program)
         };
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
