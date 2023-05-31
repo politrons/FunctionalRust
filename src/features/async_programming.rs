@@ -1,7 +1,9 @@
 use std::future::Future;
 use std::{thread, time};
+use std::time::Duration;
 use futures::executor::block_on;
 use futures::{FutureExt, TryFutureExt, TryStreamExt};
+use async_std::task;
 
 pub fn run() {
     async_block();
@@ -79,4 +81,30 @@ fn async_with_arguments() {
         println!("Variable:{} in Thread:{:?}", value, thread::current().id())
     };
     block_on(future)
+}
+
+/// In Rust we can also implement [Fire & Forget] pattern.
+/// We only need to have an invocation of a async method which return a [Future]
+/// Then use this future passing into [async_std::task::spawn]
+fn fire_and_forget(){
+    let future = future_stuff();
+    let _ = async_std::task::spawn(future);
+    println!("Continue execution without blocks ${:?}", std::time::Instant::now());
+    std::thread::sleep(Duration::from_secs(4));
+}
+
+async fn future_stuff(){
+    std::thread::sleep(Duration::from_secs(2));
+    println!("Hello fire and forget ${:?}", std::time::Instant::now());
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fire_and_forget_test() {
+        fire_and_forget()
+    }
 }
