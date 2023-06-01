@@ -21,4 +21,5 @@ pub mod new_types;
 pub mod do_notation_style;
 pub mod rust_io;
 pub mod race_futures;
+pub mod promise;
 

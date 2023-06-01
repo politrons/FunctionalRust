@@ -9,7 +9,7 @@ async fn produce(brokers: &str, topic_name: &str) {
     let producer = &create_producer(brokers);
     // This loop is non blocking: all messages will be sent one after the other, without waiting
     // for the results.
-    let futures = (0..5)
+    let futures = (0..1000)
         .map(|i| async move {
             let delivery_result = send_record(topic_name, &producer, &i).await;
             println!("Delivery status for message {} received", i);

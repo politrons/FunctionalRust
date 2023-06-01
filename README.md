@@ -19,6 +19,7 @@ Examples of functional programing in Rust
 * **[Collection](src/features/collection.rs)**
 * **[async-await](src/features/async_programming.rs)**
 * **[channels](src/features/channels_feature.rs)**
+* **[promise](src/features/promise.rs)**
 * **[pattern matching](src/features/pattern_matching.rs)**
 * **[smart pointer](src/features/smart_pointer.rs)**
 * **[NewTypes](src/features/new_types.rs)**
