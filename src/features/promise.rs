@@ -1,10 +1,10 @@
 use std::{thread, time};
 use std::future::Future;
+use std::io;
+use std::net::TcpListener;
 use std::sync::mpsc::{channel, Receiver, RecvError, SendError};
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
-use std::io;
-use std::net::TcpListener;
 
 use futures::executor::block_on;
 

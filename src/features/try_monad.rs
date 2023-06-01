@@ -1,4 +1,5 @@
 use std::fmt::Error;
+
 /**
 Having in Rust [Result] monad, this implementation is more a patter to show how we can abstract behavior.
 */

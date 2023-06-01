@@ -8,10 +8,12 @@ use futures::{
 mod tests {
     use std::future;
     use std::time::Duration;
+
     use futures::executor::block_on;
+
     use super::*;
 
-    //
+//
     // #[test]
     // fn race() {
     //     block_on(race_tasks());

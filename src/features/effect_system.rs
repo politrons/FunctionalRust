@@ -1,7 +1,6 @@
 use std::fmt::Error;
 use std::ops::Not;
 
-
 pub fn run() {
     result_effect();
     option_effect("hello option monad");

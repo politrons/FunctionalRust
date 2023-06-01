@@ -1,9 +1,10 @@
-use std::future::Future;
 use std::{thread, time};
+use std::future::Future;
 use std::time::Duration;
-use futures::executor::block_on;
-use futures::{FutureExt, TryFutureExt, TryStreamExt};
+
 use async_std::task;
+use futures::{FutureExt, TryFutureExt, TryStreamExt};
+use futures::executor::block_on;
 
 pub fn run() {
     async_block();

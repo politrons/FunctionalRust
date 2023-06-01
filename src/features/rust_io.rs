@@ -4,12 +4,12 @@ use std::process::Output;
 use std::task::{Context, Poll};
 use std::thread;
 use std::time::Duration;
-use rand::{thread_rng, Rng};
 
-use futures::executor::block_on;
 use futures::{future, FutureExt};
-use futures::stream::iter;
+use futures::executor::block_on;
 use futures::future::{BoxFuture, join_all, LocalBoxFuture};
+use futures::stream::iter;
+use rand::{Rng, thread_rng};
 
 use crate::features::rust_io::RustIO::{Empty, Fut, Right, Value, Wrong};
 
