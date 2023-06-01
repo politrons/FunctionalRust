@@ -16,10 +16,10 @@ use futures::executor::block_on;
 /// and once the Promise finish you will receive the [Result] with the value specify in the type,
 /// or side-effect [RecvError]
 fn promise_feature() {
-    let (promise, receiver): (Sender<String>, Receiver<String>) = mpsc::channel();
+    let (promise, future): (Sender<String>, Receiver<String>) = mpsc::channel();
     async_std::task::spawn(async_task(promise));
     println!("Continue the work....");
-    let result = receiver.recv();
+    let result = future.recv();
     match result {
         Ok(v) => println!("Received: {}", v),
         Err(error) => println!("{}", error.to_string()),
