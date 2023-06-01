@@ -32,7 +32,7 @@ async fn async_task(promise: Sender<String>) {
     thread::sleep(time::Duration::from_secs(2));
     let ack = promise.send(String::from("I finish my task successfully"));
     match ack {
-        Ok(()) => println!("Promise sent successful"),
+        Ok(()) => println!("Promise sent successfully"),
         Err(error) => println!("{}", error.to_string()),
     }
 }
