@@ -6,6 +6,7 @@
       <module fileurl="file://$PROJECT_DIR$/actix/actix.iml" filepath="$PROJECT_DIR$/actix/actix.iml" />
       <module fileurl="file://$PROJECT_DIR$/goose/goose.iml" filepath="$PROJECT_DIR$/goose/goose.iml" />
       <module fileurl="file://$PROJECT_DIR$/kafka/kafka.iml" filepath="$PROJECT_DIR$/kafka/kafka.iml" />
+      <module fileurl="file://$PROJECT_DIR$/red_panda/red_panda.iml" filepath="$PROJECT_DIR$/red_panda/red_panda.iml" />
       <module fileurl="file://$PROJECT_DIR$/tokio/tokio.iml" filepath="$PROJECT_DIR$/tokio/tokio.iml" />
     </modules>
   </component>

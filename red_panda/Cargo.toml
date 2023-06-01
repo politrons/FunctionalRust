@@ -1,0 +1,17 @@
+[package]
+name = "FunctionalRust"
+version = "0.1.0"
+edition = "2021"
+
+
+[[bin]]
+name = "red_panda_consumer"
+path = "src/red_panda_consumer.rs"
+
+[[bin]]
+name = "red_panda_producer"
+path = "src/red_panda_producer.rs"
+
+[dependencies]
+rdkafka = "0.25.0"
+tokio = { version = "1", features = ["full"] }
