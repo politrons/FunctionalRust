@@ -1,3 +1,5 @@
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, RecvError, Sender};
 use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::{CommitMode, Consumer, ConsumerContext, Rebalance};
@@ -23,15 +25,19 @@ impl ConsumerContext for CustomContext {
         println!("Post rebalance {:?}", rebalance);
     }
 
-    fn commit_callback(&self, result: KafkaResult<()>, _offsets: &TopicPartitionList) { println!("Committing offsets: {:?}", result);
+    fn commit_callback(&self, result: KafkaResult<()>, _offsets: &TopicPartitionList) {
+        println!("Committing offsets: {:?}", result);
     }
 }
 
-async fn consume(brokers: &str, group_id: &str, topics: &[&str]) {
+async fn consume(promise: Sender<bool>) {
+    let topics = ["my_red_panda_topic"];
+    let brokers = "localhost:9092";
+    let group_id = "red_panda_group-id";
     let consumer: StreamConsumer<CustomContext> = create_consumer(brokers, group_id, CustomContext);
     consumer.subscribe(&topics.to_vec())
         .expect("Can't subscribe to specified topics");
-    consume_records(consumer).await;
+    consume_records(consumer, promise).await;
 }
 
 /// Creation of Consumer using [ClientConfig::new()] builder.
@@ -58,11 +64,12 @@ fn create_consumer(brokers: &str, group_id: &str, context: CustomContext) -> Str
 /// With the we use [payload_view] to transform byte array into the type specify in the method.
 /// This will return an [Option] that we match to control side-effect of nullable.
 /// For this example we dont use the payload returned, that's why we define a [let _] in the match
-async fn consume_records(consumer: StreamConsumer<CustomContext>) {
+async fn consume_records(consumer: StreamConsumer<CustomContext>, promise: Sender<bool>) {
+    let mut counter = 0;
     loop {
         match consumer.recv().await {
             Err(e) => println!("Error consuming Event. Caused by: {}", e),
-            Ok(bm) => {
+            Ok(bm) => unsafe {
                 let _ = match bm.payload_view::<str>() {
                     None => "",
                     Some(Ok(s)) => s,
@@ -74,6 +81,13 @@ async fn consume_records(consumer: StreamConsumer<CustomContext>) {
                 println!("key: '{:?}', topic: {}, partition: {}, offset: {}, timestamp: {:?}",
                          bm.key(), bm.topic(), bm.partition(), bm.offset(), bm.timestamp());
                 commit_message(&consumer, &bm);
+                if counter == EXPECT_RECORDS {
+                    println!("All records processed");
+                    promise.send(true).expect("Unrecoverable Error responding promise");
+                } else {
+                    println!("Current counter ${:?}", counter);
+                    counter += 1;
+                }
             }
         };
     }
@@ -87,11 +101,19 @@ fn commit_message(consumer: &StreamConsumer<CustomContext>, bm: &BorrowedMessage
     }
 }
 
+///Expected records
+static mut EXPECT_RECORDS: i32 = 1000;
+
 #[tokio::main]
 async fn main() {
-    let topics = ["my_red_panda_topic"];
-    let brokers = "localhost:9092";
-    let group_id = "red_panda_group-id";
-
-    consume(brokers, group_id, &topics).await
+    let (promise, future): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+    let now = std::time::SystemTime::now();
+    tokio::task::spawn(consume(promise));
+    match future.recv() {
+        Ok(_) => {
+            let duration = now.elapsed().unwrap().as_millis();
+            println!("Consuming all records took ${:?} millis", duration)
+        }
+        Err(_) => println!("Error Consuming records"),
+    }
 }
