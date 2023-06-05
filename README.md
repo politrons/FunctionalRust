@@ -72,6 +72,15 @@ Code example of **Kafka** ```consumer/producer``` and benchmark result ```produc
 * **[Consumer](kafka/src/kafka_consumer.rs)**
 * **[Producer](kafka/src/kafka_producer.rs)**
 
+## Red Panda
+
+![My image](img/red_panda.png)
+
+Code example of **Red Panda** ```consumer/producer``` and benchmark result ```producing/consuming``` 1000 records with 100kb size.
+
+* **[Consumer](red_panda/src/red_panda_consumer.rs)**
+* **[Producer](red_panda/src/red_panda_producer.rs)**
+
 ## Performance
 
 ### Goose
