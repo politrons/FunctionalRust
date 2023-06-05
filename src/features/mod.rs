@@ -22,4 +22,5 @@ pub mod do_notation_style;
 pub mod rust_io;
 pub mod race_futures;
 pub mod promise;
+mod union_type;
 
