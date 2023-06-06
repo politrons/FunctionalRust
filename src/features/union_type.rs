@@ -11,9 +11,9 @@ enum UnionType {
 /// In this example we only allow three possible types. In Scala it would be [Apple | Banana | Coconut]
 fn allow_only_fruit(fruit:UnionType){
     match fruit   {
-        UnionType::Apple(s) => println!("You're an Apple"),
-        UnionType::Banana(i) => println!("You're an Banana"),
-        UnionType::Coconut() => println!("You're an Coconut"),
+        UnionType::Apple(s) => println!("You're a Apple"),
+        UnionType::Banana(i) => println!("You're a Banana"),
+        UnionType::Coconut() => println!("You're a Coconut"),
     }
 }
 
