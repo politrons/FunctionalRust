@@ -12,7 +12,7 @@ fn main() {
         let create_wrapper: Symbol<extern "C" fn() -> Box<dyn PluginTrait>> = lib.get(b"create_trait_wrapper\0").unwrap();
         // Convert the symbol to a function pointer
         let wrapper = create_wrapper();
-        // Run the acction
+        // Run the action
         wrapper.perform_action();
     }
 
