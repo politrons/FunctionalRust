@@ -1,0 +1,11 @@
+[package]
+name = "dynamic_loading"
+version = "0.1.0"
+edition = "2021"
+default-libraries = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libloading="0.8.0"
+dynamic_loading_contract={ version = "0.1.0", path = "../dynamic_loading_contract" }

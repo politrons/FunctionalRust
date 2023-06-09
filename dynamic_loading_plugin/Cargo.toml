@@ -1,0 +1,10 @@
+[package]
+name = "dynamic_loading_plugin"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+dynamic_loading_contract={ version = "0.1.0", path = "../dynamic_loading_contract" }
