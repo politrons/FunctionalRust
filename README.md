@@ -32,7 +32,7 @@ Examples of functional programing in Rust
 
 Implementation of some of the most famous Monads you can find in ```Haskel``` or ```Scala```
 
-* **[IO Monad](src/features/rust_io.rs)**
+* **[IO Monad](rust_io/src/lib.rs)**
 * **[Monad](src/features/monad.rs)**
 * **[Try Monad](src/features/try_monad.rs)**
 * **[Either Monad](src/features/either_monad.rs)**
