@@ -7,6 +7,7 @@ Macro implementation for [rust_io] defining several operators to be used emulati
 ```rust
 #[cfg(test)]
 mod tests {
+    
     use rust_io::{rust_io, RustIO};
     use rust_io::{Lift};
 
