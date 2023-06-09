@@ -84,6 +84,14 @@ Code example of **Red Panda** ```consumer/producer``` and benchmark result ```pr
 * **[Consumer](red_panda/src/red_panda_consumer.rs)**
 * **[Producer](red_panda/src/red_panda_producer.rs)**
 
+## Dynamic loading
+
+Dynamic loading, also known as dynamic linking or runtime linking, is a technique that allows programs to load and use external code (such as libraries) at runtime, instead of statically linking them at compile time
+
+* **[Contract](dynamic_loading_contract/src/lib.rs)**
+* **[Plugin](dynamic_loading_plugin/src/lib.rs)**
+* **[Program](dynamic_loading/src/main.rs)**
+
 ## Performance
 
 ### Goose

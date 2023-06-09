@@ -15,8 +15,8 @@ use dynamic_loading_contract::PluginTrait;
 ///  The shared object file is unloaded automatically when 'lib' goes out of scope
 fn main() {
     unsafe {
-        let lib = Library::new("../dynamic_loading_plugin/target/release/libdynamic_loading_plugin.dylib").unwrap();
-        let plugin_symbol_func: Symbol<extern "C" fn() -> Box<dyn PluginTrait>> = lib.get(b"create_plugin\0").unwrap();
+        let shared_obj_lib = Library::new("../dynamic_loading_plugin/target/release/libdynamic_loading_plugin.dylib").unwrap();
+        let plugin_symbol_func: Symbol<extern "C" fn() -> Box<dyn PluginTrait>> = shared_obj_lib.get(b"create_plugin\0").unwrap();
         let plugin = plugin_symbol_func();
         plugin.hello_world();
     }
