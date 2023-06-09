@@ -5,7 +5,7 @@ use std::time::Duration;
 use futures::{FutureExt};
 use futures::executor::block_on;
 use futures::future::{join_all, LocalBoxFuture};
-use rand::{thread_rng};
+use rand::{Rng, thread_rng};
 
 use crate ::RustIO::{Empty, Fut, Right, Value, Wrong};
 
