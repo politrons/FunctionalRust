@@ -4,6 +4,7 @@ Macro implementation for [rust_io] defining several operators to be used emulati
 
 ## Use
 
+Simple example of how to use ```rust_io!``` macro and ```RustIO``` monad
 ```rust
 #[cfg(test)]
 mod tests {
@@ -31,8 +32,37 @@ mod tests {
 }
 ```
 
+## Program
+
+Example of a ```RustIO``` program using many of the operators available in the Monad.
+```rust
+    #[test]
+    fn features() {
+        let rio_program: RustIO<String, String> =
+            RustIO::from_option(Some(String::from("hello")))
+                .when(|v| v.len() > 3, |v| v + &" world!!".to_string())
+                .at_some_point(|v| get_eventual_result(v))
+                .map(|v| v.to_uppercase())
+                .flat_map(|v| RustIO::of(v + &"!!!".to_string()))
+                .filter(|v| v.len() > 10)
+                .delay(Duration::from_secs(1))
+                .on_error(|v| println!("Error program: ${}", v))
+                .map_error(|t| String::from("Error B"))
+                .on_success(|v| println!("Success program: ${}", v))
+                .peek(|v| println!("${}", v));
+
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(false, rio_program.is_empty());
+        assert_eq!(true, rio_program.is_ok());
+
+    }
+
+```
 
 ## Operators
+
+Trait definition of all operators available with ```RustIO```.
 
 ```rust
 ///Specification to be implemented by a monad.

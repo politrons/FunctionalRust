@@ -1,4 +1,3 @@
-
 use std::thread;
 use std::time::Duration;
 
@@ -7,7 +6,7 @@ use futures::executor::block_on;
 use futures::future::{join_all, LocalBoxFuture};
 use rand::{Rng, thread_rng};
 
-use crate ::RustIO::{Empty, Fut, Right, Value, Wrong};
+use crate::RustIO::{Empty, Fut, Right, Value, Wrong};
 
 /// Macro implementation for [rust_io] defining several operators to be used emulating
 /// Haskel [do notation]
@@ -915,6 +914,28 @@ mod tests {
         println!("${:?}", rio_program.is_empty());
         println!("${:?}", rio_program.is_ok());
         assert_eq!(rio_program.is_failed(), false);
+    }
+
+    #[test]
+    fn features() {
+        let rio_program: RustIO<String, String> =
+            RustIO::from_option(Some(String::from("hello")))
+                .when(|v| v.len() > 3, |v| v + &" world!!".to_string())
+                .at_some_point(|v| get_eventual_result(v))
+                .map(|v| v.to_uppercase())
+                .flat_map(|v| RustIO::of(v + &"!!!".to_string()))
+                .filter(|v| v.len() > 10)
+                .delay(Duration::from_secs(1))
+                .on_error(|v| println!("Error program: ${}", v))
+                .map_error(|t| String::from("Error B"))
+                .on_success(|v| println!("Success program: ${}", v))
+                .peek(|v| println!("${}", v));
+
+        println!("${:?}", rio_program.is_empty());
+        println!("${:?}", rio_program.is_ok());
+        assert_eq!(false, rio_program.is_empty());
+        assert_eq!(true, rio_program.is_ok());
+
     }
 
     fn get_eventual_result(v: String) -> RustIO<String, String> {
