@@ -20,6 +20,7 @@ futures = "0.3"
 rand = "0.8.5"
 tonic = "0.9"
 prost = "0.11"
+rust_io="0.4.0"
 
 [build-dependencies]
 tonic-build = "0.9"
