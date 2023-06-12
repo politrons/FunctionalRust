@@ -23,6 +23,8 @@ pub struct AnimalFactory;
 
 /// Implementation of the factory for a specific type, but without specify that type to the
 /// consumer of the factory. We hide that implementation using [Box<dyn Animal>]
+/// So now potentially we can refactor the implementation type of [Animal] in the factory,
+/// and the client using the factory wont notice any differences.
 impl Factory for AnimalFactory {
     fn build_animal(&self) -> Box<dyn Animal> {
         Box::new(Human)
