@@ -5,7 +5,6 @@ mod tokio_green_thread;
 mod tokio_http_hyper;
 mod tokio_select;
 mod tokio_grpc_server;
-mod rust_io_impl;
 
 
 #[tokio::main]
