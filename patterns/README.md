@@ -8,4 +8,9 @@
 
 ## Structural
 
-* **[Composite](src/composite.rs)**
+* **[Composite](src/structural/composite.rs)**
+* **[Decorator](src/structural/decorator.rs)**
+* **[Composite](src/structural/facade.rs)**
+
+## Behavioral
+

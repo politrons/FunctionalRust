@@ -14,7 +14,7 @@ impl Animal for Human {
 }
 
 /// [Decorator] Data type than can do what a [Animal] can do and even more.
-/// It contains an instance of any Animal to do what that animal can do,
+/// It contains an instance of any [Animal] to do what that animal can do,
 /// and [extend] the functionality
 pub struct SuperHuman {
     animal: Box<dyn Animal>,
@@ -22,6 +22,7 @@ pub struct SuperHuman {
 
 /// [Decorator] [Animal] implementation to behave like another animal, but with more capacity than
 /// a regular animal type.
+/// Here in the [skills] function, we execute the animal instance [skills] and we extend with something else.
 impl Animal for SuperHuman {
     fn skills(&self) -> String {
         format!("{}. And I can also fly", self.animal.skills())
