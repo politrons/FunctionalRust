@@ -55,7 +55,7 @@ impl Animal for Composite {
 #[cfg(test)]
 mod tests {
 
-    use crate::composite::{Animal, Composite, Dog, Human};
+    use crate::structural::composite::{Animal, Composite, Dog, Human};
 
     #[test]
     fn composite_pattern() {

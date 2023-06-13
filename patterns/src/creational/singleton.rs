@@ -33,7 +33,7 @@ impl Human {
 
 #[cfg(test)]
 mod tests {
-    use crate::singleton::Human;
+    use crate::creational::singleton::Human;
 
     #[test]
     fn singleton_pattern() {

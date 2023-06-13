@@ -1,7 +1,5 @@
-mod builder;
-mod factory;
-mod singleton;
-mod composite;
+mod creational;
+mod structural;
 
 fn main() {
     println!("Hello, world!");

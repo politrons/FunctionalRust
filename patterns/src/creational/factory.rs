@@ -33,7 +33,7 @@ impl Factory for AnimalFactory {
 
 #[cfg(test)]
 mod tests {
-    use crate::factory::{AnimalFactory, Factory};
+    use crate::creational::factory::{AnimalFactory, Factory};
 
     #[test]
     fn factory_pattern() {

@@ -2,9 +2,9 @@
 
 ## Creational
 
-* **[Singleton](src/singleton.rs)**
-* **[Builder](src/builder.rs)**
-* **[Factory](src/factory.rs)**
+* **[Singleton](src/creational/singleton.rs)**
+* **[Builder](src/creational/builder.rs)**
+* **[Factory](src/creational/factory.rs)**
 
 ## Structural
 

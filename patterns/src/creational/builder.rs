@@ -43,7 +43,7 @@ pub struct HumanBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::builder::HumanBuilder;
+    use crate::creational::builder::HumanBuilder;
 
     #[test]
     fn builder_pattern() {
