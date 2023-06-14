@@ -26,6 +26,8 @@ Examples of functional programing in Rust
 * **[Do notation](src/features/do_notation_style.rs)**
 * **[Union type](src/features/union_type.rs)**
 * **[Lens](src/features/lens.rs)**
+* **[Dependency injection](src/features/dependency_injection.rs)**
+
 
 
 ## Monads

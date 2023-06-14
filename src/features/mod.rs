@@ -25,4 +25,5 @@ pub mod promise;
 mod union_type;
 mod lens;
 mod rust_io_impl;
+mod dependency_injection;
 

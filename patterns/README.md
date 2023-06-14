@@ -1,5 +1,8 @@
 # Patterns
 
+![My image](../img/design.png)
+
+
 ## Creational
 
 * **[Singleton](src/creational/singleton.rs)**
@@ -10,7 +13,8 @@
 
 * **[Composite](src/structural/composite.rs)**
 * **[Decorator](src/structural/decorator.rs)**
-* **[Composite](src/structural/facade.rs)**
+* **[Facade](src/structural/facade.rs)**
 
 ## Behavioral
 
+* **[Chain of responsibility](src/behavioral/chain_of_responsibility.rs)**
