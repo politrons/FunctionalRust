@@ -18,3 +18,4 @@
 ## Behavioral
 
 * **[Chain of responsibility](src/behavioral/chain_of_responsibility.rs)**
+* **[Memento](src/behavioral/memento.rs)**
