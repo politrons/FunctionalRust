@@ -83,7 +83,6 @@ mod tests {
         let mut circuit_breaker = CircuitBreaker::new();
 
         let result = circuit_breaker.watch(|| {
-            // Simulate a successful function call
             Ok("Success")
         });
 
@@ -95,7 +94,6 @@ mod tests {
         let mut circuit_breaker = CircuitBreaker::new();
 
         let result: Result<String, String> = circuit_breaker.watch(|| {
-            // Simulate a function call that fails
             Err("Something went wrong".to_string())
         });
 
@@ -110,7 +108,6 @@ mod tests {
         circuit_breaker.errors = MAX_ERROR_ALLOWED;
 
         let result: Result<String, String> = circuit_breaker.watch(|| {
-            // Simulate a function call when the circuit is open
             Err("Something went wrong".to_string())
         });
 
@@ -127,10 +124,10 @@ mod tests {
 
         let result = circuit_breaker.watch(|| {
             // Simulate a function call after the reset timeout
-            Ok("Success")
+            Ok(1981)
         });
 
-        assert_eq!(result, Ok("Success"));
+        assert_eq!(result, Ok(1981));
         assert_eq!(circuit_breaker.errors, 0);
         assert_eq!(circuit_breaker.state, Close);
     }
