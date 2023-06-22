@@ -124,6 +124,9 @@ Dynamic loading, also known as dynamic linking or runtime linking, is a techniqu
 * **[Memento](patterns/src/behavioral/memento.rs)**
 * **[Strategy](patterns/src/behavioral/strategy.rs)**
 
+### Architecture
+
+* **[Circuit breaker](architecture/src/circuit_breaker.rs)** 
 
 ## Performance
 
