@@ -108,13 +108,6 @@ async fn send_record(topic_name: &str, producer: &FutureProducer) -> OwnedDelive
     producer.send(record, Duration::from_secs(0)).await
 }
 
-/// This loop will wait until all delivery statuses have been received.
-async fn process_results(futures: Vec<impl Future<Output=OwnedDeliveryResult> + Sized>) {
-    for future in futures {
-        println!("Future completed. Result: {:?}", future.await);
-    }
-}
-
 /// Red Panda consumer
 /// -------------------
 
