@@ -41,9 +41,9 @@ async fn main() {
 }
 
 pub async fn run_server() {
-    println!("Preparing Service...");
     let port = 1981;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    println!("Running Server on port {}...", port);
     let server = Server::bind(&addr)
         .serve(make_service_fn(|_conn| async {
             println!("New request received.");
@@ -90,6 +90,7 @@ fn create_producer(brokers: &str) -> FutureProducer {
     ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("message.timeout.ms", "5000")
+        .set("ack","all")
         .create()
         .expect("Red Panda Producer creation error")
 }
