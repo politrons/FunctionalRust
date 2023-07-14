@@ -12,6 +12,7 @@ name = "red_panda_load_test"
 path = "src/red_panda_load_test.rs"
 
 [dependencies]
+uuid = { version = "1.4.0", features = ["serde", "v4"] }
 rdkafka = "0.25.0"
 goose="0.17.0"
 goose-eggs = "0.5.1"

@@ -1,4 +1,3 @@
-
 //Server
 use std::convert::Infallible;
 use std::net::SocketAddr;
@@ -22,6 +21,7 @@ use std::fs;
 use std::future::Future;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::producer::future_producer::OwnedDeliveryResult;
+use uuid::Uuid;
 
 //Consumer
 use std::sync::mpsc;
@@ -57,10 +57,11 @@ pub async fn run_server() {
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let topic = "panda";
     let brokers = "34.168.33.235:9092";
+    let producer = &create_producer(brokers);
     let mut response = Response::new(Body::empty());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/panda/produce") => {
-            produce(brokers, topic).await;
+            produce(producer, topic).await;
             *response.status_mut() = StatusCode::OK;
         }
         (&Method::GET, "/panda/consume") => {
@@ -76,19 +77,9 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
 
 /// Red Panda Producer
 /// --------------------
-async fn produce(brokers: &str, topic_name: &str) {
-    let producer = &create_producer(brokers);
-    // This loop is non blocking: all messages will be sent one after the other, without waiting
-    // for the results.
-    let futures = (0..5)
-        .map(|i| async move {
-            let delivery_result = send_record(topic_name, &producer, &i).await;
-            println!("Delivery status for message {} received", i);
-            delivery_result
-        })
-        .collect::<Vec<_>>();
-
-    process_results(futures).await;
+async fn produce(producer: &FutureProducer, topic_name: &str) {
+    let delivery_result = send_record(topic_name, &producer).await;
+    println!("Delivery status for message received is ok {}", delivery_result.is_ok());
 }
 
 /// We create a producer using [ClientConfig] builder, where we set several keys as properties
@@ -107,10 +98,10 @@ fn create_producer(brokers: &str) -> FutureProducer {
 /// Having a [FutureProducer] we use [send] operator to pass a [FutureRecord] together with Duration [Timeout]
 /// If we set timeout with 0 value it will wait forever.
 /// Since the scope of the [send] is async by design we need to create the FutureRecord inside the invocation.
-///
-async fn send_record(topic_name: &str, producer: &FutureProducer, i: &i32) -> OwnedDeliveryResult {
+async fn send_record(topic_name: &str, producer: &FutureProducer) -> OwnedDeliveryResult {
     let body = "Hello world again";
-    let key = &format!("Key {}", i);
+    let id = Uuid::new_v4();
+    let key = &format!("{}", id.to_string());
     let record = FutureRecord::to(topic_name)
         .payload(body)
         .key(key);
@@ -167,7 +158,7 @@ impl ConsumerContext for CustomContext {
 
 async fn consume(promise: Sender<bool>) {
     let brokers = "34.168.33.235:9092";
-    let topics = [ "panda"];
+    let topics = ["panda"];
     let group_id = "red_panda_group-id";
     let consumer: StreamConsumer<CustomContext> = create_consumer(brokers, group_id, CustomContext);
     consumer.subscribe(&topics.to_vec())
