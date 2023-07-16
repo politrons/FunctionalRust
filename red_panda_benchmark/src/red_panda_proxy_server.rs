@@ -55,18 +55,12 @@ pub async fn run_server() {
 }
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let args: Vec<String> = std::env::args().collect();
-    let (path, topic, brokers) = match args.len() {
-        1 => (args.get(0).unwrap(), "panda", "34.168.33.235:9092"),
-        2 => (args.get(0).unwrap(), args.get(1).unwrap(), "34.168.33.235:9092"),
-        3 => (args.get(0).unwrap(), args.get(1).unwrap(), args.get(2).unwrap()),
-        _ => ("resources/uuid.txt", "panda", "34.168.33.235:9092")
-    };
-    let producer = &create_producer(brokers);
+    let (path, topic, brokers) = loadParams();
+    let producer = &create_producer(&brokers);
     let mut response = Response::new(Body::empty());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/panda/produce") => {
-            produce(producer, path, topic).await;
+            produce(producer, &path, &topic).await;
             *response.status_mut() = StatusCode::OK;
         }
         (&Method::GET, "/panda/consume") => {
@@ -78,6 +72,16 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
         }
     };
     Ok(response)
+}
+
+fn loadParams() -> (String, String, String) {
+    let args: Vec<String> = std::env::args().collect();
+    match args.len() {
+        1 => (args.get(0).unwrap().to_string(), "panda".to_string(), "34.168.33.235:9092".to_string()),
+        2 => (args.get(0).unwrap().to_string(), args.get(1).unwrap().to_string(), "34.168.33.235:9092".to_string()),
+        3 => (args.get(0).unwrap().to_string(), args.get(1).unwrap().to_string(), args.get(2).unwrap().to_string()),
+        _ => ("resources/uuid.txt".to_string(), "panda".to_string(), "34.168.33.235:9092".to_string())
+    }
 }
 
 /// Red Panda Producer
