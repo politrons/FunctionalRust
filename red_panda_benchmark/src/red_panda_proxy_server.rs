@@ -99,7 +99,7 @@ fn create_producer(brokers: &str) -> FutureProducer {
     ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("message.timeout.ms", "5000")
-        .set("ack", "all")
+        .set("request.required.acks", "all")
         .create()
         .expect("Red Panda Producer creation error")
 }
