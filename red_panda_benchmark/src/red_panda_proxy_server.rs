@@ -108,7 +108,7 @@ fn create_producer(brokers: &str) -> FutureProducer {
 /// If we set timeout with 0 value it will wait forever.
 /// Since the scope of the [send] is async by design we need to create the FutureRecord inside the invocation.
 async fn send_record(path: &str, topic: &str, producer: &FutureProducer) -> OwnedDeliveryResult {
-    let body = &fs::read_to_string(path).unwrap();
+    let body = &fs::read_to_string("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt").unwrap();
     let id = Uuid::new_v4();
     let key = &format!("{}", id.to_string());
     let record = FutureRecord::to(topic)
