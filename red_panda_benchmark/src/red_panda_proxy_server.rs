@@ -55,7 +55,7 @@ pub async fn run_server() {
 }
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
     let (path, topic, brokers) = match args.len() {
         1 => (args.get(0).unwrap(), "panda", "34.168.33.235:9092"),
         2 => (args.get(0).unwrap(), args.get(1).unwrap(), "34.168.33.235:9092"),
