@@ -55,13 +55,18 @@ pub async fn run_server() {
 }
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let topic = "panda";
-    let brokers = "34.168.33.235:9092";
+    let args: Vec<String> = env::args().collect();
+    let (path, topic, brokers) = match args.len() {
+        1 => (args.get(0).unwrap(), "panda", "34.168.33.235:9092"),
+        2 => (args.get(0).unwrap(), args.get(1).unwrap(), "34.168.33.235:9092"),
+        3 => (args.get(0).unwrap(), args.get(1).unwrap(), args.get(2).unwrap()),
+        _ => ("resources/uuid.txt", "panda", "34.168.33.235:9092")
+    };
     let producer = &create_producer(brokers);
     let mut response = Response::new(Body::empty());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/panda/produce") => {
-            produce(producer, topic).await;
+            produce(producer, path, topic).await;
             *response.status_mut() = StatusCode::OK;
         }
         (&Method::GET, "/panda/consume") => {
@@ -77,8 +82,8 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
 
 /// Red Panda Producer
 /// --------------------
-async fn produce(producer: &FutureProducer, topic_name: &str) {
-    let delivery_result = send_record(topic_name, &producer).await;
+async fn produce(producer: &FutureProducer, path: &str, topic: &str) {
+    let delivery_result = send_record(path, topic, &producer).await;
     println!("Delivery status for message received is ok {}", delivery_result.is_ok());
 }
 
@@ -90,20 +95,19 @@ fn create_producer(brokers: &str) -> FutureProducer {
     ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("message.timeout.ms", "5000")
-        .set("ack","all")
+        .set("ack", "all")
         .create()
         .expect("Red Panda Producer creation error")
 }
 
-
 /// Having a [FutureProducer] we use [send] operator to pass a [FutureRecord] together with Duration [Timeout]
 /// If we set timeout with 0 value it will wait forever.
 /// Since the scope of the [send] is async by design we need to create the FutureRecord inside the invocation.
-async fn send_record(topic_name: &str, producer: &FutureProducer) -> OwnedDeliveryResult {
-    let body = "Hello world again";
+async fn send_record(path: &str, topic: &str, producer: &FutureProducer) -> OwnedDeliveryResult {
+    let body = &fs::read_to_string(path).unwrap();
     let id = Uuid::new_v4();
     let key = &format!("{}", id.to_string());
-    let record = FutureRecord::to(topic_name)
+    let record = FutureRecord::to(topic)
         .payload(body)
         .key(key);
     producer.send(record, Duration::from_secs(0)).await
@@ -111,7 +115,6 @@ async fn send_record(topic_name: &str, producer: &FutureProducer) -> OwnedDelive
 
 /// Red Panda consumer
 /// -------------------
-
 
 ///Expected records
 static mut EXPECT_RECORDS: i32 = 5;
@@ -133,7 +136,6 @@ async fn consume_all_records() {
 struct CustomContext;
 
 impl ClientContext for CustomContext {}
-
 
 ///Callbacks to receive information when a consumer is in rebalance process, and every time it commit an offset.
 impl ConsumerContext for CustomContext {
