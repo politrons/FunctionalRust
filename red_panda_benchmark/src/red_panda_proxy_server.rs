@@ -92,7 +92,6 @@ fn load_program() -> (String, String, String) {
     }
 }
 
-
 /// Red Panda produce/consumer
 /// ---------------------------
 async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer<CustomContext>, body: &str, topic: &str) {
