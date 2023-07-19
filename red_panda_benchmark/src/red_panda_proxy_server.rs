@@ -55,16 +55,24 @@ pub async fn run_server() {
 }
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let (path, topic, brokers) = loadParams();
+    let (path, topic, brokers) = load_program();
+    let consumer = create_and_subscribe(&brokers, &topic);
     let producer = &create_producer(&brokers);
+    let body = &fs::read_to_string(path).unwrap();
     let mut response = Response::new(Body::empty());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/panda/produce") => {
-            produce(producer, &path, &topic).await;
+            let id = Uuid::new_v4();
+            let key = id.to_string();
+            produce(producer, &key, body, &topic).await;
             *response.status_mut() = StatusCode::OK;
         }
         (&Method::GET, "/panda/consume") => {
-            consume_all_records().await;
+            consume_all_records(consumer).await;
+            *response.status_mut() = StatusCode::OK;
+        }
+        (&Method::GET, "/panda/produce_consume") => {
+            produce_and_consume(producer, consumer, &body, &topic).await;
             *response.status_mut() = StatusCode::OK;
         }
         _ => {
@@ -74,20 +82,57 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
     Ok(response)
 }
 
-fn loadParams() -> (String, String, String) {
+fn load_program() -> (String, String, String) {
     let args: Vec<String> = std::env::args().collect();
     match args.len() {
-        1 => (args.get(0).unwrap().to_string(), "panda".to_string(), "34.168.33.235:9092".to_string()),
-        2 => (args.get(0).unwrap().to_string(), args.get(1).unwrap().to_string(), "34.168.33.235:9092".to_string()),
+        1 => (args.get(0).unwrap().to_string(), "panda".to_string(), "34.83.74.100:9092".to_string()),
+        2 => (args.get(0).unwrap().to_string(), args.get(1).unwrap().to_string(), "34.83.74.100:9092".to_string()),
         3 => (args.get(0).unwrap().to_string(), args.get(1).unwrap().to_string(), args.get(2).unwrap().to_string()),
-        _ => ("resources/uuid.txt".to_string(), "panda".to_string(), "34.168.33.235:9092".to_string())
+        _ => ("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt".to_string(), "panda".to_string(), "34.83.74.100:9092".to_string())
     }
 }
 
+
+/// Red Panda produce/consumer
+/// ---------------------------
+async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer<CustomContext>, body: &str, topic: &str) {
+    let id = Uuid::new_v4();
+    let key = id.to_string();
+    produce(producer, &key, body, topic).await;
+    let (promise, future): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+    let now = std::time::SystemTime::now();
+    tokio::task::spawn(consume_records(consumer, promise, move |_, bm| {
+        let record_key = u8_slice_to_string(bm.key().unwrap());
+        return key == record_key;
+    }));
+    match future.recv() {
+        Ok(_) => {
+            let duration = now.elapsed().unwrap().as_millis();
+            println!("Consume the record took ${:?} millis", duration)
+        }
+        Err(_) => println!("Error Consuming record"),
+    }
+}
+
+fn u8_slice_to_string(key: &[u8]) -> String {
+    match std::str::from_utf8(key) {
+        Ok(str_key) => str_key.to_string(),
+        Err(_) => String::from("Invalid Key UTF-8 data"),
+    }
+}
+
+
 /// Red Panda Producer
 /// --------------------
-async fn produce(producer: &FutureProducer, path: &str, topic: &str) {
-    let delivery_result = send_record(path, topic, &producer).await;
+
+/// Having a [FutureProducer] we use [send] operator to pass a [FutureRecord] together with Duration [Timeout]
+/// If we set timeout with 0 value it will wait forever.
+/// Since the scope of the [send] is async by design we need to create the FutureRecord inside the invocation.
+async fn produce(producer: &FutureProducer, key: &String, body: &str, topic: &str) {
+    let record = FutureRecord::to(topic)
+        .payload(body)
+        .key(key);
+    let delivery_result = producer.send(record, Duration::from_secs(0)).await;
     println!("Delivery status for message received is ok {}", delivery_result.is_ok());
 }
 
@@ -104,29 +149,15 @@ fn create_producer(brokers: &str) -> FutureProducer {
         .expect("Red Panda Producer creation error")
 }
 
-/// Having a [FutureProducer] we use [send] operator to pass a [FutureRecord] together with Duration [Timeout]
-/// If we set timeout with 0 value it will wait forever.
-/// Since the scope of the [send] is async by design we need to create the FutureRecord inside the invocation.
-async fn send_record(path: &str, topic: &str, producer: &FutureProducer) -> OwnedDeliveryResult {
-    let body = &fs::read_to_string("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt").unwrap();
-    let id = Uuid::new_v4();
-    let key = &format!("{}", id.to_string());
-    let record = FutureRecord::to(topic)
-        .payload(body)
-        .key(key);
-    producer.send(record, Duration::from_secs(0)).await
-}
-
 /// Red Panda consumer
 /// -------------------
 
 ///Expected records
-static mut EXPECT_RECORDS: i32 = 5;
 
-async fn consume_all_records() {
+async fn consume_all_records(consumer: StreamConsumer<CustomContext>) {
     let (promise, future): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let now = std::time::SystemTime::now();
-    tokio::task::spawn(consume(promise));
+    tokio::task::spawn(consume_records(consumer, promise, |counter, bm| counter.eq(&1000)));
     match future.recv() {
         Ok(_) => {
             let duration = now.elapsed().unwrap().as_millis();
@@ -156,14 +187,13 @@ impl ConsumerContext for CustomContext {
     }
 }
 
-async fn consume(promise: Sender<bool>) {
-    let brokers = "34.168.33.235:9092";
-    let topics = ["panda"];
+fn create_and_subscribe(brokers: &str, topic: &str) -> StreamConsumer<CustomContext> {
+    let topics = [topic];
     let group_id = "red_panda_group-id";
-    let consumer: StreamConsumer<CustomContext> = create_consumer(brokers, group_id, CustomContext);
+    let consumer: StreamConsumer<CustomContext> = create_stream_consumer(brokers, group_id, CustomContext);
     consumer.subscribe(&topics.to_vec())
         .expect("Can't subscribe to specified topics");
-    consume_records(consumer, promise).await;
+    consumer
 }
 
 /// Creation of Consumer using [ClientConfig::new()] builder.
@@ -172,7 +202,7 @@ async fn consume(promise: Sender<bool>) {
 /// that we already override some methods.
 /// We use [expect] to unwrap the [KafkaResult] obtained from the create operator, and we try to get the Ok,
 /// otherwise we print the error messages passed, and we have a panic.
-fn create_consumer(brokers: &str, group_id: &str, context: CustomContext) -> StreamConsumer<CustomContext> {
+fn create_stream_consumer(brokers: &str, group_id: &str, context: CustomContext) -> StreamConsumer<CustomContext> {
     ClientConfig::new()
         .set("group.id", group_id)
         .set("bootstrap.servers", brokers)
@@ -190,7 +220,7 @@ fn create_consumer(brokers: &str, group_id: &str, context: CustomContext) -> Str
 /// With the we use [payload_view] to transform byte array into the type specify in the method.
 /// This will return an [Option] that we match to control side-effect of nullable.
 /// For this example we dont use the payload returned, that's why we define a [let _] in the match
-async fn consume_records(consumer: StreamConsumer<CustomContext>, promise: Sender<bool>) {
+async fn consume_records<F: Fn(&i32, &BorrowedMessage) -> bool>(consumer: StreamConsumer<CustomContext>, promise: Sender<bool>, escape_func: F) {
     let mut counter = 0;
     loop {
         match consumer.recv().await {
@@ -204,10 +234,9 @@ async fn consume_records(consumer: StreamConsumer<CustomContext>, promise: Sende
                         ""
                     }
                 };
-                println!("key: '{:?}', topic: {}, partition: {}, offset: {}, timestamp: {:?}",
-                         bm.key(), bm.topic(), bm.partition(), bm.offset(), bm.timestamp());
+                println!("key: '{:?}', topic: {}, partition: {}, offset: {}, timestamp: {:?}", bm.key(), bm.topic(), bm.partition(), bm.offset(), bm.timestamp());
                 commit_message(&consumer, &bm);
-                if counter == EXPECT_RECORDS {
+                if escape_func(&counter, &bm) {
                     println!("All records processed");
                     promise.send(true).expect("Unrecoverable Error responding promise");
                 } else {
