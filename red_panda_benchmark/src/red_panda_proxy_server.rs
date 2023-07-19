@@ -58,7 +58,7 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
     let (path, topic, brokers) = load_program();
     let consumer = create_and_subscribe(&brokers, &topic);
     let producer = &create_producer(&brokers);
-    let body = &fs::read_to_string(path).unwrap();
+    let body = &fs::read_to_string("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt").unwrap();
     let mut response = Response::new(Body::empty());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/panda/produce") => {
