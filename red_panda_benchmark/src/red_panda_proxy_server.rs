@@ -55,7 +55,8 @@ pub async fn run_server() {
 }
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let (path, topic, brokers) = load_program();
+    let topic =  "panda";
+    let brokers = "34.83.74.100:9092";
     let consumer = create_and_subscribe(&brokers, &topic);
     let producer = &create_producer(&brokers);
     let body = &fs::read_to_string("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt").unwrap();
@@ -80,16 +81,6 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
         }
     };
     Ok(response)
-}
-
-fn load_program() -> (String, String, String) {
-    let args: Vec<String> = std::env::args().collect();
-    match args.len() {
-        1 => (args.get(0).unwrap().to_string(), "panda".to_string(), "34.83.74.100:9092".to_string()),
-        2 => (args.get(0).unwrap().to_string(), args.get(1).unwrap().to_string(), "34.83.74.100:9092".to_string()),
-        3 => (args.get(0).unwrap().to_string(), args.get(1).unwrap().to_string(), args.get(2).unwrap().to_string()),
-        _ => ("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt".to_string(), "panda".to_string(), "34.83.74.100:9092".to_string())
-    }
 }
 
 /// Red Panda produce/consumer
