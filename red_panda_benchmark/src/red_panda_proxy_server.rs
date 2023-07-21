@@ -48,7 +48,7 @@ lazy_static::lazy_static! {
     };
 
     static ref BROKERS: String = {
-       return "34.83.74.100:9092,34.168.129.145:9092,34.168.132.253:9092".to_string();
+       return "10.138.0.9:9092,10.138.0.8:9092,10.138.0.10:9092".to_string();
     };
 
     static ref FUTURE_PRODUCER: FutureProducer = {
