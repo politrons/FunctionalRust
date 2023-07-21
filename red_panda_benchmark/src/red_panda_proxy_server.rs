@@ -41,19 +41,25 @@ async fn main() {
 }
 
 ///Global context variable
-lazy_static::lazy_static! {
-    static ref FUTURE_PRODUCER: FutureProducer = {
-        let brokers = "34.83.74.100:9092,34.168.129.145:9092,34.168.132.253:9092";
-        let producer: FutureProducer = create_producer(&brokers);
-        producer
-    };
-}
 
 lazy_static::lazy_static! {
+    static ref TOPIC: String = {
+       return "panda".to_string();
+    };
+
+    static ref BROKERS: String = {
+       return "34.83.74.100:9092,34.168.129.145:9092,34.168.132.253:9092".to_string();
+    };
+
+    static ref FUTURE_PRODUCER: FutureProducer = {
+        println!("Producer created....")
+        let producer: FutureProducer = create_producer(&BROKERS);
+        producer
+    };
+
     static ref STREAM_CONSUMER: StreamConsumer<CustomContext> = {
-        let topic = "panda";
-        let brokers = "34.83.74.100:9092,34.168.129.145:9092,34.168.132.253:9092";
-        return create_and_subscribe(&brokers, &topic);
+        println!("Consumer created....")
+        return create_and_subscribe(&BROKERS, &TOPIC);
     };
 }
 
@@ -72,24 +78,22 @@ pub async fn run_server() {
 }
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let topic = "panda";
+    // let topic = "panda";
     let body = &fs::read_to_string("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt").unwrap();
     let mut response = Response::new(Body::empty());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/panda/produce") => {
             let id = Uuid::new_v4();
             let key = id.to_string();
-            let delivery_result = produce(&FUTURE_PRODUCER, &key, body, &topic).await;
-            if delivery_result.is_err() {
-                match delivery_result.err() {
-                    None => {}
-                    Some(e) => {
-                        println!("Error response {}", e.0.to_string());
-                        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-                    }
+            match produce(&FUTURE_PRODUCER, &key, body).await {
+                Ok(v) => {
+                    println!("Successful response {}", v.1);
+                    *response.status_mut() = StatusCode::OK;
                 }
-            } else {
-                *response.status_mut() = StatusCode::OK;
+                Err(e) => {
+                    println!("Error response {}", e.0.to_string());
+                    *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                }
             }
         }
         (&Method::GET, "/panda/consume") => {
@@ -100,7 +104,7 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
             *response.status_mut() = StatusCode::OK;
         }
         (&Method::GET, "/panda/produce_consume") => {
-            match produce_and_consume(&FUTURE_PRODUCER, &body, &topic).await {
+            match produce_and_consume(&FUTURE_PRODUCER, &body).await {
                 Ok(_) => *response.status_mut() = StatusCode::OK,
                 Err(_) => *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
             }
@@ -114,10 +118,10 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
 
 /// Red Panda produce/consumer
 /// ---------------------------
-async fn produce_and_consume(producer: &FutureProducer, body: &str, topic: &str) -> Result<String, String> {
+async fn produce_and_consume(producer: &FutureProducer, body: &str) -> Result<String, String> {
     let id = Uuid::new_v4();
     let key = id.to_string();
-    let response = produce(producer, &key, body, topic).await;
+    let response = produce(producer, &key, body).await;
     if response.is_err() {
         println!("Error producing record {}", response.err().unwrap().0.to_string());
         return Err("Error producing record".to_string());
@@ -158,8 +162,8 @@ fn u8_slice_to_string(key: &[u8]) -> String {
 /// Having a [FutureProducer] we use [send] operator to pass a [FutureRecord] together with Duration [Timeout]
 /// If we set timeout with 0 value it will wait forever.
 /// Since the scope of the [send] is async by design we need to create the FutureRecord inside the invocation.
-async fn produce(producer: &FutureProducer, key: &String, body: &str, topic: &str) -> OwnedDeliveryResult {
-    let record = FutureRecord::to(topic)
+async fn produce(producer: &FutureProducer, key: &String, body: &str) -> OwnedDeliveryResult {
+    let record = FutureRecord::to(&TOPIC)
         .payload(body)
         .key(key);
     let delivery_result: OwnedDeliveryResult = producer.send(record, Duration::from_secs(0)).await;
