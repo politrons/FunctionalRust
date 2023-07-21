@@ -5,13 +5,7 @@ use goose_eggs::{Validate, validate_and_load_static_assets};
 
 #[tokio::main]
 async fn main() {
-    let args: Vec<String> = env::args().collect();
-    println!("{:?}", args);
-    let result = match args.get(1) {
-        Some(x) if x == "produce" => produce().await,
-        Some(x) if x == "produce_consume" => produce_and_consume().await,
-        _ => produce().await
-    };
+    let result =  produce().await;
     println!("{:?}", result)
 }
 
@@ -36,21 +30,6 @@ pub async fn produce() -> Result<(), GooseError> {
     Ok(())
 }
 
-pub async fn produce_and_consume() -> Result<(), GooseError> {
-    println!("Running produce and consume red panda records....");
-    GooseAttack::initialize()?
-        .register_scenario(scenario!("Produce and consume Red panda records")
-            .register_transaction(transaction!(produce_and_consume_request)))
-        .set_default(GooseDefault::Host, "http://127.0.0.1:1981")?
-        .set_default(GooseDefault::Users, 2)?
-        .set_default(GooseDefault::StartupTime, 10)?
-        .set_default(GooseDefault::RunningMetrics, 5)?
-        .set_default(GooseDefault::RunTime, 120)?
-        .execute()
-        .await?;
-    Ok(())
-}
-
 /// [TransactionResult] is the definition of how we make the call to the service endpoint, and
 /// how we validate the response.
 /// Using from [goose-eggs] dependency [Validate] we can create a validate instance, to be used
@@ -59,15 +38,6 @@ pub async fn produce_and_consume() -> Result<(), GooseError> {
 ///
 async fn produce_request(user: &mut GooseUser) -> TransactionResult {
     let goose = user.get("/panda/produce").await?;
-    let validate = &Validate::builder()
-        .status(200)
-        .build();
-    validate_and_load_static_assets(user, goose, &validate).await?;
-    Ok(())
-}
-
-async fn produce_and_consume_request(user: &mut GooseUser) -> TransactionResult {
-    let goose = user.get("/panda/produce_consume").await?;
     let validate = &Validate::builder()
         .status(200)
         .build();

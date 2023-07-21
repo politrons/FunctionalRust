@@ -8,8 +8,12 @@ name = "red_panda_proxy_server"
 path = "src/red_panda_proxy_server.rs"
 
 [[bin]]
-name = "red_panda_load_test"
-path = "src/red_panda_load_test.rs"
+name = "produce_load_test"
+path = "src/produce_load_test.rs"
+
+[[bin]]
+name = "produce_consume_load_test"
+path = "src/produce_consume_load_test.rs"
 
 [dependencies]
 uuid = { version = "1.4.0", features = ["serde", "v4"] }
