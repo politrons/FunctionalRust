@@ -26,7 +26,7 @@ pub async fn produce() -> Result<(), GooseError> {
         .register_scenario(scenario!("Produce Red panda records")
             .register_transaction(transaction!(produce_request)))
         .set_default(GooseDefault::Host, "http://127.0.0.1:1981")?
-        .set_default(GooseDefault::Users, 2)?
+        .set_default(GooseDefault::Users, 12)?
         .set_default(GooseDefault::StartupTime, 10)?
         .set_default(GooseDefault::RunningMetrics, 5)?
         .set_default(GooseDefault::RunTime, 120)?
