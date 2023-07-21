@@ -12,6 +12,10 @@ name = "produce_load_test"
 path = "src/produce_load_test.rs"
 
 [[bin]]
+name = "consume_load_test"
+path = "src/consume_load_test.rs"
+
+[[bin]]
 name = "produce_consume_load_test"
 path = "src/produce_consume_load_test.rs"
 
