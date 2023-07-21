@@ -56,7 +56,7 @@ pub async fn run_server() {
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let topic = "panda";
-    let brokers = "34.83.74.100:9092";
+    let brokers = "34.83.74.100:9092,34.168.129.145:9092,34.168.132.253:9092";
     println!("Creating consumer....");
     let consumer = create_and_subscribe(&brokers, &topic);
     println!("Creating producer....");
@@ -107,6 +107,8 @@ async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer
     if response.is_err() {
         println!("Error producing record {}", response.err().unwrap().0.to_string());
         return Err("Error producing record".to_string());
+    }else{
+        println!("New record produce {}", response.ok().unwrap().0.to_string());
     }
     let (promise, future): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let now = std::time::SystemTime::now();
