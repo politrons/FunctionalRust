@@ -57,7 +57,9 @@ pub async fn run_server() {
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let topic = "panda";
     let brokers = "34.83.74.100:9092";
+    println!("Creating consumer....");
     let consumer = create_and_subscribe(&brokers, &topic);
+    println!("Creating producer....");
     let producer = &create_producer(&brokers);
     let body = &fs::read_to_string("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt").unwrap();
     let mut response = Response::new(Body::empty());
@@ -103,23 +105,25 @@ async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer
     let key = id.to_string();
     let response = produce(producer, &key, body, topic).await;
     if response.is_err() {
-        return Ok("all good".to_string());
+        println!("Error producing record {}", response.err().unwrap().0.to_string());
+        return Err("Error producing record".to_string());
     }
     let (promise, future): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let now = std::time::SystemTime::now();
     tokio::task::spawn(consume_records(consumer, promise, move |_, bm| {
         let record_key = u8_slice_to_string(bm.key().unwrap());
+        println!("Record key received {}", record_key);
         return key == record_key;
     }));
-    match future.recv() {
+    return match future.recv() {
         Ok(v) => {
             let duration = now.elapsed().unwrap().as_millis();
             println!("Consume the record took ${:?} millis", duration);
-            return Ok("".to_string());
+            Ok("".to_string())
         }
         Err(e) => {
             println!("Error Consuming record");
-            return Err("".to_string());
+            Err("".to_string())
         },
     }
 }
@@ -236,6 +240,7 @@ async fn consume_records<F: Fn(&i32, &BorrowedMessage) -> bool>(consumer: Stream
         match consumer.recv().await {
             Err(e) => println!("Error consuming Event. Caused by: {}", e),
             Ok(bm) => unsafe {
+                println!("key: '{:?}', topic: {}, partition: {}, offset: {}, timestamp: {:?}", bm.key(), bm.topic(), bm.partition(), bm.offset(), bm.timestamp());
                 let _ = match bm.payload_view::<str>() {
                     None => "",
                     Some(Ok(s)) => s,
@@ -244,7 +249,6 @@ async fn consume_records<F: Fn(&i32, &BorrowedMessage) -> bool>(consumer: Stream
                         ""
                     }
                 };
-                println!("key: '{:?}', topic: {}, partition: {}, offset: {}, timestamp: {:?}", bm.key(), bm.topic(), bm.partition(), bm.offset(), bm.timestamp());
                 commit_message(&consumer, &bm);
                 if escape_func(&counter, &bm) {
                     println!("All records processed");
