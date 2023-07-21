@@ -52,13 +52,13 @@ lazy_static::lazy_static! {
     };
 
     static ref FUTURE_PRODUCER: FutureProducer = {
-        println!("Producer created....")
+        println!("Producer created....");
         let producer: FutureProducer = create_producer(&BROKERS);
         producer
     };
 
     static ref STREAM_CONSUMER: StreamConsumer<CustomContext> = {
-        println!("Consumer created....")
+        println!("Consumer created....");
         return create_and_subscribe(&BROKERS, &TOPIC);
     };
 }
