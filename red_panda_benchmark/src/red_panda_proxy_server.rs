@@ -66,7 +66,6 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
             let id = Uuid::new_v4();
             let key = id.to_string();
             let delivery_result = produce(producer, &key, body, &topic).await;
-            let deliver_cpy = delivery_result.clone();
             if delivery_result.is_err() {
                 match delivery_result.err() {
                     None => {}
@@ -76,7 +75,6 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
                     }
                 }
             }else{
-                println!("Delivery status for message received is ok {}", deliver_cpy.is_ok());
                 *response.status_mut() = StatusCode::OK;
             }
         }
