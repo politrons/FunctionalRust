@@ -24,7 +24,7 @@ use rdkafka::producer::future_producer::OwnedDeliveryResult;
 use uuid::Uuid;
 
 //Consumer
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc, Mutex};
 use std::sync::mpsc::{Receiver, RecvError, Sender};
 use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
@@ -43,57 +43,69 @@ async fn main() {
 pub async fn run_server() {
     let port = 1981;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let brokers = "34.83.74.100:9092,34.168.129.145:9092,34.168.132.253:9092";
+    let topic = "panda";
+    println!("Creating consumer....");
+    let consumer = create_and_subscribe(&brokers, &topic);
+    println!("Creating producer....");
+    let arc_producer = Arc::new(Mutex::new(create_producer(&brokers)));
+    let arc_producer_clone = arc_producer.clone();
+
     println!("Running Server on port {}...", port);
-    let server = Server::bind(&addr)
-        .serve(make_service_fn(|_conn| async {
-            println!("New request received.");
-            Ok::<_, Infallible>(service_fn(create_service))
-        }));
+    let server = Server::bind(&addr).serve(make_service_fn(move |_conn| {
+        let arc_producer_clone = arc_producer_clone.clone();
+        async move {
+            Ok::<_, Infallible>(service_fn(move |req| {
+                request_handler(req, Arc::clone(&arc_producer_clone))
+            }))
+        }
+    }));
     if let Err(e) = server.await {
         println!("server error: {}", e);
     }
 }
 
-async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+async fn request_handler(req: Request<Body>, arc_producer: Arc<Mutex<FutureProducer>>) -> Result<Response<Body>, Infallible> {
     let topic = "panda";
-    let brokers = "34.83.74.100:9092,34.168.129.145:9092,34.168.132.253:9092";
-    println!("Creating consumer....");
-    let consumer = create_and_subscribe(&brokers, &topic);
-    println!("Creating producer....");
-    let producer = &create_producer(&brokers);
     let body = &fs::read_to_string("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt").unwrap();
     let mut response = Response::new(Body::empty());
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/panda/produce") => {
             let id = Uuid::new_v4();
             let key = id.to_string();
-            let delivery_result = produce(producer, &key, body, &topic).await;
-            if delivery_result.is_err() {
-                match delivery_result.err() {
-                    None => {}
-                    Some(e) => {
-                        println!("Error response {}", e.0.to_string());
-                        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            match Arc::try_unwrap(arc_producer) {
+                Ok(unwrapped_producer) => {
+                    let future_producer = unwrapped_producer.into_inner().unwrap();
+                    let delivery_result = produce(&future_producer, &key, body, &topic).await;
+                    if delivery_result.is_err() {
+                        match delivery_result.err() {
+                            None => {}
+                            Some(e) => {
+                                println!("Error response {}", e.0.to_string());
+                                *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                            }
+                        }
+                    } else {
+                        *response.status_mut() = StatusCode::OK;
                     }
                 }
-            }else{
-                *response.status_mut() = StatusCode::OK;
+                Err(_) => *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR
             }
         }
-        (&Method::GET, "/panda/consume") => {
-           match  consume_all_records(consumer).await  {
-               Ok(_) =>  *response.status_mut() = StatusCode::OK,
-               Err(_) =>  *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
-           }
-            *response.status_mut() = StatusCode::OK;
-        }
-        (&Method::GET, "/panda/produce_consume") => {
-            match produce_and_consume(producer, consumer, &body, &topic).await {
-                Ok(_) => *response.status_mut() = StatusCode::OK,
-                Err(_) => *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
-            }
-
-        }
+        // (&Method::GET, "/panda/consume") => {
+        //    match  consume_all_records(consumer).await  {
+        //        Ok(_) =>  *response.status_mut() = StatusCode::OK,
+        //        Err(_) =>  *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
+        //    }
+        //     *response.status_mut() = StatusCode::OK;
+        // }
+        // (&Method::GET, "/panda/produce_consume") => {
+        //     match produce_and_consume(producer, consumer, &body, &topic).await {
+        //         Ok(_) => *response.status_mut() = StatusCode::OK,
+        //         Err(_) => *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
+        //     }
+        //
+        // }
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
@@ -110,7 +122,7 @@ async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer
     if response.is_err() {
         println!("Error producing record {}", response.err().unwrap().0.to_string());
         return Err("Error producing record".to_string());
-    }else{
+    } else {
         println!("New record produce {}", response.ok().unwrap().0.to_string());
     }
     let (promise, future): (Sender<bool>, Receiver<bool>) = mpsc::channel();
@@ -129,8 +141,8 @@ async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer
         Err(e) => {
             println!("Error Consuming record");
             Err("".to_string())
-        },
-    }
+        }
+    };
 }
 
 fn u8_slice_to_string(key: &[u8]) -> String {
@@ -183,8 +195,8 @@ async fn consume_all_records(consumer: StreamConsumer<CustomContext>) -> Result<
         Err(e) => {
             println!("Error Consuming records: {}", e.to_string());
             Err("Error Consuming records")
-        },
-    }
+        }
+    };
 }
 
 /// Struct type to override [ClientContext], and override the callback functions.
