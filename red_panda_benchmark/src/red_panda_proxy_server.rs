@@ -65,16 +65,31 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
         (&Method::GET, "/panda/produce") => {
             let id = Uuid::new_v4();
             let key = id.to_string();
-            produce(producer, &key, body, &topic).await;
-            *response.status_mut() = StatusCode::OK;
+            let delivery_result = produce(producer, &key, body, &topic).await;
+            let deliver_cpy = delivery_result.clone();
+            if delivery_result.is_err() {
+                match delivery_result.err() {
+                    None => {}
+                    Some(e) => {
+                        println!("Error response {}", e.0.to_string());
+                        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+                    }
+                }
+            }else{
+                println!("Delivery status for message received is ok {}", deliver_cpy.is_ok());
+                *response.status_mut() = StatusCode::OK;
+            }
         }
         (&Method::GET, "/panda/consume") => {
             consume_all_records(consumer).await;
             *response.status_mut() = StatusCode::OK;
         }
         (&Method::GET, "/panda/produce_consume") => {
-            produce_and_consume(producer, consumer, &body, &topic).await;
-            *response.status_mut() = StatusCode::OK;
+            match produce_and_consume(producer, consumer, &body, &topic).await {
+                Ok(_) => *response.status_mut() = StatusCode::OK,
+                Err(_) => *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
+            }
+
         }
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
@@ -85,10 +100,13 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
 
 /// Red Panda produce/consumer
 /// ---------------------------
-async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer<CustomContext>, body: &str, topic: &str) {
+async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer<CustomContext>, body: &str, topic: &str) -> Result<String, String> {
     let id = Uuid::new_v4();
     let key = id.to_string();
-    produce(producer, &key, body, topic).await;
+    let response = produce(producer, &key, body, topic).await;
+    if response.is_err() {
+        return Ok("all good".to_string());
+    }
     let (promise, future): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let now = std::time::SystemTime::now();
     tokio::task::spawn(consume_records(consumer, promise, move |_, bm| {
@@ -96,11 +114,15 @@ async fn produce_and_consume(producer: &FutureProducer, consumer: StreamConsumer
         return key == record_key;
     }));
     match future.recv() {
-        Ok(_) => {
+        Ok(v) => {
             let duration = now.elapsed().unwrap().as_millis();
-            println!("Consume the record took ${:?} millis", duration)
+            println!("Consume the record took ${:?} millis", duration);
+            return Ok("".to_string());
         }
-        Err(_) => println!("Error Consuming record"),
+        Err(e) => {
+            println!("Error Consuming record");
+            return Err("".to_string());
+        },
     }
 }
 
@@ -118,22 +140,12 @@ fn u8_slice_to_string(key: &[u8]) -> String {
 /// Having a [FutureProducer] we use [send] operator to pass a [FutureRecord] together with Duration [Timeout]
 /// If we set timeout with 0 value it will wait forever.
 /// Since the scope of the [send] is async by design we need to create the FutureRecord inside the invocation.
-async fn produce(producer: &FutureProducer, key: &String, body: &str, topic: &str) {
+async fn produce(producer: &FutureProducer, key: &String, body: &str, topic: &str) -> OwnedDeliveryResult {
     let record = FutureRecord::to(topic)
         .payload(body)
         .key(key);
     let delivery_result: OwnedDeliveryResult = producer.send(record, Duration::from_secs(0)).await;
-    let deliver_cpy = delivery_result.clone();
-    if delivery_result.is_err() {
-        match delivery_result.err() {
-            None => {}
-            Some(e) => {
-                println!("Error response {}", e.0.to_string());
-            }
-        }
-    }else{
-        println!("Delivery status for message received is ok {}", deliver_cpy.is_ok());
-    }
+    return delivery_result;
 }
 
 /// We create a producer using [ClientConfig] builder, where we set several keys as properties
