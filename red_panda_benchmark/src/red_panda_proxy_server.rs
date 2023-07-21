@@ -81,7 +81,10 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
             }
         }
         (&Method::GET, "/panda/consume") => {
-            consume_all_records(consumer).await;
+           match  consume_all_records(consumer).await  {
+               Ok(_) =>  *response.status_mut() = StatusCode::OK,
+               Err(_) =>  *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
+           }
             *response.status_mut() = StatusCode::OK;
         }
         (&Method::GET, "/panda/produce_consume") => {
@@ -167,19 +170,20 @@ fn create_producer(brokers: &str) -> FutureProducer {
 
 /// Red Panda consumer
 /// -------------------
-
-///Expected records
-
-async fn consume_all_records(consumer: StreamConsumer<CustomContext>) {
+async fn consume_all_records(consumer: StreamConsumer<CustomContext>) -> Result<&'static str, &'static str> {
     let (promise, future): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let now = std::time::SystemTime::now();
-    tokio::task::spawn(consume_records(consumer, promise, |counter, bm| counter.eq(&1000)));
-    match future.recv() {
+    tokio::task::spawn(consume_records(consumer, promise, |counter, bm| counter.eq(&100)));
+    return match future.recv() {
         Ok(_) => {
             let duration = now.elapsed().unwrap().as_millis();
-            println!("Consuming all records took ${:?} millis", duration)
+            println!("Consuming all records took ${:?} millis", duration);
+            Ok("All record consumed")
         }
-        Err(_) => println!("Error Consuming records"),
+        Err(e) => {
+            println!("Error Consuming records: {}", e.to_string());
+            Err("Error Consuming records")
+        },
     }
 }
 
@@ -205,8 +209,7 @@ impl ConsumerContext for CustomContext {
 
 fn create_and_subscribe(brokers: &str, topic: &str) -> StreamConsumer<CustomContext> {
     let topics = [topic];
-    let group_id = "red_panda_group-id";
-    let consumer: StreamConsumer<CustomContext> = create_stream_consumer(brokers, group_id, CustomContext);
+    let consumer: StreamConsumer<CustomContext> = create_stream_consumer(brokers, CustomContext);
     consumer.subscribe(&topics.to_vec())
         .expect("Can't subscribe to specified topics");
     consumer
@@ -218,14 +221,11 @@ fn create_and_subscribe(brokers: &str, topic: &str) -> StreamConsumer<CustomCont
 /// that we already override some methods.
 /// We use [expect] to unwrap the [KafkaResult] obtained from the create operator, and we try to get the Ok,
 /// otherwise we print the error messages passed, and we have a panic.
-fn create_stream_consumer(brokers: &str, group_id: &str, context: CustomContext) -> StreamConsumer<CustomContext> {
+fn create_stream_consumer(brokers: &str, context: CustomContext) -> StreamConsumer<CustomContext> {
     ClientConfig::new()
-        .set("group.id", group_id)
+        .set("group.id", "red_panda_group-id")
         .set("bootstrap.servers", brokers)
-        .set("enable.partition.eof", "false")
-        .set("session.timeout.ms", "6000")
-        .set("enable.auto.commit", "true")
-        .set_log_level(RDKafkaLogLevel::Debug)
+        .set_log_level(RDKafkaLogLevel::Info)
         .create_with_context(context)
         .expect("Red panda Consumer creation failed")
 }
@@ -241,7 +241,7 @@ async fn consume_records<F: Fn(&i32, &BorrowedMessage) -> bool>(consumer: Stream
     loop {
         match consumer.recv().await {
             Err(e) => println!("Error consuming Event. Caused by: {}", e),
-            Ok(bm) => unsafe {
+            Ok(bm) => {
                 println!("key: '{:?}', topic: {}, partition: {}, offset: {}, timestamp: {:?}", bm.key(), bm.topic(), bm.partition(), bm.offset(), bm.timestamp());
                 let _ = match bm.payload_view::<str>() {
                     None => "",
