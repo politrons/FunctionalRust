@@ -30,8 +30,8 @@ use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::{CommitMode, Consumer, ConsumerContext, Rebalance};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
-use rdkafka::error::KafkaResult;
-use rdkafka::message::{BorrowedMessage, Headers, Message};
+use rdkafka::error::{KafkaError, KafkaResult};
+use rdkafka::message::{BorrowedMessage, Headers, Message, OwnedMessage};
 use rdkafka::topic_partition_list::TopicPartitionList;
 use rdkafka::util::get_rdkafka_version;
 
@@ -55,7 +55,7 @@ pub async fn run_server() {
 }
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let topic =  "panda";
+    let topic = "panda";
     let brokers = "34.83.74.100:9092";
     let consumer = create_and_subscribe(&brokers, &topic);
     let producer = &create_producer(&brokers);
@@ -122,8 +122,18 @@ async fn produce(producer: &FutureProducer, key: &String, body: &str, topic: &st
     let record = FutureRecord::to(topic)
         .payload(body)
         .key(key);
-    let delivery_result = producer.send(record, Duration::from_secs(0)).await;
-    println!("Delivery status for message received is ok {}", delivery_result.is_ok());
+    let delivery_result: OwnedDeliveryResult = producer.send(record, Duration::from_secs(0)).await;
+    let deliver_cpy = delivery_result.clone();
+    if delivery_result.is_err() {
+        match delivery_result.err() {
+            None => {}
+            Some(e) => {
+                println!("Error response {}", e.0.to_string());
+            }
+        }
+    }else{
+        println!("Delivery status for message received is ok {}", deliver_cpy.is_ok());
+    }
 }
 
 /// We create a producer using [ClientConfig] builder, where we set several keys as properties
