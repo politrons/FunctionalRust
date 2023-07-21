@@ -40,6 +40,14 @@ async fn main() {
     run_server().await;
 }
 
+lazy_static::lazy_static! {
+    static ref FUTURE_PRODUCER: Arc<Mutex<FutureProducer>> = {
+        let brokers = "34.83.74.100:9092,34.168.129.145:9092,34.168.132.253:9092";
+        let producer: FutureProducer = create_producer(&brokers);
+        Arc::new(Mutex::new(producer))
+    };
+}
+
 pub async fn run_server() {
     let port = 1981;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
@@ -48,15 +56,15 @@ pub async fn run_server() {
     println!("Creating consumer....");
     let consumer = create_and_subscribe(&brokers, &topic);
     println!("Creating producer....");
-    let arc_producer = Arc::new(Mutex::new(create_producer(&brokers)));
-    let arc_producer_clone = arc_producer.clone();
+    // let arc_producer = Arc::new(Mutex::new(create_producer(&brokers)));
+    // let arc_producer_clone = arc_producer.clone();
 
     println!("Running Server on port {}...", port);
     let server = Server::bind(&addr).serve(make_service_fn(move |_conn| {
-        let arc_producer_clone = arc_producer_clone.clone();
+        let arc_producer = FUTURE_PRODUCER.clone();
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
-                request_handler(req, Arc::clone(&arc_producer_clone))
+                request_handler(req, Arc::clone(&arc_producer.clone()))
             }))
         }
     }));
@@ -73,6 +81,7 @@ async fn request_handler(req: Request<Body>, arc_producer: Arc<Mutex<FutureProdu
         (&Method::GET, "/panda/produce") => {
             let id = Uuid::new_v4();
             let key = id.to_string();
+            println!("Producing record for key {}", key);
             match Arc::try_unwrap(arc_producer) {
                 Ok(unwrapped_producer) => {
                     let future_producer = unwrapped_producer.into_inner().unwrap();
@@ -89,7 +98,10 @@ async fn request_handler(req: Request<Body>, arc_producer: Arc<Mutex<FutureProdu
                         *response.status_mut() = StatusCode::OK;
                     }
                 }
-                Err(_) => *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR
+                Err(_) => {
+                    println!("Error unwrapping producer");
+                    *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR
+                }
             }
         }
         // (&Method::GET, "/panda/consume") => {

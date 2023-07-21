@@ -26,3 +26,4 @@ goose="0.17.0"
 goose-eggs = "0.5.1"
 tokio = { version = "1", features = ["full"] }
 hyper = { version = "0.14", features = ["full"] }
+lazy_static = "1.4"
