@@ -6,6 +6,7 @@ use goose_eggs::{Validate, validate_and_load_static_assets};
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
+    println!("{:?}", args);
     let result = match args.get(1) {
         Some(x) if x == "produce" => produce().await,
         Some(x) if x == "produce_consume" => produce_and_consume().await,
