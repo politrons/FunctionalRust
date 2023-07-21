@@ -78,7 +78,6 @@ pub async fn run_server() {
 }
 
 async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    // let topic = "panda";
     let body = &fs::read_to_string("/home/pablo_garcia/development/FunctionalRust/red_panda_benchmark/resources/uuid.txt").unwrap();
     let mut response = Response::new(Body::empty());
     match (req.method(), req.uri().path()) {
@@ -87,7 +86,6 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
             let key = id.to_string();
             match produce(&FUTURE_PRODUCER, &key, body).await {
                 Ok(v) => {
-                    println!("Successful response {}", v.1);
                     *response.status_mut() = StatusCode::OK;
                 }
                 Err(e) => {
