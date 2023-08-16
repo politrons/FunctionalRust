@@ -1,10 +1,11 @@
+use std::env;
 use goose::prelude::*;
 use goose_eggs::{Validate, validate_and_load_static_assets};
 
 
 #[tokio::main]
 async fn main() {
-    let result = run().await;
+    let result =  produce().await;
     println!("{:?}", result)
 }
 
@@ -14,12 +15,13 @@ async fn main() {
 /// where we can pass multiple [TransactionResult]
 /// Once we have all transactions configured, we can configure the simulation overriding
 /// [GooseDefault] using [set_default] operator.
-pub async fn run() -> Result<(), GooseError> {
+pub async fn produce() -> Result<(), GooseError> {
+    println!("Running consume red panda records....");
     GooseAttack::initialize()?
-        .register_scenario(scenario!("Mock http server")
-            .register_transaction(transaction!(produce_records)))
+        .register_scenario(scenario!("Consume Red panda records")
+            .register_transaction(transaction!(consume_request)))
         .set_default(GooseDefault::Host, "http://127.0.0.1:1981")?
-        .set_default(GooseDefault::Users, 30)?
+        .set_default(GooseDefault::Users, 2)?
         .set_default(GooseDefault::StartupTime, 10)?
         .set_default(GooseDefault::RunningMetrics, 5)?
         .set_default(GooseDefault::RunTime, 120)?
@@ -34,8 +36,8 @@ pub async fn run() -> Result<(), GooseError> {
 /// to compare with [GooseResponse] from the call.
 /// We can check what is the [status], [text] from the body is what we expect.
 ///
-async fn produce_records(user: &mut GooseUser) -> TransactionResult {
-    let goose = user.get("/panda/produce").await?;
+async fn consume_request(user: &mut GooseUser) -> TransactionResult {
+    let goose = user.get("/panda/consume").await?;
     let validate = &Validate::builder()
         .status(200)
         .build();

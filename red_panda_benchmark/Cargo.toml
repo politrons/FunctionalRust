@@ -8,8 +8,16 @@ name = "red_panda_proxy_server"
 path = "src/red_panda_proxy_server.rs"
 
 [[bin]]
-name = "red_panda_load_test"
-path = "src/red_panda_load_test.rs"
+name = "produce_load_test"
+path = "src/produce_load_test.rs"
+
+[[bin]]
+name = "consume_load_test"
+path = "src/consume_load_test.rs"
+
+[[bin]]
+name = "produce_consume_load_test"
+path = "src/produce_consume_load_test.rs"
 
 [dependencies]
 uuid = { version = "1.4.0", features = ["serde", "v4"] }
@@ -18,3 +26,4 @@ goose="0.17.0"
 goose-eggs = "0.5.1"
 tokio = { version = "1", features = ["full"] }
 hyper = { version = "0.14", features = ["full"] }
+lazy_static = "1.4"
