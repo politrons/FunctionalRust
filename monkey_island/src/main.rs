@@ -7,7 +7,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(window_setup())// prevents blurry sprites
-        .add_systems(Startup, setup)
+        .add_systems(Startup, setup_sprites)
+        .add_systems(Startup, setup_audio)
         .add_systems(Update, animate_guybrush)
         .add_systems(Update, animate_lechuck)
         .add_systems(Update, animate_guybrush_monkey)
@@ -27,6 +28,12 @@ fn window_setup() -> (PluginGroupBuilder, ) { (
     )
 }
 
+fn setup_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("monkey_island.ogg"),
+        settings: PlaybackSettings::LOOP,
+    });
+}
 #[derive(Component)]
 struct GuybrushAnimation {
     // running_right:bool,
@@ -145,7 +152,13 @@ fn animate_guybrush_monkey(
     }
 }
 
-fn setup(
+///
+/// Bevy provide a [Startup] config, where we need to provide an implementation receiving the
+/// system properties that allow us to establish the game settings to be used later on.
+/// [Commands] user to [spawn] the [bundle] also known as [Sprites] to be used in the game.
+/// [Res<AssetServer>] to [load] the images to be used for Sprites.
+/// [ResMut<Assets<TextureAtlas>>] to [add] the [TextureAtlas] once are created from the images provided before.
+fn setup_sprites(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
@@ -161,6 +174,9 @@ fn setup(
     guybrush_monkey_spawn(&mut commands, h,a);
 }
 
+/// We load the image and we create a [Handle<Image>]
+/// Once we got it, we create [TextureAtlas] specifying the size of Sprite, and how many sprites we have in the pictures.
+/// Using [column] and [row] here since is a single Picture/Sprite is marked as 1:1
 fn background_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
     let background_handle = asset_server.load("background.png");
     let background_atlas =
@@ -169,24 +185,27 @@ fn background_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMu
     background_atlas_handle
 }
 
+/// Using [column] and [row] here since is a 1 row of 6 Picture/Sprite is marked as 6,1
 fn guybrush_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> (Handle<TextureAtlas>, GuybrushAnimation) {
     let guybrush_handle = asset_server.load("monkey_island_move.png");
     let guybrush_atlas =
-        TextureAtlas::from_grid(guybrush_handle, Vec2::new(100.0, 150.0), 7, 2, None, None);
+        TextureAtlas::from_grid(guybrush_handle, Vec2::new(100.0, 150.0), 6, 1, None, None);
     let guybrush_atlas_handle = texture_atlases.add(guybrush_atlas);
     let guybrush_animation = GuybrushAnimation { first: 0, last: 5 };
     (guybrush_atlas_handle, guybrush_animation)
 }
 
+/// Using [column] and [row] here since is a 1 row of 6 Picture/Sprite is marked as 6,1
 fn lechuck_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> (Handle<TextureAtlas>, LechuckAnimation) {
     let lechuck_handle = asset_server.load("lechuck.png");
     let lechuck_atlas =
-        TextureAtlas::from_grid(lechuck_handle, Vec2::new(68.0, 80.0), 7, 2, None, None);
+        TextureAtlas::from_grid(lechuck_handle, Vec2::new(68.0, 80.0), 6, 1, None, None);
     let lechuck_atlas_handle = texture_atlases.add(lechuck_atlas);
-    let lechuck_animation = LechuckAnimation { first: 1, last: 5 };
+    let lechuck_animation = LechuckAnimation { first: 0, last: 5 };
     (lechuck_atlas_handle, lechuck_animation)
 }
 
+/// Using [column] and [row] here since is a 2 row of 10 Picture/Sprite is marked as 10,2
 fn guybrush_2_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> (Handle<TextureAtlas>, GuybrushMonkeyAnimation) {
     let guybrush_2_handle = asset_server.load("guybrush_monkey.png");
     let guybrush_2_atlas =
@@ -217,7 +236,7 @@ fn guybrush_spawn(commands: &mut Commands, guybrush_atlas_handle: Handle<Texture
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: guybrush_atlas_handle,
-            sprite: TextureAtlasSprite::new(1),
+            sprite: TextureAtlasSprite::new(0),
             transform: guybrush_transform,
             ..default()
         },
@@ -233,7 +252,7 @@ fn lechuck_spawn(commands: &mut Commands, lechuck_atlas_handle: Handle<TextureAt
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: lechuck_atlas_handle,
-            sprite: TextureAtlasSprite::new(1),
+            sprite: TextureAtlasSprite::new(0),
             transform: lechuck_transform,
             ..default()
         },
