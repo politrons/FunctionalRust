@@ -1,16 +1,30 @@
 //! Renders an animated sprite by loading all animation frames from a single image (a sprite sheet)
 //! into a texture atlas, and changing the displayed image periodically.
 
+use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
+        .add_plugins(window_setup())// prevents blurry sprites
         .add_systems(Startup, setup)
         .add_systems(Update, animate_guybrush)
         .add_systems(Update, animate_lechuck)
+        .add_systems(Update, animate_guybrush_monkey)
 
         .run();
+}
+
+fn window_setup() -> (PluginGroupBuilder, ) { (
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Rust Island".into(),
+                resolution: (1920., 1080.).into(),
+                ..default()
+            }),
+            ..default()
+        }),
+    )
 }
 
 #[derive(Component)]
@@ -22,6 +36,12 @@ struct GuybrushAnimation {
 
 #[derive(Component)]
 struct LechuckAnimation {
+    first: usize,
+    last: usize,
+}
+
+#[derive(Component)]
+struct GuybrushMonkeyAnimation {
     first: usize,
     last: usize,
 }
@@ -104,6 +124,27 @@ fn animate_lechuck(
     }
 }
 
+fn animate_guybrush_monkey(
+    time: Res<Time>,
+    mut query: Query<(
+        &GuybrushMonkeyAnimation,
+        &mut AnimationTimer,
+        &mut TextureAtlasSprite,
+    )>,
+) {
+    for (indices, mut timer, mut sprite) in &mut query {
+        // info!("'Enemy animation");
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            sprite.index = if sprite.index == indices.last {
+                indices.first
+            } else {
+                sprite.index + 1
+            };
+        }
+    }
+}
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -112,10 +153,12 @@ fn setup(
     let background_atlas_handle = background_setup(&asset_server, &mut texture_atlases);
     let (guybrush_atlas_handle, guybrush_animation) = guybrush_setup(&asset_server, &mut texture_atlases);
     let (lechuck_atlas_handle, lechuck_animation) = lechuck_setup(&asset_server, &mut texture_atlases);
+    let (h, a) = guybrush_2_setup(&asset_server, &mut texture_atlases);
     commands.spawn(Camera2dBundle::default());
     background_spawn(&mut commands, background_atlas_handle);
     guybrush_spawn(&mut commands, guybrush_atlas_handle, guybrush_animation);
     lechuck_spawn(&mut commands, lechuck_atlas_handle, lechuck_animation);
+    guybrush_monkey_spawn(&mut commands, h,a);
 }
 
 fn background_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
@@ -135,7 +178,6 @@ fn guybrush_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<
     (guybrush_atlas_handle, guybrush_animation)
 }
 
-
 fn lechuck_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> (Handle<TextureAtlas>, LechuckAnimation) {
     let lechuck_handle = asset_server.load("lechuck.png");
     let lechuck_atlas =
@@ -143,6 +185,15 @@ fn lechuck_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<A
     let lechuck_atlas_handle = texture_atlases.add(lechuck_atlas);
     let lechuck_animation = LechuckAnimation { first: 1, last: 5 };
     (lechuck_atlas_handle, lechuck_animation)
+}
+
+fn guybrush_2_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> (Handle<TextureAtlas>, GuybrushMonkeyAnimation) {
+    let guybrush_2_handle = asset_server.load("guybrush_monkey.png");
+    let guybrush_2_atlas =
+        TextureAtlas::from_grid(guybrush_2_handle, Vec2::new(72.0, 56.0), 10, 2, None, None);
+    let guybrush_2_atlas_handle = texture_atlases.add(guybrush_2_atlas);
+    let guybrush_2_animation = GuybrushMonkeyAnimation { first: 0, last: 19 };
+    (guybrush_2_atlas_handle, guybrush_2_animation)
 }
 
 
@@ -187,6 +238,22 @@ fn lechuck_spawn(commands: &mut Commands, lechuck_atlas_handle: Handle<TextureAt
             ..default()
         },
         lechuck_animation,
+        AnimationTimer(Timer::from_seconds(0.2, TimerMode::Repeating)),
+    ));
+}
+
+fn guybrush_monkey_spawn(commands: &mut Commands, guybrush_monkey_atlas_handle: Handle<TextureAtlas>, guybrush_monkey_animation: GuybrushMonkeyAnimation) {
+    let mut lechuck_transform = Transform::default();
+    lechuck_transform.scale = Vec3::splat(2.0);
+    lechuck_transform.translation = Vec3::new(-100.0, -320.0, 0.0);
+    commands.spawn((
+        SpriteSheetBundle {
+            texture_atlas: guybrush_monkey_atlas_handle,
+            sprite: TextureAtlasSprite::new(0),
+            transform: lechuck_transform,
+            ..default()
+        },
+        guybrush_monkey_animation,
         AnimationTimer(Timer::from_seconds(0.2, TimerMode::Repeating)),
     ));
 }
