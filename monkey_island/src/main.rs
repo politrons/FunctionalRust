@@ -6,7 +6,8 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(window_setup())// prevents blurry sprites
+        .insert_resource(ClearColor(Color::rgb(0.0, 170.0, 170.0)))
+        .add_plugins(window_setup())
         .add_systems(Startup, setup_sprites)
         .add_systems(Startup, setup_audio)
         .add_systems(Update, animate_guybrush)
@@ -16,6 +17,7 @@ fn main() {
         .run();
 }
 
+/// Setup of the App Window where using [WindowPlugin] we set the [Window] type with [title] and [resolution].
 fn window_setup() -> (PluginGroupBuilder, ) { (
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -28,15 +30,17 @@ fn window_setup() -> (PluginGroupBuilder, ) { (
     )
 }
 
+/// Setup of the background music to run in [LOOP] mode
 fn setup_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(AudioBundle {
         source: asset_server.load("monkey_island.ogg"),
         settings: PlaybackSettings::LOOP,
     });
 }
+
+/// Animation structs to define first and last index of Sprites.
 #[derive(Component)]
 struct GuybrushAnimation {
-    // running_right:bool,
     first: usize,
     last: usize,
 }
@@ -56,6 +60,15 @@ struct GuybrushMonkeyAnimation {
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
 
+/// Bevy allow us to define an [Update] function where we can specify the [Query] that brings a
+/// tuple with as much as properties we want to use in the animation.
+/// The time this animation is invoked is configured when we create the [spawn] and we configure
+/// the [AnimationTimer] with the [Timer] and [TimerMode] strategy.
+/// We use [TextureAtlasSprite] to change the [index] so we can move the sprite array.
+/// And also we use [flip_x](true/false) to move the rotate the sprite into one direction.
+/// We use [Transform] in case we want to move the Sprite in the screen.
+/// In case we want to scan the keyboard inputs, we can add in the [Update] function the
+/// [Res<Input<KeyCode>>]. Then we can use functions [pressed] to know when a key is pressed.
 fn animate_guybrush(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
@@ -77,7 +90,6 @@ fn animate_guybrush(
                 } else {
                     sprite.index + 1
                 };
-                // Move the sprite to the right
                 transform.translation.x += 10.0; // Adjust the movement speed as needed
             }
 
@@ -89,7 +101,6 @@ fn animate_guybrush(
                 } else {
                     sprite.index + 1
                 };
-                // Move the sprite to the left
                 transform.translation.x -= 10.0; // Adjust the movement speed as needed
             }
         }
@@ -164,14 +175,16 @@ fn setup_sprites(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     let background_atlas_handle = background_setup(&asset_server, &mut texture_atlases);
+    let logo_atlas_handle = logo_setup(&asset_server, &mut texture_atlases);
     let (guybrush_atlas_handle, guybrush_animation) = guybrush_setup(&asset_server, &mut texture_atlases);
     let (lechuck_atlas_handle, lechuck_animation) = lechuck_setup(&asset_server, &mut texture_atlases);
-    let (h, a) = guybrush_2_setup(&asset_server, &mut texture_atlases);
+    let (guybrush_monkey_atlas_handle, guybrush_monkey_animation) = guybrush_2_setup(&asset_server, &mut texture_atlases);
     commands.spawn(Camera2dBundle::default());
     background_spawn(&mut commands, background_atlas_handle);
+    logo_spawn(&mut commands, logo_atlas_handle);
     guybrush_spawn(&mut commands, guybrush_atlas_handle, guybrush_animation);
     lechuck_spawn(&mut commands, lechuck_atlas_handle, lechuck_animation);
-    guybrush_monkey_spawn(&mut commands, h,a);
+    guybrush_monkey_spawn(&mut commands, guybrush_monkey_atlas_handle, guybrush_monkey_animation);
 }
 
 /// We load the image and we create a [Handle<Image>]
@@ -181,8 +194,15 @@ fn background_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMu
     let background_handle = asset_server.load("background.png");
     let background_atlas =
         TextureAtlas::from_grid(background_handle, Vec2::new(2000.0, 800.0), 1, 1, None, None);
-    let background_atlas_handle = texture_atlases.add(background_atlas);
-    background_atlas_handle
+    texture_atlases.add(background_atlas)
+}
+
+/// Using [column] and [row] here since is a single Picture/Sprite is marked as 1:1
+fn logo_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
+    let logo_handle = asset_server.load("logo.png");
+    let logo_atlas =
+        TextureAtlas::from_grid(logo_handle, Vec2::new(200.0, 100.0), 1, 1, None, None);
+    texture_atlases.add(logo_atlas)
 }
 
 /// Using [column] and [row] here since is a 1 row of 6 Picture/Sprite is marked as 6,1
@@ -229,6 +249,19 @@ fn background_spawn(commands: &mut Commands, background_atlas_handle: Handle<Tex
     ));
 }
 
+fn logo_spawn(commands: &mut Commands, logo_atlas_handle: Handle<TextureAtlas>) {
+    let mut logo_transform = Transform::default();
+    logo_transform.translation = Vec3::new(-30.0, 350.0, 0.0);
+    commands.spawn((
+        SpriteSheetBundle {
+            texture_atlas: logo_atlas_handle,
+            sprite: TextureAtlasSprite::new(0),
+            transform: logo_transform,
+            ..default()
+        },
+    ));
+}
+
 fn guybrush_spawn(commands: &mut Commands, guybrush_atlas_handle: Handle<TextureAtlas>, guybrush_animation: GuybrushAnimation) {
     let mut guybrush_transform = Transform::default();
     guybrush_transform.scale = Vec3::splat(1.0);
@@ -262,14 +295,14 @@ fn lechuck_spawn(commands: &mut Commands, lechuck_atlas_handle: Handle<TextureAt
 }
 
 fn guybrush_monkey_spawn(commands: &mut Commands, guybrush_monkey_atlas_handle: Handle<TextureAtlas>, guybrush_monkey_animation: GuybrushMonkeyAnimation) {
-    let mut lechuck_transform = Transform::default();
-    lechuck_transform.scale = Vec3::splat(2.0);
-    lechuck_transform.translation = Vec3::new(-100.0, -320.0, 0.0);
+    let mut g_m_transform = Transform::default();
+    g_m_transform.scale = Vec3::splat(2.0);
+    g_m_transform.translation = Vec3::new(130.0, 370.0, 0.0);
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: guybrush_monkey_atlas_handle,
             sprite: TextureAtlasSprite::new(0),
-            transform: lechuck_transform,
+            transform: g_m_transform,
             ..default()
         },
         guybrush_monkey_animation,
