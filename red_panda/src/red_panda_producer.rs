@@ -9,7 +9,7 @@ async fn produce(brokers: &str, topic_name: &str) {
     let producer = &create_producer(brokers);
     // This loop is non blocking: all messages will be sent one after the other, without waiting
     // for the results.
-    let futures = (0..1000)
+    let futures = (0..5)
         .map(|i| async move {
             let delivery_result = send_record(topic_name, &producer, &i).await;
             println!("Delivery status for message {} received", i);
@@ -38,7 +38,7 @@ fn create_producer(brokers: &str) -> FutureProducer {
 /// Since the scope of the [send] is async by design we need to create the FutureRecord inside the invocation.
 ///
 async fn send_record(topic_name: &str, producer: &FutureProducer, i: &i32) -> OwnedDeliveryResult {
-    let body = &fs::read_to_string("resources/uuid.txt").unwrap();
+    let body = "Hello world";
     let key = &format!("Key {}", i);
     let record = FutureRecord::to(topic_name)
         .payload(body)
@@ -56,7 +56,7 @@ async fn process_results(futures: Vec<impl Future<Output=OwnedDeliveryResult> + 
 
 #[tokio::main]
 async fn main() {
-    let topic = "my_red_panda_topic";
-    let brokers = "localhost:9092";
+    let topic = "panda";
+    let brokers = "34.168.33.235:9092";
     produce(brokers, topic).await;
 }
