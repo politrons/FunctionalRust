@@ -4,4 +4,11 @@
 
 Author Pablo Picouto Garcia
 
-Is this repo useful? Please ⭑Star this repository and share the love.
+A Tribute to the Monkey Island Game Engine Using [Bevy](https://bevyengine.org)
+
+## Sprites
+
+![My image](assets/guybrush.png)
+![My image](assets/lechuck.png)
+![My image](assets/guybrush_monkey.png)
+

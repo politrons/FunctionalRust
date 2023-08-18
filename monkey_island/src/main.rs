@@ -207,7 +207,7 @@ fn logo_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Asse
 
 /// Using [column] and [row] here since is a 1 row of 6 Picture/Sprite is marked as 6,1
 fn guybrush_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> (Handle<TextureAtlas>, GuybrushAnimation) {
-    let guybrush_handle = asset_server.load("monkey_island_move.png");
+    let guybrush_handle = asset_server.load("guybrush.png");
     let guybrush_atlas =
         TextureAtlas::from_grid(guybrush_handle, Vec2::new(100.0, 150.0), 6, 1, None, None);
     let guybrush_atlas_handle = texture_atlases.add(guybrush_atlas);
