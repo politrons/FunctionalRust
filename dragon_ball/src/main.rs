@@ -2,7 +2,9 @@
 //! into a texture atlas, and changing the displayed image periodically.
 
 use bevy::app::PluginGroupBuilder;
+use bevy::ecs::bundle::DynamicBundle;
 use bevy::prelude::*;
+use crate::DbzEntity::{TrunkBlast, TrunkFight, TrunkHit, TrunkMove};
 
 fn main() {
     App::new()
@@ -10,7 +12,7 @@ fn main() {
         .add_plugins(window_setup())
         .add_systems(Startup, setup_sprites)
         // .add_systems(Startup, setup_audio)
-        .add_systems(Update, animate_trunks)
+        .add_systems(Update, animate)
         // .add_systems(Update, animate_lechuck)
         // .add_systems(Update, animate_guybrush_monkey)
 
@@ -39,9 +41,17 @@ fn setup_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
+enum DbzEntity {
+    TrunkMove,
+    TrunkHit,
+    TrunkFight,
+    TrunkBlast,
+}
+
 /// Animation structs to define first and last index of Sprites.
 #[derive(Component)]
 struct SpriteAnimation {
+    entity: DbzEntity,
     first: usize,
     last: usize,
 }
@@ -70,7 +80,7 @@ struct AnimationTimer(Timer);
 /// We use [Transform] in case we want to move the Sprite in the screen.
 /// In case we want to scan the keyboard inputs, we can add in the [Update] function the
 /// [Res<Input<KeyCode>>]. Then we can use functions [pressed] to know when a key is pressed.
-fn animate_trunks(
+fn animate(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(
@@ -80,15 +90,52 @@ fn animate_trunks(
         &mut Transform,
     )>,
 ) {
-    for (indices, mut timer, mut sprite, mut transform) in &mut query {
+    for (spriteAnimation,
+        mut timer,
+        mut sprite,
+        mut transform) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
-            sprite.index = if sprite.index == indices.last {
-                indices.first
-            } else {
-                sprite.index + 1
-            };
+            // let mut visibility = visibilities.get_mut(entity).unwrap();
+            match spriteAnimation.entity {
+                TrunkMove => if keyboard_input.pressed(KeyCode::Right) {
+                    info!("'TrunkMove' currently pressed");
+                    sprite.index = move_sprite(spriteAnimation, &mut sprite);
+                    transform.scale=Vec3::splat(2.0);
+                } else {
+                    transform.scale=Vec3::splat(0.0);
+                },
+                TrunkHit => {
+                    transform.scale=Vec3::splat(0.0);
+                }
+                TrunkFight => {
+                    if keyboard_input.pressed(KeyCode::Space) {
+                        info!("'TrunkFight' currently pressed");
+                        sprite.index = move_sprite(spriteAnimation, &mut sprite);
+                        transform.scale=Vec3::splat(2.0);
+                    }else{
+                        transform.scale=Vec3::splat(0.0);
+                    }
+                }
+                TrunkBlast => {
+                    if keyboard_input.pressed(KeyCode::Return) {
+                        info!("'TrunkBlast' currently pressed");
+                        sprite.index = move_sprite(spriteAnimation, &mut sprite);
+                        transform.scale=Vec3::splat(2.0);
+                    }else{
+                        transform.scale=Vec3::splat(0.0);
+                    }
+                }
+            }
         }
+    }
+}
+
+fn move_sprite(sprite_animation: &SpriteAnimation, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
+    if sprite.index == sprite_animation.last {
+        sprite_animation.first
+    } else {
+        sprite.index + 1
     }
 }
 
@@ -111,25 +158,24 @@ fn setup_sprites(
     player_1_transform.translation = Vec3::new(-80.0, -150.0, 0.0);
 
     let (trunk_move_atlas_handle, move_animation) =
-        sprite_setup(&asset_server, &mut texture_atlases, "trunk_move.png", 37.0, 55.0, 6, 1);
+        sprite_setup(&asset_server, &mut texture_atlases, TrunkMove, "trunk_move.png", 37.0, 55.0, 6, 1);
 
     let (trunk_blast_atlas_handle, blast_animation) =
-        sprite_setup(&asset_server, &mut texture_atlases, "trunk_blast.png", 32.5, 49.0, 5, 1);
+        sprite_setup(&asset_server, &mut texture_atlases, TrunkBlast, "trunk_blast.png", 32.5, 49.0, 5, 1);
 
     let (trunk_fight_atlas_handle, fight_animation) =
-        sprite_setup(&asset_server, &mut texture_atlases, "trunk_fight.png", 38.8, 44.0, 6, 1);
+        sprite_setup(&asset_server, &mut texture_atlases, TrunkFight, "trunk_fight.png", 44.2 , 42.0, 6, 1);
 
     let (trunk_hit_atlas_handle, hit_animation) =
-        sprite_setup(&asset_server, &mut texture_atlases, "trunk_hit.png", 36.05, 52.0, 7, 1);
+        sprite_setup(&asset_server, &mut texture_atlases, TrunkHit, "trunk_hit.png", 36.05, 52.0, 7, 1);
 
 
     commands.spawn(Camera2dBundle::default());
     // background_spawn(&mut commands, background_atlas_handle);
-    // sprite_spawn(&mut commands, trunk_move_atlas_handle, move_animation, player_1_transform);
-    // sprite_spawn(&mut commands, trunk_blast_atlas_handle, blast_animation, player_1_transform);
-    // sprite_spawn(&mut commands, trunk_fight_atlas_handle, fight_animation, player_1_transform);
+    sprite_spawn(&mut commands, trunk_move_atlas_handle, move_animation, player_1_transform);
+    sprite_spawn(&mut commands, trunk_blast_atlas_handle, blast_animation, player_1_transform);
+    sprite_spawn(&mut commands, trunk_fight_atlas_handle, fight_animation, player_1_transform);
     sprite_spawn(&mut commands, trunk_hit_atlas_handle, hit_animation, player_1_transform);
-
 }
 
 /// We load the image and we create a [Handle<Image>]
@@ -144,6 +190,7 @@ fn background_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMu
 
 fn sprite_setup(asset_server: &Res<AssetServer>,
                 texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+                dbz_entity: DbzEntity,
                 image_name: &str,
                 image_x: f32,
                 image_y: f32,
@@ -154,7 +201,7 @@ fn sprite_setup(asset_server: &Res<AssetServer>,
     let guybrush_atlas =
         TextureAtlas::from_grid(guybrush_handle, Vec2::new(image_x, image_y), columns, rows, None, None);
     let guybrush_atlas_handle = texture_atlases.add(guybrush_atlas);
-    let guybrush_animation = SpriteAnimation { first: (rows.clone() - 1), last: (columns.clone() - 1) };
+    let guybrush_animation = SpriteAnimation { entity: dbz_entity, first: (rows.clone() - 1), last: (columns.clone() - 1) };
     (guybrush_atlas_handle, guybrush_animation)
 }
 

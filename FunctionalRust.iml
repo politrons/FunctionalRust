@@ -13,6 +13,7 @@
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/red_panda_benchmark/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/monkey_island/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/dragon_ball/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/architecture/target" />
       <excludeFolder url="file://$MODULE_DIR$/dynamic_loading/target" />
       <excludeFolder url="file://$MODULE_DIR$/dynamic_loading_contract/target" />
@@ -23,6 +24,7 @@
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/red_panda_benchmark/target" />
       <excludeFolder url="file://$MODULE_DIR$/monkey_island/target" />
+      <excludeFolder url="file://$MODULE_DIR$/dragon_ball/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
