@@ -20,4 +20,4 @@ Clone the repo, and run ```Main``` class
 
 ## Keyboard
 
-```Up, Down, Left, Right``` keyboards to move
+```Left, Right``` keyboards to move
