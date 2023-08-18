@@ -4,14 +4,13 @@
 use bevy::app::PluginGroupBuilder;
 use bevy::ecs::bundle::DynamicBundle;
 use bevy::prelude::*;
-use crate::DbzEntity::{TrunkBlast, TrunkFight, TrunkHit, TrunkMove};
+use crate::DbzEntity::{TrunkBlast, TrunkFight, TrunkHit, TrunkKi, TrunkMove};
 
 fn main() {
     App::new()
-        // .insert_resource(ClearColor(Color::rgb(0.0, 170.0, 170.0)))
         .add_plugins(window_setup())
         .add_systems(Startup, setup_sprites)
-        // .add_systems(Startup, setup_audio)
+        .add_systems(Startup, setup_audio)
         .add_systems(Update, animate)
         // .add_systems(Update, animate_lechuck)
         // .add_systems(Update, animate_guybrush_monkey)
@@ -25,7 +24,7 @@ fn window_setup() -> (PluginGroupBuilder, ) {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Rust Island".into(),
-                resolution: (1024., 680.).into(),
+                resolution: (1900., 600.).into(),
                 ..default()
             }),
             ..default()
@@ -36,12 +35,13 @@ fn window_setup() -> (PluginGroupBuilder, ) {
 /// Setup of the background music to run in [LOOP] mode
 fn setup_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(AudioBundle {
-        source: asset_server.load("monkey_island.ogg"),
+        source: asset_server.load("dbz.ogg"),
         settings: PlaybackSettings::LOOP,
     });
 }
 
 enum DbzEntity {
+    TrunkKi,
     TrunkMove,
     TrunkHit,
     TrunkFight,
@@ -52,18 +52,6 @@ enum DbzEntity {
 #[derive(Component)]
 struct SpriteAnimation {
     entity: DbzEntity,
-    first: usize,
-    last: usize,
-}
-
-#[derive(Component)]
-struct LechuckAnimation {
-    first: usize,
-    last: usize,
-}
-
-#[derive(Component)]
-struct GuybrushMonkeyAnimation {
     first: usize,
     last: usize,
 }
@@ -96,34 +84,39 @@ fn animate(
         mut transform) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
-            // let mut visibility = visibilities.get_mut(entity).unwrap();
+            transform.scale = Vec3::splat(0.0);
             match spriteAnimation.entity {
-                TrunkMove => if keyboard_input.pressed(KeyCode::Right) {
+                TrunkKi => {
+                    let is_action_key = keyboard_input.pressed(KeyCode::Left) ||
+                        keyboard_input.pressed(KeyCode::Space) ||
+                        keyboard_input.pressed(KeyCode::Return);
+                    info!("'TrunkKi' currently pressed {}", is_action_key);
+
+                    if !is_action_key {
+                        sprite.index = move_sprite(spriteAnimation, &mut sprite);
+                        transform.scale = Vec3::splat(2.0);
+                    }
+                }
+                TrunkMove => if keyboard_input.pressed(KeyCode::Left) {
                     info!("'TrunkMove' currently pressed");
                     sprite.index = move_sprite(spriteAnimation, &mut sprite);
-                    transform.scale=Vec3::splat(2.0);
-                } else {
-                    transform.scale=Vec3::splat(0.0);
+                    transform.scale = Vec3::splat(2.0);
                 },
                 TrunkHit => {
-                    transform.scale=Vec3::splat(0.0);
+                    transform.scale = Vec3::splat(0.0);
                 }
                 TrunkFight => {
                     if keyboard_input.pressed(KeyCode::Space) {
                         info!("'TrunkFight' currently pressed");
                         sprite.index = move_sprite(spriteAnimation, &mut sprite);
-                        transform.scale=Vec3::splat(2.0);
-                    }else{
-                        transform.scale=Vec3::splat(0.0);
+                        transform.scale = Vec3::splat(2.0);
                     }
                 }
                 TrunkBlast => {
                     if keyboard_input.pressed(KeyCode::Return) {
                         info!("'TrunkBlast' currently pressed");
                         sprite.index = move_sprite(spriteAnimation, &mut sprite);
-                        transform.scale=Vec3::splat(2.0);
-                    }else{
-                        transform.scale=Vec3::splat(0.0);
+                        transform.scale = Vec3::splat(2.0);
                     }
                 }
             }
@@ -150,12 +143,11 @@ fn setup_sprites(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    // let background_atlas_handle = background_setup(&asset_server, &mut texture_atlases);
 
+    let background_atlas_handle = background_setup(&asset_server, &mut texture_atlases);
 
-    let mut player_1_transform = Transform::default();
-    player_1_transform.scale = Vec3::splat(2.0);
-    player_1_transform.translation = Vec3::new(-80.0, -150.0, 0.0);
+    let (trunk_ki_atlas_handle, ki_animation) =
+        sprite_setup(&asset_server, &mut texture_atlases, TrunkKi, "trunk_ki.png", 70.0, 60.0, 3, 1);
 
     let (trunk_move_atlas_handle, move_animation) =
         sprite_setup(&asset_server, &mut texture_atlases, TrunkMove, "trunk_move.png", 37.0, 55.0, 6, 1);
@@ -164,14 +156,21 @@ fn setup_sprites(
         sprite_setup(&asset_server, &mut texture_atlases, TrunkBlast, "trunk_blast.png", 32.5, 49.0, 5, 1);
 
     let (trunk_fight_atlas_handle, fight_animation) =
-        sprite_setup(&asset_server, &mut texture_atlases, TrunkFight, "trunk_fight.png", 44.2 , 42.0, 6, 1);
+        sprite_setup(&asset_server, &mut texture_atlases, TrunkFight, "trunk_fight.png", 44.2, 42.0, 6, 1);
 
     let (trunk_hit_atlas_handle, hit_animation) =
         sprite_setup(&asset_server, &mut texture_atlases, TrunkHit, "trunk_hit.png", 36.05, 52.0, 7, 1);
 
 
     commands.spawn(Camera2dBundle::default());
-    // background_spawn(&mut commands, background_atlas_handle);
+    let mut background_transform = Transform::default();
+    background_transform.translation = Vec3::new(0.0, 0.0, 0.0);
+    background_spawn(&mut commands, background_atlas_handle,background_transform);
+
+    let mut player_1_transform = Transform::default();
+    player_1_transform.scale = Vec3::splat(2.0);
+    player_1_transform.translation = Vec3::new(-350.0, 120.0,   1.0);
+    sprite_spawn(&mut commands, trunk_ki_atlas_handle, ki_animation, player_1_transform);
     sprite_spawn(&mut commands, trunk_move_atlas_handle, move_animation, player_1_transform);
     sprite_spawn(&mut commands, trunk_blast_atlas_handle, blast_animation, player_1_transform);
     sprite_spawn(&mut commands, trunk_fight_atlas_handle, fight_animation, player_1_transform);
@@ -184,7 +183,7 @@ fn setup_sprites(
 fn background_setup(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
     let background_handle = asset_server.load("background.png");
     let background_atlas =
-        TextureAtlas::from_grid(background_handle, Vec2::new(2000.0, 800.0), 1, 1, None, None);
+        TextureAtlas::from_grid(background_handle, Vec2::new(1900.0, 600.0), 1, 1, None, None);
     texture_atlases.add(background_atlas)
 }
 
@@ -197,22 +196,20 @@ fn sprite_setup(asset_server: &Res<AssetServer>,
                 columns: usize,
                 rows: usize,
 ) -> (Handle<TextureAtlas>, SpriteAnimation) {
-    let guybrush_handle = asset_server.load(image_name);
-    let guybrush_atlas =
-        TextureAtlas::from_grid(guybrush_handle, Vec2::new(image_x, image_y), columns, rows, None, None);
-    let guybrush_atlas_handle = texture_atlases.add(guybrush_atlas);
-    let guybrush_animation = SpriteAnimation { entity: dbz_entity, first: (rows.clone() - 1), last: (columns.clone() - 1) };
-    (guybrush_atlas_handle, guybrush_animation)
+    let handle = asset_server.load(image_name);
+    let texture_atlas =
+        TextureAtlas::from_grid(handle, Vec2::new(image_x, image_y), columns, rows, None, None);
+    let atlas_handle = texture_atlases.add(texture_atlas);
+    let animation = SpriteAnimation { entity: dbz_entity, first: (rows.clone() - 1), last: (columns.clone() - 1) };
+    (atlas_handle, animation)
 }
 
-fn background_spawn(commands: &mut Commands, background_atlas_handle: Handle<TextureAtlas>) {
-    let mut background_transform = Transform::default();
-    background_transform.scale = Vec3::splat(0.7);
+fn background_spawn(commands: &mut Commands, background_atlas_handle: Handle<TextureAtlas>, background_transform: Transform) {
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: background_atlas_handle,
             sprite: TextureAtlasSprite::new(0),
-            transform: background_transform,
+            transform:background_transform,
             ..default()
         },
     ));
