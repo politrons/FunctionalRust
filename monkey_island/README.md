@@ -14,3 +14,10 @@ A Tribute to the Monkey Island Game Engine Using [Bevy](https://bevyengine.org)
 
 ![My image](assets/guybrush_monkey.png)
 
+## How to Play
+
+Clone the repo, and run ```Main``` class
+
+## Keyboard
+
+```Up, Down, Left, Right``` keyboards to move
