@@ -113,13 +113,11 @@ fn animate_player(
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
             if animation.entity == Hit &&
-                game_info.turn == Enemy &&
-                game_info.action == Fight &&
-                game_info.player_action != Move {
-                info!("Player hit");
+                player_has_been_hit(&game_info) {
+                info!("Player has been hit");
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                 transform.scale = Vec3::splat(2.0);
-            } else {
+            } else if !player_has_been_hit(&game_info) {
                 match animation.entity {
                     Ki => {
                         let is_action_key = keyboard_input.pressed(KeyCode::Left) ||
@@ -156,6 +154,12 @@ fn animate_player(
             }
         }
     }
+}
+
+fn player_has_been_hit(game_info: &GameInfo) -> bool {
+    return game_info.turn == Enemy &&
+        game_info.action == Fight &&
+        game_info.player_action != Move;
 }
 
 fn animate_enemy(
@@ -199,8 +203,8 @@ fn throw_dice() -> DbzAction {
     let mut rng = rand::thread_rng();
     match rng.gen_range(0..10) {
         1 | 2 => Ki,
-        3 | 6 => Fight,
-        7 | 8 => Blast,
+        3 | 4 | 5 | 6 | 7 | 8 => Fight,
+        // 7 | 8 => Blast,
         _ => Move,
     }
 }
