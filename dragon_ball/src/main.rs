@@ -43,7 +43,7 @@ fn setup_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum GamePlayers {
     Player,
     Enemy,
@@ -112,35 +112,46 @@ fn animate_player(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            match animation.entity {
-                Ki => {
-                    let is_action_key = keyboard_input.pressed(KeyCode::Left) ||
-                        keyboard_input.pressed(KeyCode::Space) ||
-                        keyboard_input.pressed(KeyCode::Return);
+            if animation.entity == Hit &&
+                game_info.turn == Enemy &&
+                game_info.action == Fight &&
+                game_info.player_action != Move {
+                info!("Player hit");
+                sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                transform.scale = Vec3::splat(2.0);
+            } else {
+                match animation.entity {
+                    Ki => {
+                        let is_action_key = keyboard_input.pressed(KeyCode::Left) ||
+                            keyboard_input.pressed(KeyCode::Space) ||
+                            keyboard_input.pressed(KeyCode::Return);
 
-                    if !is_action_key {
+                        if !is_action_key {
+                            game_info.player_action = Ki;
+                            sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                            transform.scale = Vec3::splat(2.0);
+                        }
+                    }
+                    Move => if keyboard_input.pressed(KeyCode::Left) {
+                        game_info.player_action = Move;
                         sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                         transform.scale = Vec3::splat(2.0);
+                    },
+                    Fight => {
+                        if keyboard_input.pressed(KeyCode::Space) {
+                            game_info.player_action = Fight;
+                            sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                            transform.scale = Vec3::splat(2.0);
+                        }
                     }
-                }
-                Move => if keyboard_input.pressed(KeyCode::Left) {
-                    sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                    transform.scale = Vec3::splat(2.0);
-                },
-                Hit => {
-                    transform.scale = Vec3::splat(0.0);
-                }
-                Fight => {
-                    if keyboard_input.pressed(KeyCode::Space) {
-                        sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                        transform.scale = Vec3::splat(2.0);
+                    Blast => {
+                        if keyboard_input.pressed(KeyCode::Return) {
+                            game_info.player_action = Blast;
+                            sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                            transform.scale = Vec3::splat(2.0);
+                        }
                     }
-                }
-                Blast => {
-                    if keyboard_input.pressed(KeyCode::Return) {
-                        sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                        transform.scale = Vec3::splat(2.0);
-                    }
+                    _ => {}
                 }
             }
         }
@@ -175,8 +186,8 @@ fn animate_enemy(
                 transform.scale = Vec3::splat(2.0);
                 if animation.entity == Fight {
                     transform.translation = Vec3::new(-240.0, 150.0, 1.0);
-                }else{
-                    transform.translation =  Vec3::new(300.0, 150.0, 1.0);
+                } else {
+                    transform.translation = Vec3::new(300.0, 150.0, 1.0);
                 }
             }
         }
