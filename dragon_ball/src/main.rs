@@ -4,7 +4,8 @@
 use bevy::app::PluginGroupBuilder;
 use bevy::ecs::bundle::DynamicBundle;
 use bevy::prelude::*;
-use crate::DbzEntity::{TrunkBlast, TrunkFight, TrunkHit, TrunkKi, TrunkMove};
+use crate::DbzAction::{Blast, Fight, Hit, Ki, Move};
+use crate::GamePlayers::{Enemy, Player};
 
 fn main() {
     App::new()
@@ -13,7 +14,8 @@ fn main() {
         .add_systems(Startup, setup_audio)
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_enemy)
-        .run();
+        .insert_resource(GameInfo { enemy_action: Ki, player_action: Ki, turn: Player, action: Ki })
+    .run();
 }
 
 /// Setup of the App Window where using [WindowPlugin] we set the [Window] type with [title] and [resolution].
@@ -38,26 +40,40 @@ fn setup_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
     });
 }
 
+#[derive(Debug)]
+enum GamePlayers {
+    Player,
+    Enemy,
+}
+
+#[derive(Resource)]
+struct GameInfo {
+    turn: GamePlayers,
+    player_action: DbzAction,
+    enemy_action: DbzAction,
+    action: DbzAction,
+}
+
 #[derive(Clone)]
-enum DbzEntity {
-    TrunkKi,
-    TrunkMove,
-    TrunkHit,
-    TrunkFight,
-    TrunkBlast,
+enum DbzAction {
+    Ki,
+    Move,
+    Hit,
+    Fight,
+    Blast,
 }
 
 /// Animation structs to define first and last index of Sprites.
 #[derive(Clone, Component)]
 struct PlayerAnimation {
-    entity: DbzEntity,
+    entity: DbzAction,
     first: usize,
     last: usize,
 }
 
 #[derive(Clone, Component)]
 struct EnemyAnimation {
-    entity: DbzEntity,
+    entity: DbzAction,
     first: usize,
     last: usize,
 }
@@ -77,6 +93,7 @@ struct AnimationTimer(Timer);
 fn animate_player(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
+    mut game_info: ResMut<GameInfo>,
     mut query: Query<(
         &PlayerAnimation,
         &mut AnimationTimer,
@@ -84,44 +101,45 @@ fn animate_player(
         &mut Transform,
     )>,
 ) {
-    for (spriteAnimation,
+    for (animation,
         mut timer,
         mut sprite,
         mut transform) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
+            info!("'GameInfo' turn {:?}", game_info.turn);
             transform.scale = Vec3::splat(0.0);
-            match spriteAnimation.entity {
-                TrunkKi => {
+            match animation.entity {
+                Ki => {
                     let is_action_key = keyboard_input.pressed(KeyCode::Left) ||
                         keyboard_input.pressed(KeyCode::Space) ||
                         keyboard_input.pressed(KeyCode::Return);
                     info!("'TrunkKi' currently pressed {}", is_action_key);
 
                     if !is_action_key {
-                        sprite.index = move_sprite(spriteAnimation, &mut sprite);
+                        sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                         transform.scale = Vec3::splat(2.0);
                     }
                 }
-                TrunkMove => if keyboard_input.pressed(KeyCode::Left) {
+                Move => if keyboard_input.pressed(KeyCode::Left) {
                     info!("'TrunkMove' currently pressed");
-                    sprite.index = move_sprite(spriteAnimation, &mut sprite);
+                    sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                     transform.scale = Vec3::splat(2.0);
                 },
-                TrunkHit => {
+                Hit => {
                     transform.scale = Vec3::splat(0.0);
                 }
-                TrunkFight => {
+                Fight => {
                     if keyboard_input.pressed(KeyCode::Space) {
                         info!("'TrunkFight' currently pressed");
-                        sprite.index = move_sprite(spriteAnimation, &mut sprite);
+                        sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                         transform.scale = Vec3::splat(2.0);
                     }
                 }
-                TrunkBlast => {
+                Blast => {
                     if keyboard_input.pressed(KeyCode::Return) {
                         info!("'TrunkBlast' currently pressed");
-                        sprite.index = move_sprite(spriteAnimation, &mut sprite);
+                        sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                         transform.scale = Vec3::splat(2.0);
                     }
                 }
@@ -132,6 +150,7 @@ fn animate_player(
 
 fn animate_enemy(
     time: Res<Time>,
+    mut game_info: ResMut<GameInfo>,
     mut query: Query<(
         &EnemyAnimation,
         &mut AnimationTimer,
@@ -139,16 +158,18 @@ fn animate_enemy(
         &mut Transform,
     )>,
 ) {
-    for (spriteAnimation,
+    for (animation,
         mut timer,
         mut sprite,
         mut transform) in &mut query {
+        info!("'GameInfo' turn {:?}", game_info.turn);
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            match spriteAnimation.entity {
-                TrunkKi => {
-                    sprite.index = move_enemy_sprite(spriteAnimation, &mut sprite);
+            game_info.turn=Enemy;
+            match animation.entity {
+                Ki => {
+                    sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                     transform.scale = Vec3::splat(2.0);
                 }
                 _ => {}
@@ -157,17 +178,9 @@ fn animate_enemy(
     }
 }
 
-fn move_sprite(sprite_animation: &PlayerAnimation, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
-    if sprite.index == sprite_animation.last {
-        sprite_animation.first
-    } else {
-        sprite.index + 1
-    }
-}
-
-fn move_enemy_sprite(sprite_animation: &EnemyAnimation, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
-    if sprite.index == sprite_animation.last {
-        sprite_animation.first
+fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
+    if sprite.index == last {
+        first
     } else {
         sprite.index + 1
     }
@@ -184,6 +197,7 @@ fn setup_sprites(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    // commands.insert_resource(info);
     commands.spawn(Camera2dBundle::default());
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
     setup_player(&mut commands, &asset_server, &mut texture_atlases);
@@ -191,24 +205,24 @@ fn setup_sprites(
 }
 
 fn setup_player(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
-    let animation_func = |dbz_entity: DbzEntity, rows: usize, columns: usize| {
+    let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
         return PlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
     };
 
     let (trunk_ki_atlas_handle, ki_animation) =
-        create_sprite(&asset_server, &mut texture_atlases, animation_func, TrunkKi, "trunk_ki.png", 70.0, 60.0, 3, 1);
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Ki, "trunk_ki.png", 70.0, 60.0, 3, 1);
 
     let (trunk_move_atlas_handle, move_animation) =
-        create_sprite(&asset_server, &mut texture_atlases, animation_func, TrunkMove, "trunk_move.png", 37.0, 55.0, 6, 1);
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Move, "trunk_move.png", 37.0, 55.0, 6, 1);
 
     let (trunk_blast_atlas_handle, blast_animation) =
-        create_sprite(&asset_server, &mut texture_atlases, animation_func, TrunkBlast, "trunk_blast.png", 32.5, 49.0, 5, 1);
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Blast, "trunk_blast.png", 32.5, 49.0, 5, 1);
 
     let (trunk_fight_atlas_handle, fight_animation) =
-        create_sprite(&asset_server, &mut texture_atlases, animation_func, TrunkFight, "trunk_fight.png", 44.2, 42.0, 6, 1);
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Fight, "trunk_fight.png", 44.2, 42.0, 6, 1);
 
     let (trunk_hit_atlas_handle, hit_animation) =
-        create_sprite(&asset_server, &mut texture_atlases, animation_func, TrunkHit, "trunk_hit.png", 36.05, 52.0, 7, 1);
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Hit, "trunk_hit.png", 36.05, 52.0, 7, 1);
 
     let mut player_1_transform = Transform::default();
     player_1_transform.scale = Vec3::splat(2.0);
@@ -221,19 +235,19 @@ fn setup_player(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mu
 }
 
 fn setup_enemy(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
-    let animation_func = |dbz_entity: DbzEntity, rows: usize, columns: usize| {
+    let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
         return EnemyAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
     };
 
     let (enemy_ki_atlas_handle, ki_animation) =
-        create_sprite(&asset_server, &mut texture_atlases, animation_func, TrunkKi, "trunk_ki.png", 70.0, 60.0, 3, 1);
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Ki, "trunk_ki.png", 70.0, 60.0, 3, 1);
 
-    let mut player_2_transform = Transform::default();
-    player_2_transform.scale = Vec3::splat(2.0);
-    player_2_transform.translation = Vec3::new(300.0, 150.0, 1.0);
+    let mut enemy_transform = Transform::default();
+    enemy_transform.scale = Vec3::splat(2.0);
+    enemy_transform.translation = Vec3::new(300.0, 150.0, 1.0);
     let mut sprite = TextureAtlasSprite::new(0);
     sprite.flip_x = true;
-    sprite_spawn(&mut commands, enemy_ki_atlas_handle, sprite, ki_animation, player_2_transform);
+    sprite_spawn(&mut commands, enemy_ki_atlas_handle, sprite, ki_animation, enemy_transform);
 }
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
@@ -253,22 +267,20 @@ fn create_background(asset_server: &Res<AssetServer>, texture_atlases: &mut ResM
     texture_atlases.add(background_atlas)
 }
 
-fn create_sprite<A: Component, F: Fn(DbzEntity, usize, usize) -> A>(asset_server: &Res<AssetServer>,
-                                                                        texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                                                                        animation_func: F,
-                                                                        dbz_entity: DbzEntity,
-                                                                        image_name: &str,
-                                                                        image_x: f32,
-                                                                        image_y: f32,
-                                                                        columns: usize,
-                                                                        rows: usize,
+fn create_sprite<A: Component, F: Fn(DbzAction, usize, usize) -> A>(asset_server: &Res<AssetServer>,
+                                                                    texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+                                                                    animation_func: F,
+                                                                    dbz_entity: DbzAction,
+                                                                    image_name: &str,
+                                                                    image_x: f32,
+                                                                    image_y: f32,
+                                                                    columns: usize,
+                                                                    rows: usize,
 ) -> (Handle<TextureAtlas>, A) {
     let handle = asset_server.load(image_name);
     let texture_atlas =
         TextureAtlas::from_grid(handle, Vec2::new(image_x, image_y), columns, rows, None, None);
     let atlas_handle = texture_atlases.add(texture_atlas);
-    info!("Running function");
-
     let animation = animation_func(dbz_entity, rows.clone(), columns.clone());
     info!("Animation Created");
     (atlas_handle, animation)
@@ -285,11 +297,11 @@ fn background_spawn(commands: &mut Commands, background_atlas_handle: Handle<Tex
     ));
 }
 
-fn sprite_spawn<A:Component>(commands: &mut Commands,
-                             texture_atlas_handle: Handle<TextureAtlas>,
-                             sprite: TextureAtlasSprite,
-                             sprite_animation: A,
-                             transform: Transform,
+fn sprite_spawn<A: Component>(commands: &mut Commands,
+                              texture_atlas_handle: Handle<TextureAtlas>,
+                              sprite: TextureAtlasSprite,
+                              sprite_animation: A,
+                              transform: Transform,
 ) {
     commands.spawn((
         SpriteSheetBundle {
