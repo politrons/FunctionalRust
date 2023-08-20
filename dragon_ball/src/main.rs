@@ -17,7 +17,7 @@ fn main() {
         .add_systems(Startup, setup_audio)
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_enemy)
-        .insert_resource(GameInfo { turn_time: SystemTime::now(), enemy_action: Ki, player_action: Ki, turn: Player, action: Ki })
+        .insert_resource(GameInfo { turn_time: SystemTime::now(), enemy_action: Ki, player_action: Ki})
         .run();
 }
 
@@ -51,11 +51,9 @@ enum GamePlayers {
 
 #[derive(Resource)]
 struct GameInfo {
-    turn: GamePlayers,
     turn_time: SystemTime,
     player_action: DbzAction,
     enemy_action: DbzAction,
-    action: DbzAction,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -112,9 +110,9 @@ fn animate_player(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            if animation.entity == Hit &&
-                player_has_been_hit(&game_info) {
+            if animation.entity == Hit && player_has_been_hit(&game_info) {
                 info!("Player has been hit");
+                game_info.player_action=Hit;
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                 transform.scale = Vec3::splat(2.0);
             } else if !player_has_been_hit(&game_info) {
@@ -128,18 +126,21 @@ fn animate_player(
                             game_info.player_action = Ki;
                             sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                             transform.scale = Vec3::splat(2.0);
+                            transform.translation = Vec3::new(-300.0, 150.0, 1.0);
                         }
                     }
                     Move => if keyboard_input.pressed(KeyCode::Left) {
                         game_info.player_action = Move;
                         sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                         transform.scale = Vec3::splat(2.0);
+                        transform.translation = Vec3::new(-300.0, 150.0, 1.0);
                     },
                     Fight => {
                         if keyboard_input.pressed(KeyCode::Space) {
                             game_info.player_action = Fight;
                             sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                             transform.scale = Vec3::splat(2.0);
+                            transform.translation = Vec3::new(240.0, 150.0, 1.0);
                         }
                     }
                     Blast => {
@@ -147,6 +148,7 @@ fn animate_player(
                             game_info.player_action = Blast;
                             sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                             transform.scale = Vec3::splat(2.0);
+                            transform.translation = Vec3::new(-300.0, 150.0, 1.0);
                         }
                     }
                     _ => {}
@@ -154,12 +156,6 @@ fn animate_player(
             }
         }
     }
-}
-
-fn player_has_been_hit(game_info: &GameInfo) -> bool {
-    return game_info.turn == Enemy &&
-        game_info.action == Fight &&
-        game_info.player_action != Move;
 }
 
 fn animate_enemy(
@@ -179,13 +175,16 @@ fn animate_enemy(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            game_info.turn = Enemy;
             if game_info.turn_time.lt(&SystemTime::now()) {
-                game_info.action = throw_dice();
-                info!("Enemy action ${:?}", game_info.action);
-                game_info.turn_time = SystemTime::now() + Duration::from_secs(5);
+                decide_enemy_action(&mut game_info);
             }
-            if animation.entity == game_info.action {
+            if enemy_has_been_hit(&game_info) {
+                if animation.entity == Hit {
+                    game_info.enemy_action=Hit;
+                    sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                    transform.scale = Vec3::splat(2.0);
+                }
+            } else if animation.entity == game_info.enemy_action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                 transform.scale = Vec3::splat(2.0);
                 if animation.entity == Fight {
@@ -197,6 +196,24 @@ fn animate_enemy(
         }
     }
 }
+
+fn decide_enemy_action(game_info: &mut ResMut<GameInfo>) {
+    game_info.enemy_action = throw_dice();
+    info!("Enemy action ${:?}", game_info.enemy_action);
+    let mut rng = rand::thread_rng();
+    game_info.turn_time = SystemTime::now() + Duration::from_secs(rng.gen_range(0..5));
+}
+
+fn player_has_been_hit(game_info: &GameInfo) -> bool {
+    return game_info.enemy_action == Fight &&
+        (game_info.player_action != Move);
+}
+
+fn enemy_has_been_hit(game_info: &GameInfo) -> bool {
+    return game_info.player_action == Fight &&
+        (game_info.enemy_action != Move)   ;
+}
+
 
 /// We throw
 fn throw_dice() -> DbzAction {
