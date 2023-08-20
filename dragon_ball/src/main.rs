@@ -8,42 +8,28 @@ use bevy::ecs::schedule::NodeId::System;
 use bevy::prelude::*;
 use rand::Rng;
 use crate::DbzAction::{Blast, Fight, Hit, Ki, Move};
+use crate::GameBar::Life;
 use crate::GamePlayers::{Enemy, Player};
+
+use std::thread_local;
+use bevy::ecs::system::EntityCommands;
 
 fn main() {
     App::new()
-        .add_plugins(window_setup())
+        .add_plugins(setup_window())
         .add_systems(Startup, setup_sprites)
         .add_systems(Startup, setup_audio)
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_enemy)
-        .insert_resource(GameInfo { turn_time: SystemTime::now(), enemy_action: Ki, player_action: Ki})
+        .add_systems(Update, animate_life_bar)
+        .add_systems(Update, check_game_over)
+        .insert_resource(GameInfo { turn_time: SystemTime::now(), player_life: 100.0, enemy_life: 100.0, enemy_action: Ki, player_action: Ki })
         .run();
 }
 
-/// Setup of the App Window where using [WindowPlugin] we set the [Window] type with [title] and [resolution].
-fn window_setup() -> (PluginGroupBuilder, ) {
-    (
-        DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Rust Island".into(),
-                resolution: (1900., 600.).into(),
-                ..default()
-            }),
-            ..default()
-        }),
-    )
-}
-
-/// Setup of the background music to run in [LOOP] mode
-fn setup_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
-    commands.spawn(AudioBundle {
-        source: asset_server.load("dbz.ogg"),
-        settings: PlaybackSettings::LOOP,
-    });
-}
-
-#[derive(Debug, PartialEq)]
+///  Game logic types
+/// -----------------
+#[derive(Clone, Debug, PartialEq)]
 enum GamePlayers {
     Player,
     Enemy,
@@ -52,6 +38,8 @@ enum GamePlayers {
 #[derive(Resource)]
 struct GameInfo {
     turn_time: SystemTime,
+    player_life: f32,
+    enemy_life: f32,
     player_action: DbzAction,
     enemy_action: DbzAction,
 }
@@ -64,6 +52,15 @@ enum DbzAction {
     Fight,
     Blast,
 }
+
+#[derive(Clone, PartialEq, Debug)]
+enum GameBar {
+    Stamina,
+    Life,
+}
+
+/// Animations
+/// -----------
 
 /// Animation structs to define first and last index of Sprites.
 #[derive(Clone, Component)]
@@ -78,6 +75,12 @@ struct EnemyAnimation {
     entity: DbzAction,
     first: usize,
     last: usize,
+}
+
+#[derive(Clone, Component)]
+struct BarAnimation {
+    game_player: GamePlayers,
+    bar_type: GameBar,
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -112,7 +115,7 @@ fn animate_player(
             transform.scale = Vec3::splat(0.0);
             if animation.entity == Hit && player_has_been_hit(&game_info) {
                 info!("Player has been hit");
-                game_info.player_action=Hit;
+                game_info.player_action = Hit;
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                 transform.scale = Vec3::splat(2.0);
             } else if !player_has_been_hit(&game_info) {
@@ -180,7 +183,7 @@ fn animate_enemy(
             }
             if enemy_has_been_hit(&game_info) {
                 if animation.entity == Hit {
-                    game_info.enemy_action=Hit;
+                    game_info.enemy_action = Hit;
                     sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                     transform.scale = Vec3::splat(2.0);
                 }
@@ -197,6 +200,48 @@ fn animate_enemy(
     }
 }
 
+fn animate_life_bar(
+    time: Res<Time>,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(
+        &BarAnimation,
+        &mut AnimationTimer,
+        &mut Sprite,
+    )>,
+) {
+    for (animation,
+        mut timer,
+        mut sprite) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            if player_has_been_hit(&game_info) && animation.game_player == Player {
+                game_info.player_life = &game_info.player_life - 1.0;
+                reduce_life_bar(&mut sprite, game_info.player_life.clone());
+            } else if enemy_has_been_hit(&game_info) && animation.game_player == Enemy {
+                game_info.enemy_life = &game_info.enemy_life - 1.0;
+                reduce_life_bar(&mut sprite, game_info.enemy_life.clone());
+            }
+        }
+    }
+}
+
+fn check_game_over(
+    mut game_info: ResMut<GameInfo>,
+) {
+    if game_info.enemy_life <= 0.0 || game_info.player_life <= 0.0 {
+        info!("Game over");
+        game_info.player_action = Ki;
+        game_info.player_life = 100.0;
+        game_info.enemy_action = Ki;
+        game_info.enemy_life = 100.0;
+    }
+}
+
+fn reduce_life_bar(sprite: &mut Mut<Sprite>, life: f32) {
+    info!("Reducing life bar");
+    sprite.custom_size = Some(Vec2::new(life, 10.00));
+}
+
 fn decide_enemy_action(game_info: &mut ResMut<GameInfo>) {
     game_info.enemy_action = throw_dice();
     info!("Enemy action ${:?}", game_info.enemy_action);
@@ -211,7 +256,7 @@ fn player_has_been_hit(game_info: &GameInfo) -> bool {
 
 fn enemy_has_been_hit(game_info: &GameInfo) -> bool {
     return game_info.player_action == Fight &&
-        (game_info.enemy_action != Move)   ;
+        (game_info.enemy_action != Move);
 }
 
 
@@ -230,9 +275,13 @@ fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) 
     if sprite.index == last {
         first
     } else {
-        sprite.index + 1
+        &sprite.index + 1
     }
 }
+
+
+/// Setup game
+/// -----------
 
 ///
 /// Bevy provide a [Startup] config, where we need to provide an implementation receiving the
@@ -247,6 +296,8 @@ fn setup_sprites(
 ) {
     commands.spawn(Camera2dBundle::default());
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
+    setup_player_life_bar(&mut commands);
+    setup_enemy_life_bar(&mut commands);
     setup_player(&mut commands, &asset_server, &mut texture_atlases);
     setup_enemy(&mut commands, &asset_server, &mut texture_atlases);
 }
@@ -320,6 +371,25 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
     background_spawn(&mut commands, background_atlas_handle, background_transform);
 }
 
+fn setup_player_life_bar(mut commands: &mut Commands) {
+    setup_life_bar(&mut commands, Player, -600.0, 275.0);
+}
+
+fn setup_enemy_life_bar(mut commands: &mut Commands) {
+    setup_life_bar(&mut commands, Enemy, 600.0, 275.0);
+}
+
+fn setup_life_bar(mut commands: &mut Commands, game_player: GamePlayers, x: f32, y: f32) {
+    let mut life_bar_transform = Transform::default();
+    life_bar_transform.scale = Vec3::splat(2.0);
+    life_bar_transform.translation = Vec3::new(x, y, 1.0);
+    let mut sprite = Sprite::default();
+    sprite.color = Color::GREEN;
+    sprite.custom_size = Some(Vec2::new(100.0, 10.00));
+    life_bar_spawn(&mut commands, game_player, sprite, life_bar_transform)
+}
+
+
 /// We load the image and we create a [Handle<Image>]
 /// Once we got it, we create [TextureAtlas] specifying the size of Sprite, and how many sprites we have in the pictures.
 /// Using [column] and [row] here since is a single Picture/Sprite is marked as 1:1
@@ -376,6 +446,40 @@ fn sprite_spawn<A: Component>(commands: &mut Commands,
         sprite_animation,
         AnimationTimer(Timer::from_seconds(0.15, TimerMode::Repeating)),
     ));
+}
+
+fn life_bar_spawn(commands: &mut Commands, game_player: GamePlayers, sprite: Sprite, sprite_transform: Transform) {
+    commands.spawn((
+        SpriteBundle {
+            sprite,
+            transform: sprite_transform,
+            ..default()
+        },
+        BarAnimation { bar_type: Life, game_player },
+        AnimationTimer(Timer::from_seconds(0.3, TimerMode::Repeating)),
+    ));
+}
+
+/// Setup of the App Window where using [WindowPlugin] we set the [Window] type with [title] and [resolution].
+fn setup_window() -> (PluginGroupBuilder, ) {
+    (
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Rust Island".into(),
+                resolution: (1900., 600.).into(),
+                ..default()
+            }),
+            ..default()
+        }),
+    )
+}
+
+/// Setup of the background music to run in [LOOP] mode
+fn setup_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("dbz.ogg"),
+        settings: PlaybackSettings::LOOP,
+    });
 }
 
 
