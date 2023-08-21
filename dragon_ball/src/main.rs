@@ -288,13 +288,13 @@ fn check_stamina_fight(game_info: &mut ResMut<GameInfo>, animation: &BarAnimatio
 
 fn check_stamina_ki(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation, mut sprite: &mut &mut Mut<Sprite>) {
     if game_info.player_action == Ki && animation.game_player == Player {
-        game_info.player_stamina = &game_info.player_stamina + 1.0;
         if game_info.player_stamina < 100.0 {
+            game_info.player_stamina = &game_info.player_stamina + 1.0;
             change_game_bar(&mut sprite, game_info.player_stamina.clone());
         }
     } else if game_info.enemy_action == Ki && animation.game_player == Enemy {
-        game_info.enemy_stamina = &game_info.enemy_stamina + 1.0;
         if game_info.enemy_stamina < 100.0 {
+            game_info.enemy_stamina = &game_info.enemy_stamina + 1.0;
             change_game_bar(&mut sprite, game_info.enemy_stamina.clone());
         }
     }
@@ -335,8 +335,8 @@ fn throw_dice() -> DbzAction {
     let mut rng = rand::thread_rng();
     match rng.gen_range(0..10) {
         1 | 2 => Ki,
-        3 | 4 | 5 | 6 | 7 | 8 => Fight,
-        // 7 | 8 => Blast,
+        3 | 4 | 5 | 6  => Fight,
+        7 | 8 => Blast,
         _ => Move,
     }
 }
@@ -412,7 +412,7 @@ fn setup_enemy(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut
         enemy_move_atlas_handle, move_animation,
         enemy_blast_atlas_handle, blast_animation,
         enemy_fight_atlas_handle, fight_animation,
-        enemy_hit_atlas_handle, hit_animation) = create_sprites(&asset_server, &mut texture_atlases, animation_func);
+        enemy_hit_atlas_handle, hit_animation) = create_enemy_sprites(&asset_server, &mut texture_atlases, animation_func);
 
     let mut enemy_transform = Transform::default();
     enemy_transform.scale = Vec3::splat(2.0);
@@ -428,27 +428,52 @@ fn setup_enemy(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut
 
 fn create_sprites<A: Component>(asset_server: &&Res<AssetServer>, mut texture_atlases: &mut &mut ResMut<Assets<TextureAtlas>>, animation_func: fn(DbzAction, usize, usize) -> A)
     -> (Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A) {
-    let (trunk_ki_atlas_handle, ki_animation) =
+    let (ki_atlas_handle, ki_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Ki,
                       "trunk.png", 70.0, 60.0, 3, 1, Some(Vec2::new(234.0, 0.0)));
 
-    let (trunk_move_atlas_handle, move_animation) =
+    let (move_atlas_handle, move_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Move,
-                      "trunk.png", 37.0, 55.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
+                      "trunk.png", 37.0, 59.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
 
-    let (trunk_blast_atlas_handle, blast_animation) =
+    let (blast_atlas_handle, blast_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Blast,
                       "trunk.png", 32.5, 49.0, 5, 1, Some(Vec2::new(115.0, 225.0)));
 
-    let (trunk_fight_atlas_handle, fight_animation) =
+    let (fight_atlas_handle, fight_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Fight,
                       "trunk.png", 44.2, 42.0, 6, 1, Some(Vec2::new(115.0, 65.0)));
 
-    let (trunk_hit_atlas_handle, hit_animation) =
+    let (hit_atlas_handle, hit_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Hit,
                       "trunk.png", 36.05, 52.0, 7, 1, Some(Vec2::new(67.0, 107.0)));
-    (trunk_ki_atlas_handle, ki_animation, trunk_move_atlas_handle, move_animation, trunk_blast_atlas_handle, blast_animation, trunk_fight_atlas_handle, fight_animation, trunk_hit_atlas_handle, hit_animation)
+    (ki_atlas_handle, ki_animation, move_atlas_handle, move_animation, blast_atlas_handle, blast_animation, fight_atlas_handle, fight_animation, hit_atlas_handle, hit_animation)
 }
+
+fn create_enemy_sprites<A: Component>(asset_server: &&Res<AssetServer>, mut texture_atlases: &mut &mut ResMut<Assets<TextureAtlas>>, animation_func: fn(DbzAction, usize, usize) -> A)
+                                -> (Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A) {
+    let (ki_atlas_handle, ki_animation) =
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Ki,
+                      "dr_hero.png", 70.0, 60.0, 3, 1, Some(Vec2::new(234.0, 0.0)));
+
+    let (move_atlas_handle, move_animation) =
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Move,
+                      "dr_hero.png", 37.0, 59.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
+
+    let (blast_atlas_handle, blast_animation) =
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Blast,
+                      "dr_hero.png", 120.0, 52.0, 3, 1, Some(Vec2::new(0.0, 225.0)));
+
+    let (fight_atlas_handle, fight_animation) =
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Fight,
+                      "dr_hero.png", 44.5, 42.0, 6, 1, Some(Vec2::new(127.5, 68.0)));
+
+    let (hit_atlas_handle, hit_animation) =
+        create_sprite(&asset_server, &mut texture_atlases, animation_func, Hit,
+                      "dr_hero.png", 37.05, 52.0, 7, 1, Some(Vec2::new(80.0, 117.0)));
+    (ki_atlas_handle, ki_animation, move_atlas_handle, move_animation, blast_atlas_handle, blast_animation, fight_atlas_handle, fight_animation, hit_atlas_handle, hit_animation)
+}
+
 fn setup_player_life_bar(mut commands: &mut Commands) {
     setup_game_bar(&mut commands, Life, Player, Color::GREEN, -600.0, 275.0);
 }
@@ -472,7 +497,7 @@ fn setup_game_bar(mut commands: &mut Commands, game_bar: GameBar, game_player: G
     let mut sprite = Sprite::default();
     sprite.color = color;
     sprite.custom_size = Some(Vec2::new(100.0, 10.00));
-    life_bar_spawn(&mut commands, game_bar, game_player, sprite, game_bar_transform)
+   game_bar_spawn(&mut commands, game_bar, game_player, sprite, game_bar_transform)
 }
 
 
@@ -536,7 +561,7 @@ fn sprite_spawn<A: Component>(commands: &mut Commands,
     ));
 }
 
-fn life_bar_spawn(commands: &mut Commands, game_bar: GameBar, game_player: GamePlayers, sprite: Sprite, sprite_transform: Transform) {
+fn game_bar_spawn(commands: &mut Commands, game_bar: GameBar, game_player: GamePlayers, sprite: Sprite, sprite_transform: Transform) {
     commands.spawn((
         SpriteBundle {
             sprite,
