@@ -3,16 +3,12 @@
 
 use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
-use bevy::ecs::bundle::DynamicBundle;
-use bevy::ecs::schedule::NodeId::System;
 use bevy::prelude::*;
 use rand::Rng;
 use crate::DbzAction::{Blast, Fight, Hit, Ki, Move};
 use crate::GameBar::{Life, Stamina};
 use crate::GamePlayers::{Enemy, Player};
 
-use std::thread_local;
-use bevy::ecs::system::EntityCommands;
 
 fn main() {
     App::new()
@@ -20,6 +16,7 @@ fn main() {
         .add_systems(Startup, setup_sprites)
         .add_systems(Startup, setup_audio)
         .add_systems(Update, animate_player)
+        .add_systems(Update, animate_super_player)
         .add_systems(Update, animate_enemy)
         .add_systems(Update, animate_bar)
         .add_systems(Update, animate_game_over)
@@ -81,6 +78,13 @@ struct PlayerAnimation {
 }
 
 #[derive(Clone, Component)]
+struct SuperPlayerAnimation {
+    entity: DbzAction,
+    first: usize,
+    last: usize,
+}
+
+#[derive(Clone, Component)]
 struct EnemyAnimation {
     entity: DbzAction,
     first: usize,
@@ -123,55 +127,94 @@ fn animate_player(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            if animation.entity == Hit && player_has_been_hit(&game_info) {
-                info!("Player has been hit");
-                game_info.player_action = Hit;
-                sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                transform.scale = Vec3::splat(2.0);
-            } else if animation.entity == Ki && player_has_zero_stamina(&game_info) {
-                info!("Player has zero estamina");
-                game_info.player_action = Ki;
-                sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                transform.scale = Vec3::splat(2.0);
-            } else if !player_has_been_hit(&game_info) && !player_has_zero_stamina(&game_info) {
-                match animation.entity {
-                    Ki => {
-                        let is_action_key = keyboard_input.pressed(KeyCode::Left) ||
-                            keyboard_input.pressed(KeyCode::Space) ||
-                            keyboard_input.pressed(KeyCode::Return);
+            if game_info.player_life > 50.0 {
+                animate(&keyboard_input, &mut game_info, animation.first.clone(), animation.last.clone(), animation.entity.clone(), &mut sprite, &mut transform);
+            }
+        }
+    }
+}
 
-                        if !is_action_key {
-                            game_info.player_action = Ki;
-                            sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                            transform.scale = Vec3::splat(2.0);
-                            transform.translation = Vec3::new(-300.0, 150.0, 1.0);
-                        }
-                    }
-                    Move => if keyboard_input.pressed(KeyCode::Left) {
-                        game_info.player_action = Move;
-                        sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                        transform.scale = Vec3::splat(2.0);
-                        transform.translation = Vec3::new(-300.0, 150.0, 1.0);
-                    },
-                    Fight => {
-                        if keyboard_input.pressed(KeyCode::Space) {
-                            game_info.player_action = Fight;
-                            sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                            transform.scale = Vec3::splat(2.0);
-                            transform.translation = Vec3::new(240.0, 150.0, 1.0);
-                        }
-                    }
-                    Blast => {
-                        if keyboard_input.pressed(KeyCode::Return) {
-                            game_info.player_action = Blast;
-                            sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                            transform.scale = Vec3::splat(2.0);
-                            transform.translation = Vec3::new(-300.0, 150.0, 1.0);
-                        }
-                    }
-                    _ => {}
+fn animate_super_player(
+    time: Res<Time>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(
+        &SuperPlayerAnimation,
+        &mut AnimationTimer,
+        &mut TextureAtlasSprite,
+        &mut Transform,
+    )>,
+) {
+    for (animation,
+        mut timer,
+        mut sprite,
+        mut transform) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            transform.scale = Vec3::splat(0.0);
+            if game_info.player_life < 50.0 {
+                animate(&keyboard_input, &mut game_info, animation.first.clone(), animation.last.clone(), animation.entity.clone(), &mut sprite, &mut transform);
+            }
+        }
+    }
+}
+
+fn animate(
+    keyboard_input: &Res<Input<KeyCode>>,
+    game_info: &mut ResMut<GameInfo>,
+    first: usize,
+    last: usize,
+    entity: DbzAction,
+    mut sprite: &mut Mut<TextureAtlasSprite>,
+    transform: &mut Mut<Transform>,
+) {
+    if entity == Hit && player_has_been_hit(&game_info) {
+        info!("Player has been hit");
+        game_info.player_action = Hit;
+        sprite.index = move_sprite(first, last, &mut sprite);
+        transform.scale = Vec3::splat(2.0);
+    } else if entity == Ki && player_has_zero_stamina(&game_info) {
+        info!("Player has zero estamina");
+        game_info.player_action = Ki;
+        sprite.index = move_sprite(first, last, &mut sprite);
+        transform.scale = Vec3::splat(2.0);
+    } else if !player_has_been_hit(&game_info) && !player_has_zero_stamina(&game_info) {
+        match entity {
+            Ki => {
+                let is_action_key = keyboard_input.pressed(KeyCode::Left) ||
+                    keyboard_input.pressed(KeyCode::Space) ||
+                    keyboard_input.pressed(KeyCode::Return);
+
+                if !is_action_key {
+                    game_info.player_action = Ki;
+                    sprite.index = move_sprite(first, last, &mut sprite);
+                    transform.scale = Vec3::splat(2.0);
+                    transform.translation = Vec3::new(-300.0, 150.0, 1.0);
                 }
             }
+            Move => if keyboard_input.pressed(KeyCode::Left) {
+                game_info.player_action = Move;
+                sprite.index = move_sprite(first, last, &mut sprite);
+                transform.scale = Vec3::splat(2.0);
+                transform.translation = Vec3::new(-300.0, 150.0, 1.0);
+            },
+            Fight => {
+                if keyboard_input.pressed(KeyCode::Space) {
+                    game_info.player_action = Fight;
+                    sprite.index = move_sprite(first, last, &mut sprite);
+                    transform.scale = Vec3::splat(2.0);
+                    transform.translation = Vec3::new(240.0, 150.0, 1.0);
+                }
+            }
+            Blast => {
+                if keyboard_input.pressed(KeyCode::Return) {
+                    game_info.player_action = Blast;
+                    sprite.index = move_sprite(first, last, &mut sprite);
+                    transform.scale = Vec3::splat(2.0);
+                    transform.translation = Vec3::new(-300.0, 150.0, 1.0);
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -335,8 +378,8 @@ fn throw_dice() -> DbzAction {
     let mut rng = rand::thread_rng();
     match rng.gen_range(0..10) {
         1 | 2 => Ki,
-        3 | 4 | 5 | 6  => Fight,
-        7 | 8 => Blast,
+        3 | 4 | 5 | 6 | 7 => Fight,
+        8 => Blast,
         _ => Move,
     }
 }
@@ -366,7 +409,18 @@ fn setup_sprites(
 ) {
     commands.spawn(Camera2dBundle::default());
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
-    setup_player(&mut commands, &asset_server, &mut texture_atlases);
+
+    //TODO:Refactor please
+    let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
+        return PlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
+    };
+
+    let super_animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
+        return SuperPlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
+    };
+
+    setup_player("trunk.png", 2.0, &mut commands, &asset_server, &mut texture_atlases, animation_func);
+    setup_player("trunk_b.png", 0.0, &mut commands, &asset_server, &mut texture_atlases, super_animation_func);
     setup_enemy(&mut commands, &asset_server, &mut texture_atlases);
     setup_player_life_bar(&mut commands);
     setup_enemy_life_bar(&mut commands);
@@ -381,19 +435,17 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
     background_spawn(&mut commands, background_atlas_handle, background_transform);
 }
 
-fn setup_player(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
-    let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
-        return PlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
-    };
-
+fn setup_player<A: Component>(image_name: &str, scale: f32, mut commands: &mut Commands,
+                              asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+                              animation_func: fn(DbzAction, usize, usize) -> A) {
     let (trunk_ki_atlas_handle, ki_animation,
         trunk_move_atlas_handle, move_animation,
         trunk_blast_atlas_handle, blast_animation,
         trunk_fight_atlas_handle, fight_animation,
-        trunk_hit_atlas_handle, hit_animation) = create_sprites(&asset_server, &mut texture_atlases, animation_func);
+        trunk_hit_atlas_handle, hit_animation) = create_sprites(image_name, &asset_server, &mut texture_atlases, animation_func);
 
     let mut player_1_transform = Transform::default();
-    player_1_transform.scale = Vec3::splat(2.0);
+    player_1_transform.scale = Vec3::splat(scale);
     player_1_transform.translation = Vec3::new(-300.0, 150.0, 1.0);
     sprite_spawn(&mut commands, trunk_ki_atlas_handle, TextureAtlasSprite::new(0), ki_animation, player_1_transform);
     sprite_spawn(&mut commands, trunk_move_atlas_handle, TextureAtlasSprite::new(0), move_animation, player_1_transform);
@@ -426,32 +478,32 @@ fn setup_enemy(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut
     sprite_spawn(&mut commands, enemy_hit_atlas_handle, sprite.clone(), hit_animation, enemy_transform);
 }
 
-fn create_sprites<A: Component>(asset_server: &&Res<AssetServer>, mut texture_atlases: &mut &mut ResMut<Assets<TextureAtlas>>, animation_func: fn(DbzAction, usize, usize) -> A)
-    -> (Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A) {
+fn create_sprites<A: Component>(image_name: &str, asset_server: &&Res<AssetServer>, mut texture_atlases: &mut &mut ResMut<Assets<TextureAtlas>>, animation_func: fn(DbzAction, usize, usize) -> A)
+                                -> (Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A) {
     let (ki_atlas_handle, ki_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Ki,
-                      "trunk.png", 70.0, 60.0, 3, 1, Some(Vec2::new(234.0, 0.0)));
+                      image_name, 70.0, 60.0, 3, 1, Some(Vec2::new(234.0, 0.0)));
 
     let (move_atlas_handle, move_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Move,
-                      "trunk.png", 37.0, 59.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
+                      image_name, 37.0, 59.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
 
     let (blast_atlas_handle, blast_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Blast,
-                      "trunk.png", 32.5, 49.0, 5, 1, Some(Vec2::new(115.0, 225.0)));
+                      image_name, 32.5, 49.0, 5, 1, Some(Vec2::new(115.0, 225.0)));
 
     let (fight_atlas_handle, fight_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Fight,
-                      "trunk.png", 44.2, 42.0, 6, 1, Some(Vec2::new(115.0, 65.0)));
+                      image_name, 44.2, 42.0, 6, 1, Some(Vec2::new(115.0, 65.0)));
 
     let (hit_atlas_handle, hit_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Hit,
-                      "trunk.png", 36.05, 52.0, 7, 1, Some(Vec2::new(67.0, 107.0)));
+                      image_name, 36.05, 52.0, 7, 1, Some(Vec2::new(67.0, 107.0)));
     (ki_atlas_handle, ki_animation, move_atlas_handle, move_animation, blast_atlas_handle, blast_animation, fight_atlas_handle, fight_animation, hit_atlas_handle, hit_animation)
 }
 
 fn create_enemy_sprites<A: Component>(asset_server: &&Res<AssetServer>, mut texture_atlases: &mut &mut ResMut<Assets<TextureAtlas>>, animation_func: fn(DbzAction, usize, usize) -> A)
-                                -> (Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A) {
+                                      -> (Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A, Handle<TextureAtlas>, A) {
     let (ki_atlas_handle, ki_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Ki,
                       "dr_hero.png", 70.0, 60.0, 3, 1, Some(Vec2::new(234.0, 0.0)));
@@ -497,7 +549,7 @@ fn setup_game_bar(mut commands: &mut Commands, game_bar: GameBar, game_player: G
     let mut sprite = Sprite::default();
     sprite.color = color;
     sprite.custom_size = Some(Vec2::new(100.0, 10.00));
-   game_bar_spawn(&mut commands, game_bar, game_player, sprite, game_bar_transform)
+    game_bar_spawn(&mut commands, game_bar, game_player, sprite, game_bar_transform)
 }
 
 
