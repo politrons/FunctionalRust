@@ -10,19 +10,6 @@ use crate::DbzAction::{Blast, Fight, Hit, Ki, Move};
 use crate::GameBar::{Life, Stamina};
 use crate::GamePlayers::{Enemy, Player};
 
-static LIFE: f32 = 1.0;
-static STAMINA: f32 = 1.5;
-
-#[derive(Clone, Debug, PartialEq)]
-struct CharacterStats {
-    action: DbzAction,
-    x: f32,
-    y: f32,
-    column: usize,
-    row: usize,
-    offset: Vec2,
-}
-
 fn main() {
     App::new()
         .add_plugins(setup_window())
@@ -48,6 +35,20 @@ fn main() {
 
 ///  Game logic types
 /// -----------------
+
+static LIFE: f32 = 1.0;
+static STAMINA: f32 = 1.5;
+
+#[derive(Clone, Debug, PartialEq)]
+struct CharacterStats {
+    action: DbzAction,
+    x: f32,
+    y: f32,
+    column: usize,
+    row: usize,
+    offset: Vec2,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 enum GamePlayers {
     Player,
