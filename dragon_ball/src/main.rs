@@ -245,14 +245,13 @@ fn animate_enemy(
                     sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                     transform.scale = Vec3::splat(2.0);
                 }
-                if enemy_has_zero_stamina(&game_info) {
-                    if animation.entity == Ki {
-                        game_info.enemy_action = Ki;
-                        sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                        transform.scale = Vec3::splat(2.0);
-                    }
+            } else if enemy_has_zero_stamina(&game_info) {
+                if animation.entity == Ki {
+                    game_info.enemy_action = Ki;
+                    sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                    transform.scale = Vec3::splat(2.0);
                 }
-            } else if animation.entity == game_info.enemy_action {
+            } else if animation.entity == game_info.enemy_action && !enemy_has_zero_stamina(&game_info) {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                 transform.scale = Vec3::splat(2.0);
                 if animation.entity == Fight {
@@ -295,17 +294,23 @@ fn animate_game_over(
         info!("Game over");
         game_info.player_action = Ki;
         game_info.player_life = 100.0;
+        game_info.player_stamina = 100.0;
         game_info.enemy_action = Ki;
         game_info.enemy_life = 100.0;
+        game_info.enemy_stamina = 100.0;
     }
 }
 
 fn check_life_bar(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation, mut sprite: &mut Mut<Sprite>) {
-    if player_has_been_hit(&game_info) && animation.game_player == Player {
-        game_info.player_life = &game_info.player_life - 1.0;
+    if animation.game_player == Player {
+        if player_has_been_hit(&game_info) {
+            game_info.player_life = &game_info.player_life - 1.0;
+        }
         change_game_bar(&mut sprite, game_info.player_life.clone());
-    } else if enemy_has_been_hit(&game_info) && animation.game_player == Enemy {
-        game_info.enemy_life = &game_info.enemy_life - 1.0;
+    } else {
+        if enemy_has_been_hit(&game_info) {
+            game_info.enemy_life = &game_info.enemy_life - 1.0;
+        }
         change_game_bar(&mut sprite, game_info.enemy_life.clone());
     }
 }
@@ -319,13 +324,13 @@ fn check_stamina_fight(game_info: &mut ResMut<GameInfo>, animation: &BarAnimatio
     if (game_info.player_action == Move || game_info.player_action == Fight) && animation.game_player == Player {
         if game_info.player_stamina > 0.0 {
             game_info.player_stamina = &game_info.player_stamina - 1.0;
-            change_game_bar(&mut sprite, game_info.player_stamina.clone());
         }
+        change_game_bar(&mut sprite, game_info.player_stamina.clone());
     } else if (game_info.enemy_action == Move || game_info.enemy_action == Fight) && animation.game_player == Enemy {
         if game_info.enemy_stamina > 0.0 {
             game_info.enemy_stamina = &game_info.enemy_stamina - 1.0;
-            change_game_bar(&mut sprite, game_info.enemy_stamina.clone());
         }
+        change_game_bar(&mut sprite, game_info.enemy_stamina.clone());
     }
 }
 
@@ -501,7 +506,7 @@ fn create_sprites<A: Component>(image_name: &str, asset_server: &&Res<AssetServe
 
     let (move_atlas_handle, move_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Move,
-                      image_name, 37.0, 59.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
+                      image_name, 37.6, 59.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
 
     let (blast_atlas_handle, blast_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Blast,
@@ -513,7 +518,7 @@ fn create_sprites<A: Component>(image_name: &str, asset_server: &&Res<AssetServe
 
     let (hit_atlas_handle, hit_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Hit,
-                      image_name, 36.05, 52.0, 7, 1, Some(Vec2::new(67.0, 107.0)));
+                      image_name, 36.0, 52.0, 7, 1, Some(Vec2::new(66.9, 107.0)));
     (ki_atlas_handle, ki_animation, move_atlas_handle, move_animation, blast_atlas_handle, blast_animation, fight_atlas_handle, fight_animation, hit_atlas_handle, hit_animation)
 }
 
