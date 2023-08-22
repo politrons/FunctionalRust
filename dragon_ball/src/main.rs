@@ -9,6 +9,8 @@ use crate::DbzAction::{Blast, Fight, Hit, Ki, Move};
 use crate::GameBar::{Life, Stamina};
 use crate::GamePlayers::{Enemy, Player};
 
+static LIFE: f32 = 1.0;
+static STAMINA: f32 = 1.5;
 
 fn main() {
     App::new()
@@ -304,12 +306,12 @@ fn animate_game_over(
 fn check_life_bar(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation, mut sprite: &mut Mut<Sprite>) {
     if animation.game_player == Player {
         if player_has_been_hit(&game_info) {
-            game_info.player_life = &game_info.player_life - 1.0;
+            game_info.player_life = &game_info.player_life - LIFE.clone();
         }
         change_game_bar(&mut sprite, game_info.player_life.clone());
     } else {
         if enemy_has_been_hit(&game_info) {
-            game_info.enemy_life = &game_info.enemy_life - 1.0;
+            game_info.enemy_life = &game_info.enemy_life - LIFE.clone();
         }
         change_game_bar(&mut sprite, game_info.enemy_life.clone());
     }
@@ -323,12 +325,12 @@ fn check_stamina_bar(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation,
 fn check_stamina_fight(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation, mut sprite: &mut &mut Mut<Sprite>) {
     if (game_info.player_action == Move || game_info.player_action == Fight) && animation.game_player == Player {
         if game_info.player_stamina > 0.0 {
-            game_info.player_stamina = &game_info.player_stamina - 1.0;
+            game_info.player_stamina = &game_info.player_stamina - STAMINA.clone();
         }
         change_game_bar(&mut sprite, game_info.player_stamina.clone());
     } else if (game_info.enemy_action == Move || game_info.enemy_action == Fight) && animation.game_player == Enemy {
         if game_info.enemy_stamina > 0.0 {
-            game_info.enemy_stamina = &game_info.enemy_stamina - 1.0;
+            game_info.enemy_stamina = &game_info.enemy_stamina - STAMINA.clone();
         }
         change_game_bar(&mut sprite, game_info.enemy_stamina.clone());
     }
@@ -337,12 +339,12 @@ fn check_stamina_fight(game_info: &mut ResMut<GameInfo>, animation: &BarAnimatio
 fn check_stamina_ki(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation, mut sprite: &mut &mut Mut<Sprite>) {
     if game_info.player_action == Ki && animation.game_player == Player {
         if game_info.player_stamina < 100.0 {
-            game_info.player_stamina = &game_info.player_stamina + 1.0;
+            game_info.player_stamina = &game_info.player_stamina + STAMINA.clone();
             change_game_bar(&mut sprite, game_info.player_stamina.clone());
         }
     } else if game_info.enemy_action == Ki && animation.game_player == Enemy {
         if game_info.enemy_stamina < 100.0 {
-            game_info.enemy_stamina = &game_info.enemy_stamina + 1.0;
+            game_info.enemy_stamina = &game_info.enemy_stamina + STAMINA.clone();
             change_game_bar(&mut sprite, game_info.enemy_stamina.clone());
         }
     }
@@ -530,7 +532,7 @@ fn create_enemy_sprites<A: Component>(asset_server: &&Res<AssetServer>, mut text
 
     let (move_atlas_handle, move_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Move,
-                      "dr_hero.png", 37.0, 59.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
+                      "dr_hero.png", 36.6, 59.0, 6, 1, Some(Vec2::new(0.0, 0.0)));
 
     let (blast_atlas_handle, blast_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Blast,
