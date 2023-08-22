@@ -647,6 +647,20 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 5]> {
             CharacterStats { action: Fight, x: 44.5, y: 42.0, column: 6, row: 1, offset: Vec2::new(127.5, 68.0) },
             CharacterStats { action: Hit, x: 37.05, y: 52.0, column: 7, row: 1, offset: Vec2::new(80.0, 117.0) },
         ]),
+        ("android_17.png", [
+            CharacterStats { action: Ki, x: 70.0, y: 60.0, column: 3, row: 1, offset: Vec2::new(237.0, 0.0) },
+            CharacterStats { action: Move, x: 38.0, y: 57.0, column: 6, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: Blast, x: 120.0, y: 52.0, column: 3, row: 1, offset: Vec2::new(0.0, 225.0) },
+            CharacterStats { action: Fight, x: 45.5, y: 40.0, column: 6, row: 1, offset: Vec2::new(127.5, 64.0) },
+            CharacterStats { action: Hit, x: 37.05, y: 44.0, column: 7, row: 1, offset: Vec2::new(80.0, 110.0) },
+        ]),
+        ("android_18.png", [
+            CharacterStats { action: Ki, x: 66.5, y: 60.0, column: 3, row: 1, offset: Vec2::new(237.0, 0.0) },
+            CharacterStats { action: Move, x: 35.0, y: 57.0, column: 6, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: Blast, x: 120.0, y: 52.0, column: 3, row: 1, offset: Vec2::new(0.0, 225.0) },
+            CharacterStats { action: Fight, x: 41.7, y: 44.0, column: 6, row: 1, offset: Vec2::new(120.0, 60.0) },
+            CharacterStats { action: Hit, x: 37.05, y: 44.0, column: 7, row: 1, offset: Vec2::new(66.0, 110.0) },
+        ]),
     ])
 }
 
