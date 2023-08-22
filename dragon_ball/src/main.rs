@@ -317,13 +317,13 @@ fn check_stamina_bar(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation,
 
 fn check_stamina_fight(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation, mut sprite: &mut &mut Mut<Sprite>) {
     if (game_info.player_action == Move || game_info.player_action == Fight) && animation.game_player == Player {
-        game_info.player_stamina = &game_info.player_stamina - 1.0;
         if game_info.player_stamina > 0.0 {
+            game_info.player_stamina = &game_info.player_stamina - 1.0;
             change_game_bar(&mut sprite, game_info.player_stamina.clone());
         }
     } else if (game_info.enemy_action == Move || game_info.enemy_action == Fight) && animation.game_player == Enemy {
-        game_info.enemy_stamina = &game_info.enemy_stamina - 1.0;
         if game_info.enemy_stamina > 0.0 {
+            game_info.enemy_stamina = &game_info.enemy_stamina - 1.0;
             change_game_bar(&mut sprite, game_info.enemy_stamina.clone());
         }
     }
@@ -342,7 +342,6 @@ fn check_stamina_ki(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation, 
         }
     }
 }
-
 
 fn change_game_bar(sprite: &mut Mut<Sprite>, life: f32) {
     info!("Reducing bar");
@@ -379,7 +378,6 @@ fn throw_dice() -> DbzAction {
     match rng.gen_range(0..10) {
         1 | 2 => Ki,
         3 | 4 | 5 | 6 | 7 => Fight,
-        8 => Blast,
         _ => Move,
     }
 }
@@ -411,22 +409,24 @@ fn setup_sprites(
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
     setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
     setup_enemy_image(&mut commands, &asset_server, &mut texture_atlases);
-    //TODO:Refactor please
-    let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
-        return PlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
-    };
-
-    let super_animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
-        return SuperPlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
-    };
-
-    setup_player("trunk.png", 2.0, &mut commands, &asset_server, &mut texture_atlases, animation_func);
-    setup_player("trunk_b.png", 0.0, &mut commands, &asset_server, &mut texture_atlases, super_animation_func);
+    setup_players(&mut commands, &asset_server, &mut texture_atlases);
     setup_enemy(&mut commands, &asset_server, &mut texture_atlases);
     setup_player_life_bar(&mut commands);
     setup_enemy_life_bar(&mut commands);
     setup_player_stamina_bar(&mut commands);
     setup_enemy_stamina_bar(&mut commands);
+}
+
+fn setup_players(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
+        return PlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
+    };
+    setup_player("trunk.png", 2.0, &mut commands, &asset_server, &mut texture_atlases, animation_func);
+
+    let super_animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
+        return SuperPlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
+    };
+    setup_player("trunk_b.png", 0.0, &mut commands, &asset_server, &mut texture_atlases, super_animation_func);
 }
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
@@ -439,14 +439,14 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
 fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_player_image(&asset_server, &mut texture_atlases);
     let mut background_transform = Transform::default();
-    background_transform.translation = Vec3::new(-650.0, 275.0, 1.0);
+    background_transform.translation = Vec3::new(-650.0, 250.0, 1.0);
     image_spawn(&mut commands, background_atlas_handle, background_transform);
 }
 
 fn setup_enemy_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_enemy_image(&asset_server, &mut texture_atlases);
     let mut background_transform = Transform::default();
-    background_transform.translation = Vec3::new(650.0, 275.0, 1.0);
+    background_transform.translation = Vec3::new(650.0, 250.0, 1.0);
     image_spawn(&mut commands, background_atlas_handle, background_transform);
 }
 
@@ -542,19 +542,19 @@ fn create_enemy_sprites<A: Component>(asset_server: &&Res<AssetServer>, mut text
 }
 
 fn setup_player_life_bar(mut commands: &mut Commands) {
-    setup_game_bar(&mut commands, Life, Player, Color::GREEN, -600.0, 275.0);
+    setup_game_bar(&mut commands, Life, Player, Color::rgb(0.219, 0.78, 0.74), -500.0, 275.0);
 }
 
 fn setup_enemy_life_bar(mut commands: &mut Commands) {
-    setup_game_bar(&mut commands, Life, Enemy, Color::GREEN, 600.0, 275.0);
+    setup_game_bar(&mut commands, Life, Enemy, Color::rgb(0.219, 0.78, 0.74), 500.0, 275.0);
 }
 
 fn setup_player_stamina_bar(mut commands: &mut Commands) {
-    setup_game_bar(&mut commands, Stamina, Player, Color::RED, -600.0, 250.0);
+    setup_game_bar(&mut commands, Stamina, Player, Color::rgb(0.88, 0.205, 0.127), -500.0, 250.0);
 }
 
 fn setup_enemy_stamina_bar(mut commands: &mut Commands) {
-    setup_game_bar(&mut commands, Stamina, Enemy, Color::RED, 600.0, 250.0);
+    setup_game_bar(&mut commands, Stamina, Enemy, Color::rgb(0.88, 0.205, 0.127), 500.0, 250.0);
 }
 
 fn setup_game_bar(mut commands: &mut Commands, game_bar: GameBar, game_player: GamePlayers, color: Color, x: f32, y: f32) {
