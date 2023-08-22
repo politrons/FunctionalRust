@@ -2,11 +2,9 @@
 //! into a texture atlas, and changing the displayed image periodically.
 
 use std::collections::HashMap;
-use std::iter::Map;
 use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
-use lazy_static::lazy_static;
 use rand::Rng;
 use crate::DbzAction::{Blast, Fight, Hit, Ki, Move};
 use crate::GameBar::{Life, Stamina};
@@ -410,13 +408,16 @@ fn setup_sprites(
     let characters = create_characters();
     commands.spawn(Camera2dBundle::default());
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
-    setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
-    setup_enemy_image(&mut commands, &asset_server, &mut texture_atlases);
     setup_players(&mut commands, &asset_server, &mut texture_atlases, &characters);
-    setup_enemy(&mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
     setup_player_life_bar(&mut commands);
-    setup_enemy_life_bar(&mut commands);
     setup_player_stamina_bar(&mut commands);
+
+    let enemy = select_enemy();
+
+    setup_enemy(&mut commands, &asset_server, &mut texture_atlases, &characters,enemy);
+    setup_enemy_image(&mut commands, &asset_server, &mut texture_atlases,enemy);
+    setup_enemy_life_bar(&mut commands);
     setup_enemy_stamina_bar(&mut commands);
 }
 
@@ -448,11 +449,12 @@ fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServe
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
 
-fn setup_enemy_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
-    let background_atlas_handle = create_enemy_image(&asset_server, &mut texture_atlases);
-    let mut background_transform = Transform::default();
-    background_transform.translation = Vec3::new(650.0, 260.0, 1.0);
-    image_spawn(&mut commands, background_atlas_handle, background_transform);
+fn setup_enemy_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, enemy: &str) {
+    let enemy_player = format!("{}{}", enemy, "_player.png");
+    let atlas_handle = create_enemy_image(&asset_server, &mut texture_atlases,enemy_player.as_str());
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(650.0, 260.0, 1.0);
+    image_spawn(&mut commands, atlas_handle, transform);
 }
 
 fn setup_player<A: Component>(image_name: &str, scale: f32, mut commands: &mut Commands,
@@ -472,7 +474,8 @@ fn setup_player<A: Component>(image_name: &str, scale: f32, mut commands: &mut C
 }
 
 fn setup_enemy(mut commands: &mut Commands, asset_server: &Res<AssetServer>,
-               mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, characters: &HashMap<&str, [CharacterStats; 5]>) {
+               mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, characters: &HashMap<&str, [CharacterStats; 5]>,
+               enemy: &str) {
     let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
         return EnemyAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
     };
@@ -482,10 +485,11 @@ fn setup_enemy(mut commands: &mut Commands, asset_server: &Res<AssetServer>,
     let mut sprite = TextureAtlasSprite::new(0);
     sprite.flip_x = true;
 
-    for character_stats in characters.get("dr_hero.png").unwrap() {
+    let enemy_image = format!("{}{}", enemy, ".png");
+    for character_stats in characters.get(enemy_image.as_str()).unwrap() {
         let (atlas_handle, animation) =
             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
-                          "dr_hero.png", character_stats.x.clone(), character_stats.y.clone(),
+                          enemy_image.as_str(), character_stats.x.clone(), character_stats.y.clone(),
                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
         sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, enemy_transform);
     }
@@ -529,8 +533,8 @@ fn create_player_image(asset_server: &Res<AssetServer>, texture_atlases: &mut Re
     create_image("trunk_player.png", 43.0, 55.0, asset_server, texture_atlases)
 }
 
-fn create_enemy_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
-    create_image("dr_hero_player.png", 43.0, 55.0, asset_server, texture_atlases)
+fn create_enemy_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>, enemy_player: &str) -> Handle<TextureAtlas> {
+    create_image(enemy_player , 43.0, 55.0, asset_server, texture_atlases)
 }
 
 fn create_image(image_name: &str, x: f32, y: f32, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
@@ -662,6 +666,15 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 5]> {
             CharacterStats { action: Hit, x: 37.05, y: 44.0, column: 7, row: 1, offset: Vec2::new(66.0, 110.0) },
         ]),
     ])
+}
+
+fn select_enemy() -> &'static str {
+    let mut rng = rand::thread_rng();
+    match rng.gen_range(0..3) {
+        1 => "dr_hero",
+        2 => "android_17",
+        _ => "android_18",
+    }
 }
 
 
