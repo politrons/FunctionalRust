@@ -9,6 +9,7 @@ use rand::Rng;
 use crate::DbzAction::{Blast, Fight, Hit, Ki, Move};
 use crate::GameBar::{Life, Stamina};
 use crate::GamePlayers::{Enemy, Player};
+use crate::PlayerState::{Normal, SuperSaiyan};
 
 fn main() {
     App::new()
@@ -29,6 +30,7 @@ fn main() {
             enemy_stamina: 100.0,
             enemy_action: Ki,
             player_action: Ki,
+            player_state: Normal,
         })
         .run();
 }
@@ -55,6 +57,12 @@ enum GamePlayers {
     Enemy,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum PlayerState {
+    Normal,
+    SuperSaiyan,
+}
+
 #[derive(Resource)]
 struct GameInfo {
     turn_time: SystemTime,
@@ -62,6 +70,7 @@ struct GameInfo {
     enemy_life: f32,
     player_stamina: f32,
     enemy_stamina: f32,
+    player_state: PlayerState,
     player_action: DbzAction,
     enemy_action: DbzAction,
 }
@@ -127,6 +136,12 @@ fn keyboard_update(
         game_info.player_action = Fight;
     } else if keyboard_input.pressed(KeyCode::Return) {
         game_info.player_action = Blast;
+    } else if keyboard_input.pressed(KeyCode::S) {
+        if game_info.player_state == PlayerState::SuperSaiyan {
+            game_info.player_state = Normal;
+        } else {
+            game_info.player_state = PlayerState::SuperSaiyan;
+        }
     } else {
         game_info.player_action = Ki;
     }
@@ -157,7 +172,7 @@ fn animate_player(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            if game_info.player_life > 50.0 {
+            if game_info.player_state == Normal {
                 animate(&mut game_info, animation.first.clone(), animation.last.clone(), animation.entity.clone(), &mut sprite, &mut transform);
             }
         }
@@ -181,7 +196,7 @@ fn animate_super_player(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            if game_info.player_life < 50.0 {
+            if game_info.player_state == SuperSaiyan {
                 animate(&mut game_info, animation.first.clone(), animation.last.clone(), animation.entity.clone(), &mut sprite, &mut transform);
             }
         }
@@ -416,8 +431,8 @@ fn setup_sprites(
 
     let enemy = select_enemy();
 
-    setup_enemy(&mut commands, &asset_server, &mut texture_atlases, &characters,enemy);
-    setup_enemy_image(&mut commands, &asset_server, &mut texture_atlases,enemy);
+    setup_enemy(&mut commands, &asset_server, &mut texture_atlases, &characters, enemy);
+    setup_enemy_image(&mut commands, &asset_server, &mut texture_atlases, enemy);
     setup_enemy_life_bar(&mut commands);
     setup_enemy_stamina_bar(&mut commands);
 }
@@ -452,7 +467,7 @@ fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServe
 
 fn setup_enemy_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, enemy: &str) {
     let enemy_player = format!("{}{}", enemy, "_player.png");
-    let atlas_handle = create_enemy_image(&asset_server, &mut texture_atlases,enemy_player.as_str());
+    let atlas_handle = create_enemy_image(&asset_server, &mut texture_atlases, enemy_player.as_str());
     let mut transform = Transform::default();
     transform.translation = Vec3::new(650.0, 260.0, 1.0);
     image_spawn(&mut commands, atlas_handle, transform);
@@ -535,7 +550,7 @@ fn create_player_image(asset_server: &Res<AssetServer>, texture_atlases: &mut Re
 }
 
 fn create_enemy_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>, enemy_player: &str) -> Handle<TextureAtlas> {
-    create_image(enemy_player , 43.0, 55.0, asset_server, texture_atlases)
+    create_image(enemy_player, 43.0, 55.0, asset_server, texture_atlases)
 }
 
 fn create_image(image_name: &str, x: f32, y: f32, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
