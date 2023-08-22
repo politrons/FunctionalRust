@@ -409,7 +409,8 @@ fn setup_sprites(
 ) {
     commands.spawn(Camera2dBundle::default());
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
-
+    setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
+    setup_enemy_image(&mut commands, &asset_server, &mut texture_atlases);
     //TODO:Refactor please
     let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
         return PlayerAnimation { entity: dbz_entity, first: rows - 1, last: columns - 1 };
@@ -432,7 +433,21 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
     let background_atlas_handle = create_background(&asset_server, &mut texture_atlases);
     let mut background_transform = Transform::default();
     background_transform.translation = Vec3::new(0.0, 0.0, 0.0);
-    background_spawn(&mut commands, background_atlas_handle, background_transform);
+    image_spawn(&mut commands, background_atlas_handle, background_transform);
+}
+
+fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let background_atlas_handle = create_player_image(&asset_server, &mut texture_atlases);
+    let mut background_transform = Transform::default();
+    background_transform.translation = Vec3::new(-650.0, 275.0, 1.0);
+    image_spawn(&mut commands, background_atlas_handle, background_transform);
+}
+
+fn setup_enemy_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let background_atlas_handle = create_enemy_image(&asset_server, &mut texture_atlases);
+    let mut background_transform = Transform::default();
+    background_transform.translation = Vec3::new(650.0, 275.0, 1.0);
+    image_spawn(&mut commands, background_atlas_handle, background_transform);
 }
 
 fn setup_player<A: Component>(image_name: &str, scale: f32, mut commands: &mut Commands,
@@ -557,11 +572,24 @@ fn setup_game_bar(mut commands: &mut Commands, game_bar: GameBar, game_player: G
 /// Once we got it, we create [TextureAtlas] specifying the size of Sprite, and how many sprites we have in the pictures.
 /// Using [column] and [row] here since is a single Picture/Sprite is marked as 1:1
 fn create_background(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
-    let background_handle = asset_server.load("background.png");
+    create_image("background.png", 1900.0, 600.0, asset_server, texture_atlases)
+}
+
+fn create_player_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
+    create_image("trunk_player.png", 43.0, 51.0, asset_server, texture_atlases)
+}
+
+fn create_enemy_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
+     create_image("dr_hero_player.png", 43.0, 51.0, asset_server, texture_atlases)
+}
+
+fn create_image(image_name: &str, x: f32, y: f32, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
+    let background_handle = asset_server.load(image_name);
     let background_atlas =
-        TextureAtlas::from_grid(background_handle, Vec2::new(1900.0, 600.0), 1, 1, None, None);
+        TextureAtlas::from_grid(background_handle, Vec2::new(x, y), 1, 1, None, None);
     texture_atlases.add(background_atlas)
 }
+
 
 fn create_sprite<A: Component, F: Fn(DbzAction, usize, usize) -> A>(asset_server: &Res<AssetServer>,
                                                                     texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
@@ -584,7 +612,7 @@ fn create_sprite<A: Component, F: Fn(DbzAction, usize, usize) -> A>(asset_server
     (atlas_handle, animation)
 }
 
-fn background_spawn(commands: &mut Commands, background_atlas_handle: Handle<TextureAtlas>, background_transform: Transform) {
+fn image_spawn(commands: &mut Commands, background_atlas_handle: Handle<TextureAtlas>, background_transform: Transform) {
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: background_atlas_handle,
