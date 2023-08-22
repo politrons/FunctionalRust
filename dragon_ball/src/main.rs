@@ -17,6 +17,7 @@ fn main() {
         .add_plugins(setup_window())
         .add_systems(Startup, setup_sprites)
         .add_systems(Startup, setup_audio)
+        .add_systems(Update, keyboard_update)
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_super_player)
         .add_systems(Update, animate_enemy)
@@ -102,6 +103,24 @@ struct BarAnimation {
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
 
+/// In case we want to scan the keyboard inputs, we can add in the [Update] function the
+/// [Res<Input<KeyCode>>]. Then we can use functions [pressed] to know when a key is pressed.
+fn keyboard_update(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut game_info: ResMut<GameInfo>,
+) {
+    if keyboard_input.pressed(KeyCode::Left) {
+        game_info.player_action = Move;
+    } else if keyboard_input.pressed(KeyCode::Space) {
+        game_info.player_action = Fight;
+    } else if keyboard_input.pressed(KeyCode::Return) {
+        game_info.player_action = Blast;
+    } else {
+        game_info.player_action = Ki;
+    }
+}
+
+
 /// Bevy allow us to define an [Update] function where we can specify the [Query] that brings a
 /// tuple with as much as properties we want to use in the animation.
 /// The time this animation is invoked is configured when we create the [spawn] and we configure
@@ -109,11 +128,8 @@ struct AnimationTimer(Timer);
 /// We use [TextureAtlasSprite] to change the [index] so we can move the sprite array.
 /// And also we use [flip_x](true/false) to move the rotate the sprite into one direction.
 /// We use [Transform] in case we want to move the Sprite in the screen.
-/// In case we want to scan the keyboard inputs, we can add in the [Update] function the
-/// [Res<Input<KeyCode>>]. Then we can use functions [pressed] to know when a key is pressed.
 fn animate_player(
     time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
     mut game_info: ResMut<GameInfo>,
     mut query: Query<(
         &PlayerAnimation,
@@ -130,7 +146,7 @@ fn animate_player(
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
             if game_info.player_life > 50.0 {
-                animate(&keyboard_input, &mut game_info, animation.first.clone(), animation.last.clone(), animation.entity.clone(), &mut sprite, &mut transform);
+                animate(&mut game_info, animation.first.clone(), animation.last.clone(), animation.entity.clone(), &mut sprite, &mut transform);
             }
         }
     }
@@ -138,7 +154,6 @@ fn animate_player(
 
 fn animate_super_player(
     time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
     mut game_info: ResMut<GameInfo>,
     mut query: Query<(
         &SuperPlayerAnimation,
@@ -155,14 +170,13 @@ fn animate_super_player(
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
             if game_info.player_life < 50.0 {
-                animate(&keyboard_input, &mut game_info, animation.first.clone(), animation.last.clone(), animation.entity.clone(), &mut sprite, &mut transform);
+                animate(&mut game_info, animation.first.clone(), animation.last.clone(), animation.entity.clone(), &mut sprite, &mut transform);
             }
         }
     }
 }
 
 fn animate(
-    keyboard_input: &Res<Input<KeyCode>>,
     game_info: &mut ResMut<GameInfo>,
     first: usize,
     last: usize,
@@ -176,47 +190,17 @@ fn animate(
         sprite.index = move_sprite(first, last, &mut sprite);
         transform.scale = Vec3::splat(2.0);
     } else if entity == Ki && player_has_zero_stamina(&game_info) {
-        info!("Player has zero estamina");
+        info!("Player has zero stamina");
         game_info.player_action = Ki;
         sprite.index = move_sprite(first, last, &mut sprite);
         transform.scale = Vec3::splat(2.0);
-    } else if !player_has_been_hit(&game_info) && !player_has_zero_stamina(&game_info) {
-        match entity {
-            Ki => {
-                let is_action_key = keyboard_input.pressed(KeyCode::Left) ||
-                    keyboard_input.pressed(KeyCode::Space) ||
-                    keyboard_input.pressed(KeyCode::Return);
-
-                if !is_action_key {
-                    game_info.player_action = Ki;
-                    sprite.index = move_sprite(first, last, &mut sprite);
-                    transform.scale = Vec3::splat(2.0);
-                    transform.translation = Vec3::new(-300.0, 150.0, 1.0);
-                }
-            }
-            Move => if keyboard_input.pressed(KeyCode::Left) {
-                game_info.player_action = Move;
-                sprite.index = move_sprite(first, last, &mut sprite);
-                transform.scale = Vec3::splat(2.0);
-                transform.translation = Vec3::new(-300.0, 150.0, 1.0);
-            },
-            Fight => {
-                if keyboard_input.pressed(KeyCode::Space) {
-                    game_info.player_action = Fight;
-                    sprite.index = move_sprite(first, last, &mut sprite);
-                    transform.scale = Vec3::splat(2.0);
-                    transform.translation = Vec3::new(240.0, 150.0, 1.0);
-                }
-            }
-            Blast => {
-                if keyboard_input.pressed(KeyCode::Return) {
-                    game_info.player_action = Blast;
-                    sprite.index = move_sprite(first, last, &mut sprite);
-                    transform.scale = Vec3::splat(2.0);
-                    transform.translation = Vec3::new(-300.0, 150.0, 1.0);
-                }
-            }
-            _ => {}
+    } else if entity == game_info.player_action && !player_has_been_hit(&game_info) && !player_has_zero_stamina(&game_info) {
+        info!("Movement ${:?}", entity);
+        sprite.index = move_sprite(first, last, &mut sprite);
+        transform.scale = Vec3::splat(2.0);
+        match game_info.player_action {
+            Fight => transform.translation = Vec3::new(240.0, 150.0, 1.0),
+            _ => transform.translation = Vec3::new(-300.0, 150.0, 1.0),
         }
     }
 }
@@ -351,7 +335,6 @@ fn check_stamina_ki(game_info: &mut ResMut<GameInfo>, animation: &BarAnimation, 
 }
 
 fn change_game_bar(sprite: &mut Mut<Sprite>, life: f32) {
-    info!("Reducing bar");
     sprite.custom_size = Some(Vec2::new(life, 10.00));
 }
 
@@ -373,11 +356,11 @@ fn enemy_has_been_hit(game_info: &GameInfo) -> bool {
 }
 
 fn player_has_zero_stamina(game_info: &GameInfo) -> bool {
-    return game_info.player_stamina == 0.0;
+    return game_info.player_stamina <= 0.0;
 }
 
 fn enemy_has_zero_stamina(game_info: &GameInfo) -> bool {
-    return game_info.enemy_stamina == 0.0;
+    return game_info.enemy_stamina <= 0.0;
 }
 
 fn throw_dice() -> DbzAction {
@@ -475,7 +458,6 @@ fn setup_player<A: Component>(image_name: &str, scale: f32, mut commands: &mut C
     sprite_spawn(&mut commands, trunk_fight_atlas_handle, TextureAtlasSprite::new(0), fight_animation, player_1_transform);
     sprite_spawn(&mut commands, trunk_hit_atlas_handle, TextureAtlasSprite::new(0), hit_animation, player_1_transform);
 }
-
 
 fn setup_enemy(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let animation_func = |dbz_entity: DbzAction, rows: usize, columns: usize| {
@@ -596,7 +578,6 @@ fn create_image(image_name: &str, x: f32, y: f32, asset_server: &Res<AssetServer
         TextureAtlas::from_grid(background_handle, Vec2::new(x, y), 1, 1, None, None);
     texture_atlases.add(background_atlas)
 }
-
 
 fn create_sprite<A: Component, F: Fn(DbzAction, usize, usize) -> A>(asset_server: &Res<AssetServer>,
                                                                     texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
