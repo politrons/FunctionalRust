@@ -431,22 +431,22 @@ fn setup_players(mut commands: &mut Commands, asset_server: &Res<AssetServer>, m
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_background(&asset_server, &mut texture_atlases);
-    let mut background_transform = Transform::default();
-    background_transform.translation = Vec3::new(0.0, 0.0, 0.0);
-    image_spawn(&mut commands, background_atlas_handle, background_transform);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(0.0, 0.0, 0.0);
+    image_spawn(&mut commands, background_atlas_handle, transform);
 }
 
 fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_player_image(&asset_server, &mut texture_atlases);
-    let mut background_transform = Transform::default();
-    background_transform.translation = Vec3::new(-650.0, 250.0, 1.0);
-    image_spawn(&mut commands, background_atlas_handle, background_transform);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(-650.0, 260.0, 1.0);
+    image_spawn(&mut commands, background_atlas_handle, transform);
 }
 
 fn setup_enemy_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_enemy_image(&asset_server, &mut texture_atlases);
     let mut background_transform = Transform::default();
-    background_transform.translation = Vec3::new(650.0, 250.0, 1.0);
+    background_transform.translation = Vec3::new(650.0, 260.0, 1.0);
     image_spawn(&mut commands, background_atlas_handle, background_transform);
 }
 
@@ -509,7 +509,7 @@ fn create_sprites<A: Component>(image_name: &str, asset_server: &&Res<AssetServe
 
     let (fight_atlas_handle, fight_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Fight,
-                      image_name, 44.2, 42.0, 6, 1, Some(Vec2::new(115.0, 65.0)));
+                      image_name, 44.5, 42.0, 6, 1, Some(Vec2::new(115.5, 65.0)));
 
     let (hit_atlas_handle, hit_animation) =
         create_sprite(&asset_server, &mut texture_atlases, animation_func, Hit,
@@ -576,11 +576,11 @@ fn create_background(asset_server: &Res<AssetServer>, texture_atlases: &mut ResM
 }
 
 fn create_player_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
-    create_image("trunk_player.png", 43.0, 51.0, asset_server, texture_atlases)
+    create_image("trunk_player.png", 43.0, 55.0, asset_server, texture_atlases)
 }
 
 fn create_enemy_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
-     create_image("dr_hero_player.png", 43.0, 51.0, asset_server, texture_atlases)
+    create_image("dr_hero_player.png", 43.0, 55.0, asset_server, texture_atlases)
 }
 
 fn create_image(image_name: &str, x: f32, y: f32, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
