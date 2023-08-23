@@ -170,4 +170,6 @@ Goose is a Rust load testing tool inspired by Locust.
 ## Games
 ![My image](img/bevy.png)
 
-[Monkey Island](monkey_island/README.md)
+* [Dragon Ball Z](dragon_ball/README.md)
+
+* [Monkey Island](monkey_island/README.md)
