@@ -2,14 +2,18 @@
 
 Author Pablo Picouto Garcia
 
-Dragon ball Fight Game Engine Using [Bevy](https://bevyengine.org)
+Dragon Ball Z Fight Game Engine Using [Bevy](https://bevyengine.org)
 
 All used Sprites are coming from  [spriters-resource](https://www.spriters-resource.com)
 
 
-https://github.com/politrons/FunctionalRust/assets/2054461/37a0c450-50a3-42cc-a2bd-1e55292abd30
-https://github.com/politrons/FunctionalRust/assets/2054461/1af80e67-6fad-462b-a1e1-a1848b27edef
-https://github.com/politrons/FunctionalRust/assets/2054461/f881899c-f09f-4f29-b288-495b9e488d37
+https://github.com/politrons/FunctionalRust/assets/2054461/aa0b7a0c-687b-4866-9af5-d3742334af77
+
+
+https://github.com/politrons/FunctionalRust/assets/2054461/eef4da97-e9d4-4637-b642-77938e27cd48
+
+
+https://github.com/politrons/FunctionalRust/assets/2054461/d35eb1b5-d29e-48fb-90e2-069f040c4f73
 
 ## Players
 
