@@ -6,6 +6,8 @@ Dragon Ball Z Fight Game Engine Using [Bevy](https://bevyengine.org)
 
 All used Sprites are coming from  [spriters-resource](https://www.spriters-resource.com)
 
+You can also find the [crates.io](https://crates.io/crates/dragon_ball) 
+
 
 https://github.com/politrons/FunctionalRust/assets/2054461/aa0b7a0c-687b-4866-9af5-d3742334af77
 
@@ -21,9 +23,6 @@ https://github.com/politrons/FunctionalRust/assets/2054461/d35eb1b5-d29e-48fb-90
 ![My image](assets/dr_hero_player.png)
 ![My image](assets/android_17_player.png)
 ![My image](assets/android_18_player.png)
-
-
-
 
 ## Sprites
 
