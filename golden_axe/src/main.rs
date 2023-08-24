@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use rand::Rng;
-use crate::GameAction::{Fight, Hit, Move, MoveUp, Run, Stand};
+use crate::GameAction::{Down, DownLeft, DownRight, FightLeft, FightRight, HitLeft, HitRight, Left, Right, RunLeft, RunRight, StandLeft, StandRight, Up, UpLeft, UpRight};
 
 fn main() {
     App::new()
@@ -17,8 +17,8 @@ fn main() {
         .insert_resource(GameInfo {
             turn_time: SystemTime::now(),
             player_life: 100.0,
-            enemy_action: Stand,
-            player_action: Stand,
+            enemy_action: StandRight,
+            player_action: StandRight,
         })
         .run();
 }
@@ -33,6 +33,7 @@ struct CharacterStats {
     column: usize,
     row: usize,
     offset: Vec2,
+    left_rotation: bool,
 }
 
 #[derive(Resource)]
@@ -45,12 +46,22 @@ struct GameInfo {
 
 #[derive(Clone, PartialEq, Debug)]
 enum GameAction {
-    Stand,
-    Move,
-    MoveUp,
-    Hit,
-    Fight,
-    Run,
+    StandRight,
+    StandLeft,
+    Right,
+    Left,
+    Up,
+    UpRight,
+    UpLeft,
+    Down,
+    DownRight,
+    DownLeft,
+    HitRight,
+    HitLeft,
+    FightRight,
+    FightLeft,
+    RunRight,
+    RunLeft,
 }
 
 /// Animations
@@ -75,15 +86,29 @@ fn keyboard_update(
     mut game_info: ResMut<GameInfo>,
 ) {
     if keyboard_input.pressed(KeyCode::Right) && keyboard_input.pressed(KeyCode::Up) {
-        game_info.player_action = MoveUp;
+        game_info.player_action = UpRight;
+    } else if keyboard_input.pressed(KeyCode::Left) && keyboard_input.pressed(KeyCode::Up) {
+        game_info.player_action = UpLeft;
+    // } else if keyboard_input.pressed(KeyCode::Up) {
+    //     game_info.player_action = Up;
     } else if keyboard_input.pressed(KeyCode::Right) & &keyboard_input.pressed(KeyCode::ShiftRight) {
-        game_info.player_action = Run;
+        game_info.player_action = RunRight;
+    } else if keyboard_input.pressed(KeyCode::Left) & &keyboard_input.pressed(KeyCode::ShiftRight) {
+        game_info.player_action = RunLeft;
     } else if keyboard_input.pressed(KeyCode::Right) {
-        game_info.player_action = Move;
+        game_info.player_action = Right;
+    } else if keyboard_input.pressed(KeyCode::Left) {
+        game_info.player_action = Left;
+    } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Right) {
+        game_info.player_action = DownRight;
+    } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Left) {
+        game_info.player_action = DownLeft;
+    // } else if keyboard_input.pressed(KeyCode::Down) {
+    //     game_info.player_action = Down;
     } else if keyboard_input.pressed(KeyCode::Space) {
-        game_info.player_action = Fight;
+        game_info.player_action = FightRight;
     } else {
-        game_info.player_action = Stand;
+        game_info.player_action = StandRight;
     }
 }
 
@@ -152,26 +177,16 @@ fn setup_sprites(
 
 fn setup_players(mut commands: &mut Commands, asset_server: &Res<AssetServer>,
                  mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                 characters: &HashMap<&str, [CharacterStats; 6]>) {
+                 characters: &HashMap<&str, [CharacterStats; 14]>) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
     };
 
-    let mut player_right_transform = Transform::default();
-    player_right_transform.scale = Vec3::splat(0.0);
-    player_right_transform.translation = Vec3::new(-300.0, -300.0, 1.0);
-    let mut player_right_sprite = TextureAtlasSprite::new(0);
+    let mut player_transform = Transform::default();
+    player_transform.scale = Vec3::splat(0.0);
+    player_transform.translation = Vec3::new(-300.0, -300.0, 1.0);
 
-    setup_player("barbarian.png", &mut commands, player_right_transform,
-                 player_right_sprite, &asset_server, &mut texture_atlases, animation_func, characters);
-
-    // let mut player_left_transform = Transform::default();
-    // player_left_transform.scale = Vec3::splat(0.0);
-    // player_left_transform.translation = Vec3::new(-300.0, 150.0, 1.0);
-    // let mut player_left_sprite = TextureAtlasSprite::new(0);
-    // player_left_sprite.flip_x = true;
-    // setup_player("barbarian.png", &mut commands, player_right_transform,
-    //              player_left_sprite, &asset_server, &mut texture_atlases, animation_func, characters);
+    setup_player("barbarian.png", &mut commands, player_transform,&asset_server, &mut texture_atlases, animation_func, characters);
 }
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
@@ -184,17 +199,18 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
 fn setup_player<A: Component>(image_name: &str,
                               mut commands: &mut Commands,
                               player_1_transform: Transform,
-                              sprite: TextureAtlasSprite,
                               asset_server: &&Res<AssetServer>,
                               mut texture_atlases: &mut &mut ResMut<Assets<TextureAtlas>>,
                               animation_func: fn(GameAction, usize, usize) -> A,
-                              characters: &HashMap<&str, [CharacterStats; 6]>) {
+                              characters: &HashMap<&str, [CharacterStats; 14]>) {
     for character_stats in characters.get(image_name).unwrap() {
         let (atlas_handle, animation) =
             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
                           image_name, character_stats.x.clone(), character_stats.y.clone(),
                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
-        sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, player_1_transform);
+        let mut sprite = TextureAtlasSprite::new(0);
+        sprite.flip_x = character_stats.clone().left_rotation;
+        sprite_spawn(&mut commands, atlas_handle, sprite, animation, player_1_transform);
     }
 }
 
@@ -277,23 +293,26 @@ fn setup_window() -> (PluginGroupBuilder, ) {
     )
 }
 
-fn create_characters() -> HashMap<&'static str, [CharacterStats; 6]> {
+fn create_characters() -> HashMap<&'static str, [CharacterStats; 14]> {
     HashMap::from([
         ("barbarian.png", [
-            CharacterStats { action: Stand, x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0) },
-            CharacterStats { action: Move, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
-            CharacterStats { action: MoveUp, x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0) },
-            CharacterStats { action: Run, x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
-            CharacterStats { action: Fight, x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0) },
-            CharacterStats { action: Hit, x: 78.0, y: 75.0, column: 7, row: 1, offset: Vec2::new(0.0, 560.0) },
+            //Right
+            CharacterStats { action: StandRight, x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: false },
+            CharacterStats { action: Right, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: false },
+            CharacterStats { action: UpRight, x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0), left_rotation: false },
+            CharacterStats { action: DownRight, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: false },
+            CharacterStats { action: FightRight, x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0), left_rotation: false },
+            CharacterStats { action: HitRight, x: 78.0, y: 75.0, column: 7, row: 1, offset: Vec2::new(0.0, 560.0), left_rotation: false },
+            CharacterStats { action: RunRight, x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0), left_rotation: false },
+            //Left
+            CharacterStats { action: StandLeft, x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: true },
+            CharacterStats { action: Left, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: true },
+            CharacterStats { action: UpLeft, x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0), left_rotation: true },
+            CharacterStats { action: DownLeft, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: true },
+            CharacterStats { action: FightLeft, x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0), left_rotation: true },
+            CharacterStats { action: HitLeft, x: 78.0, y: 75.0, column: 7, row: 1, offset: Vec2::new(0.0, 560.0), left_rotation: true },
+            CharacterStats { action: RunLeft, x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0), left_rotation: true },
         ]),
-        // ("android_18.png", [
-        //     CharacterStats { action: Ki, x: 66.5, y: 60.0, column: 3, row: 1, offset: Vec2::new(237.0, 0.0) },
-        //     CharacterStats { action: Move, x: 35.0, y: 57.0, column: 6, row: 1, offset: Vec2::new(0.0, 0.0) },
-        //     CharacterStats { action: Blast, x: 120.0, y: 52.0, column: 3, row: 1, offset: Vec2::new(0.0, 225.0) },
-        //     CharacterStats { action: Fight, x: 41.7, y: 44.0, column: 6, row: 1, offset: Vec2::new(120.0, 60.0) },
-        //     CharacterStats { action: Hit, x: 37.05, y: 44.0, column: 7, row: 1, offset: Vec2::new(66.0, 110.0) },
-        // ]),
     ])
 }
 
