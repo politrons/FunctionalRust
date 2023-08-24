@@ -30,16 +30,21 @@ fn main() {
 
 ///  Game logic types
 /// -----------------
-///
+
+const ATTACK_REACH: f32 = 60.0;
+const ENEMY_STEP: f32 = 5.0;
+const PLAYER_STEP: f32 = 10.0;
+
 static STAND: GameAction = Stand(0.0, 0.0);
-static MOVE: GameAction = Right(10.0, 0.0);
-static UP_MOVE: GameAction = UpMove(10.0, 10.0);
-static DOWN_MOVE: GameAction = DownMove(10.0, -10.0);
+static MOVE: GameAction = Right(PLAYER_STEP, 0.0);
+static UP_MOVE: GameAction = UpMove(PLAYER_STEP, PLAYER_STEP);
+static DOWN_MOVE: GameAction = DownMove(PLAYER_STEP, -PLAYER_STEP);
 static FIGHT: GameAction = Fight(0.0, 0.0);
 static HIT: GameAction = Hit(0.0, 0.0);
 static RUN: GameAction = Run(20.0, 0.0);
-static UP: GameAction = UpMove(0.0, 10.0);
-static DOWN: GameAction = DownMove(0.0, -10.0);
+static UP: GameAction = UpMove(0.0, PLAYER_STEP);
+static DOWN: GameAction = DownMove(0.0, -PLAYER_STEP);
+
 
 #[derive(Clone, Debug, PartialEq)]
 struct CharacterStats {
@@ -180,6 +185,9 @@ fn animate_player(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
+            if game_info.enemy_action==FIGHT {
+                game_info.player_action = HIT.clone();
+            }
             if animation.action == game_info.player_action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                 let (x, y) = game_info.player_action.get_values();
@@ -216,35 +224,11 @@ fn animate_enemy(
             transform.scale = Vec3::splat(0.0);
             if animation.action == game_info.enemy_action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-
                 let distance = distance(&game_info.player_position, &game_info.enemy_position);
-                if distance <= 60.0 {
-                    info!("Enemy reach player. Distance{:?}",distance);
-                    game_info.enemy_action=FIGHT.clone();
-                    if game_info.enemy_left_orientation {
-                        sprite.flip_x = true;
-                    }
-                    transform.translation = Vec3::new(game_info.enemy_position.clone().x, game_info.enemy_position.clone().y, 1.0);
+                if distance <= ATTACK_REACH {
+                    attack_logic(&mut game_info, &mut sprite, &mut transform, distance);
                 }else{
-                    let direction = subtract(&game_info.player_position, &game_info.enemy_position);
-                    let normalized_direction = normalize(&direction);
-                    let movement = multiply(&normalized_direction, &5.0);
-                    info!("movement {:?}",movement);
-                    if movement.x < 0.0 {
-                        sprite.flip_x = true;
-                        game_info.enemy_left_orientation=true;
-                    } else {
-                        sprite.flip_x = false;
-                        game_info.enemy_left_orientation=false;
-                    }
-                    if movement.y < 0.0 {
-                        game_info.enemy_action = DOWN.clone();
-                    } else {
-                        game_info.enemy_action = UP.clone();
-                    }
-                    let new_movement = Vec2::new(game_info.enemy_position.clone().x + movement.x, game_info.enemy_position.clone().y + movement.y);
-                    game_info.enemy_position = new_movement.clone();
-                    transform.translation = Vec3::new(new_movement.x, new_movement.y, 1.0);
+                    follow_logic(&mut game_info, &mut sprite, &mut transform);
                 }
                 transform.scale = Vec3::splat(2.0);
             }
@@ -265,6 +249,28 @@ fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) 
 
 /// Follow enemy
 /// -------------
+fn follow_logic(game_info: &mut ResMut<GameInfo>, sprite: &mut Mut<TextureAtlasSprite>, transform: &mut Mut<Transform>) {
+    let direction = subtract(&game_info.player_position, &game_info.enemy_position);
+    let normalized_direction = normalize(&direction);
+    let movement = multiply(&normalized_direction, &ENEMY_STEP);
+    info!("movement {:?}",movement);
+    if movement.x < 0.0 {
+        sprite.flip_x = true;
+        game_info.enemy_left_orientation = true;
+    } else {
+        sprite.flip_x = false;
+        game_info.enemy_left_orientation = false;
+    }
+    if movement.y < 0.0 {
+        game_info.enemy_action = DOWN.clone();
+    } else {
+        game_info.enemy_action = UP.clone();
+    }
+    let new_movement = Vec2::new(game_info.enemy_position.clone().x + movement.x, game_info.enemy_position.clone().y + movement.y);
+    game_info.enemy_position = new_movement.clone();
+    transform.translation = Vec3::new(new_movement.x, new_movement.y, 1.0);
+}
+
 fn subtract(player_position: &Vec2, enemy_position: &Vec2) -> Vec2 {
     Vec2::new(player_position.clone().x - enemy_position.clone().x, player_position.clone().y - enemy_position.clone().y)
 }
@@ -285,6 +291,15 @@ fn multiply(position: &Vec2, factor: &f32) -> Vec2 {
 fn distance(player_position: &Vec2, enemy_position: &Vec2) -> f32 {
     let position =  Vec2::new(player_position.clone().x - enemy_position.clone().x, player_position.clone().y - enemy_position.clone().y);
     (position.x.powi(2) + position.y.powi(2)).sqrt()
+}
+
+fn attack_logic(game_info: &mut ResMut<GameInfo>, sprite: &mut Mut<TextureAtlasSprite>, transform: &mut Mut<Transform>, distance: f32) {
+    info!("Enemy reach player. Distance{:?}",distance);
+    game_info.enemy_action = FIGHT.clone();
+    if game_info.enemy_left_orientation {
+        sprite.flip_x = true;
+    }
+    transform.translation = Vec3::new(game_info.enemy_position.clone().x, game_info.enemy_position.clone().y, 1.0);
 }
 
 
