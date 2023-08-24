@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use rand::Rng;
-use crate::GameAction::{Down, DownLeft, DownRight, FightLeft, FightRight, HitLeft, HitRight, Left, Right, RunLeft, RunRight, StandLeft, StandRight, Up, UpLeft, UpRight};
+use crate::GameAction::{Down, DownMove, Fight, Hit, Left, Right, Run, Stand, Up, UpMove};
 
 fn main() {
     App::new()
@@ -17,14 +17,27 @@ fn main() {
         .insert_resource(GameInfo {
             turn_time: SystemTime::now(),
             player_life: 100.0,
-            enemy_action: StandRight,
-            player_action: StandRight,
+            player_left_orientation: false,
+            enemy_action: STAND.clone(),
+            player_action: STAND.clone(),
+            enemy_left_orientation: false,
         })
         .run();
 }
 
 ///  Game logic types
 /// -----------------
+///
+static STAND: GameAction = Stand(0.0, 0.0);
+static MOVE: GameAction = Right(5.0, 0.0);
+static UP_MOVE: GameAction = UpMove(5.0, 5.0);
+static DOWN_MOVE: GameAction = DownMove(5.0, -5.0);
+static FIGHT: GameAction = Fight(0.0, 0.0);
+static HIT: GameAction = Hit(0.0, 0.0);
+static RUN: GameAction = Run(10.0, 0.0);
+static UP: GameAction = UpMove(0.0, 5.0);
+static DOWN: GameAction = DownMove(0.0, -5.0);
+
 #[derive(Clone, Debug, PartialEq)]
 struct CharacterStats {
     action: GameAction,
@@ -33,35 +46,47 @@ struct CharacterStats {
     column: usize,
     row: usize,
     offset: Vec2,
-    left_rotation: bool,
 }
 
 #[derive(Resource)]
 struct GameInfo {
     turn_time: SystemTime,
     player_life: f32,
+    player_left_orientation: bool,
     player_action: GameAction,
     enemy_action: GameAction,
+    enemy_left_orientation: bool,
 }
 
 #[derive(Clone, PartialEq, Debug)]
 enum GameAction {
-    StandRight,
-    StandLeft,
-    Right,
-    Left,
-    Up,
-    UpRight,
-    UpLeft,
-    Down,
-    DownRight,
-    DownLeft,
-    HitRight,
-    HitLeft,
-    FightRight,
-    FightLeft,
-    RunRight,
-    RunLeft,
+    Stand(f32, f32),
+    Right(f32, f32),
+    Left(f32, f32),
+    Up(f32, f32),
+    UpMove(f32, f32),
+    Down(f32, f32),
+    DownMove(f32, f32),
+    Hit(f32, f32),
+    Fight(f32, f32),
+    Run(f32, f32),
+}
+
+impl GameAction {
+    fn get_values(&self) -> (f32, f32) {
+        match self {
+            Stand(value1, value2)
+            | Right(value1, value2)
+            | Left(value1, value2)
+            | Up(value1, value2)
+            | UpMove(value1, value2)
+            | Down(value1, value2)
+            | DownMove(value1, value2)
+            | Hit(value1, value2)
+            | Fight(value1, value2)
+            | Run(value1, value2) => (value1.clone(), value2.clone()),
+        }
+    }
 }
 
 /// Animations
@@ -86,32 +111,39 @@ fn keyboard_update(
     mut game_info: ResMut<GameInfo>,
 ) {
     if keyboard_input.pressed(KeyCode::Right) && keyboard_input.pressed(KeyCode::Up) {
-        game_info.player_action = UpRight;
+        game_info.player_action = UP_MOVE.clone();
+        game_info.player_left_orientation = false;
     } else if keyboard_input.pressed(KeyCode::Left) && keyboard_input.pressed(KeyCode::Up) {
-        game_info.player_action = UpLeft;
-    // } else if keyboard_input.pressed(KeyCode::Up) {
-    //     game_info.player_action = Up;
+        game_info.player_action = UP_MOVE.clone();
+        game_info.player_left_orientation = true;
+    } else if keyboard_input.pressed(KeyCode::Up) {
+        game_info.player_action = UP.clone();
     } else if keyboard_input.pressed(KeyCode::Right) & &keyboard_input.pressed(KeyCode::ShiftRight) {
-        game_info.player_action = RunRight;
+        game_info.player_action = RUN.clone();
+        game_info.player_left_orientation = false;
     } else if keyboard_input.pressed(KeyCode::Left) & &keyboard_input.pressed(KeyCode::ShiftRight) {
-        game_info.player_action = RunLeft;
+        game_info.player_action = RUN.clone();
+        game_info.player_left_orientation = true;
     } else if keyboard_input.pressed(KeyCode::Right) {
-        game_info.player_action = Right;
+        game_info.player_action = MOVE.clone();
+        game_info.player_left_orientation = false;
     } else if keyboard_input.pressed(KeyCode::Left) {
-        game_info.player_action = Left;
+        game_info.player_action = MOVE.clone();
+        game_info.player_left_orientation = true;
     } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Right) {
-        game_info.player_action = DownRight;
+        game_info.player_action = DOWN.clone();
+        game_info.player_left_orientation = false;
     } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Left) {
-        game_info.player_action = DownLeft;
-    // } else if keyboard_input.pressed(KeyCode::Down) {
-    //     game_info.player_action = Down;
+        game_info.player_action = DOWN.clone();
+        game_info.player_left_orientation = true;
+    } else if keyboard_input.pressed(KeyCode::Down) {
+        game_info.player_action = DOWN.clone();
     } else if keyboard_input.pressed(KeyCode::Space) {
-        game_info.player_action = FightRight;
+        game_info.player_action = FIGHT.clone();
     } else {
-        game_info.player_action = StandRight;
+        game_info.player_action = STAND.clone();
     }
 }
-
 
 /// Bevy allow us to define an [Update] function where we can specify the [Query] that brings a
 /// tuple with as much as properties we want to use in the animation.
@@ -140,6 +172,15 @@ fn animate_player(
             info!("Game action {:?}",game_info.player_action);
             if animation.action == game_info.player_action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                let old_transform = transform.clone();
+                let (x, y) = game_info.player_action.get_values();
+                if game_info.player_left_orientation {
+                    sprite.flip_x = true;
+                    transform.translation = Vec3::new(old_transform.translation.x - x, old_transform.translation.y - y, 1.0);
+                } else {
+                    sprite.flip_x = false;
+                    transform.translation = Vec3::new(old_transform.translation.x + x, old_transform.translation.y + y, 1.0);
+                }
                 transform.scale = Vec3::splat(2.0);
             }
         }
@@ -177,7 +218,7 @@ fn setup_sprites(
 
 fn setup_players(mut commands: &mut Commands, asset_server: &Res<AssetServer>,
                  mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                 characters: &HashMap<&str, [CharacterStats; 14]>) {
+                 characters: &HashMap<&str, [CharacterStats; 9]>) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
     };
@@ -186,7 +227,7 @@ fn setup_players(mut commands: &mut Commands, asset_server: &Res<AssetServer>,
     player_transform.scale = Vec3::splat(0.0);
     player_transform.translation = Vec3::new(-300.0, -300.0, 1.0);
 
-    setup_player("barbarian.png", &mut commands, player_transform,&asset_server, &mut texture_atlases, animation_func, characters);
+    setup_player("barbarian.png", &mut commands, player_transform, &asset_server, &mut texture_atlases, animation_func, characters);
 }
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
@@ -202,15 +243,13 @@ fn setup_player<A: Component>(image_name: &str,
                               asset_server: &&Res<AssetServer>,
                               mut texture_atlases: &mut &mut ResMut<Assets<TextureAtlas>>,
                               animation_func: fn(GameAction, usize, usize) -> A,
-                              characters: &HashMap<&str, [CharacterStats; 14]>) {
+                              characters: &HashMap<&str, [CharacterStats; 9]>) {
     for character_stats in characters.get(image_name).unwrap() {
         let (atlas_handle, animation) =
             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
                           image_name, character_stats.x.clone(), character_stats.y.clone(),
                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
-        let mut sprite = TextureAtlasSprite::new(0);
-        sprite.flip_x = character_stats.clone().left_rotation;
-        sprite_spawn(&mut commands, atlas_handle, sprite, animation, player_1_transform);
+        sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), animation, player_1_transform);
     }
 }
 
@@ -293,30 +332,21 @@ fn setup_window() -> (PluginGroupBuilder, ) {
     )
 }
 
-fn create_characters() -> HashMap<&'static str, [CharacterStats; 14]> {
+fn create_characters() -> HashMap<&'static str, [CharacterStats; 9]> {
     HashMap::from([
         ("barbarian.png", [
             //Right
-            CharacterStats { action: StandRight, x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: false },
-            CharacterStats { action: Right, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: false },
-            CharacterStats { action: UpRight, x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0), left_rotation: false },
-            CharacterStats { action: DownRight, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: false },
-            CharacterStats { action: FightRight, x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0), left_rotation: false },
-            CharacterStats { action: HitRight, x: 78.0, y: 75.0, column: 7, row: 1, offset: Vec2::new(0.0, 560.0), left_rotation: false },
-            CharacterStats { action: RunRight, x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0), left_rotation: false },
-            //Left
-            CharacterStats { action: StandLeft, x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: true },
-            CharacterStats { action: Left, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: true },
-            CharacterStats { action: UpLeft, x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0), left_rotation: true },
-            CharacterStats { action: DownLeft, x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0), left_rotation: true },
-            CharacterStats { action: FightLeft, x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0), left_rotation: true },
-            CharacterStats { action: HitLeft, x: 78.0, y: 75.0, column: 7, row: 1, offset: Vec2::new(0.0, 560.0), left_rotation: true },
-            CharacterStats { action: RunLeft, x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0), left_rotation: true },
+            CharacterStats { action: STAND.clone(), x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: MOVE.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: UP_MOVE.clone(), x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0) },
+            CharacterStats { action: UP.clone(), x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0) },
+            CharacterStats { action: DOWN_MOVE.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: DOWN.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: FIGHT.clone(), x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0) },
+            CharacterStats { action: HIT.clone(), x: 78.0, y: 75.0, column: 7, row: 1, offset: Vec2::new(0.0, 560.0) },
+            CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
         ]),
     ])
 }
-
-
-
 
 
