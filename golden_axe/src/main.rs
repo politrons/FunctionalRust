@@ -14,13 +14,15 @@ fn main() {
         .add_systems(Startup, setup_sprites)
         .add_systems(Update, keyboard_update)
         .add_systems(Update, animate_player)
+        .add_systems(Update, animate_enemy)
         .insert_resource(GameInfo {
             turn_time: SystemTime::now(),
             player_life: 100.0,
             player_left_orientation: false,
-            player_position: Vec2::new(-300.0, -300.0, ),
-            enemy_action: STAND.clone(),
+            player_position: Vec2::new(-300.0, -300.0),
             player_action: STAND.clone(),
+            enemy_action: FIGHT.clone(),
+            enemy_position: Vec2::new(-150.0, -300.0),
             enemy_left_orientation: false,
         })
         .run();
@@ -57,6 +59,7 @@ struct GameInfo {
     player_left_orientation: bool,
     player_action: GameAction,
     enemy_action: GameAction,
+    enemy_position: Vec2,
     enemy_left_orientation: bool,
 }
 
@@ -102,6 +105,12 @@ struct PlayerAnimation {
     last: usize,
 }
 
+#[derive(Clone, Component)]
+struct EnemyAnimation {
+    action: GameAction,
+    first: usize,
+    last: usize,
+}
 
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
@@ -189,6 +198,32 @@ fn animate_player(
     }
 }
 
+fn animate_enemy(
+    time: Res<Time>,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(
+        &EnemyAnimation,
+        &mut AnimationTimer,
+        &mut TextureAtlasSprite,
+        &mut Transform,
+    )>,
+) {
+    for (animation,
+        mut timer,
+        mut sprite,
+        mut transform) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            transform.scale = Vec3::splat(0.0);
+            if animation.action == game_info.enemy_action {
+                info!("Enemy action {:?}",game_info.player_action);
+                sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                transform.scale = Vec3::splat(2.0);
+            }
+        }
+    }
+}
+
 fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
     if sprite.index == last {
         first
@@ -201,7 +236,6 @@ fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) 
 /// Setup game
 /// -----------
 
-///
 /// Bevy provide a [Startup] config, where we need to provide an implementation receiving the
 /// system properties that allow us to establish the game settings to be used later on.
 /// [Commands] user to [spawn] the [bundle] also known as [Sprites] to be used in the game.
@@ -215,22 +249,23 @@ fn setup_sprites(
     let characters = create_characters();
     commands.spawn(Camera2dBundle::default());
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
-    setup_players(&mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_player("barbarian.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
 }
 
-fn setup_players(mut commands: &mut Commands, asset_server: &Res<AssetServer>,
-                 mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                 characters: &HashMap<&str, [CharacterStats; 9]>) {
-    let animation_func = |action: GameAction, rows: usize, columns: usize| {
-        return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
-    };
-
-    let mut player_transform = Transform::default();
-    player_transform.scale = Vec3::splat(0.0);
-    player_transform.translation = Vec3::new(-300.0, -300.0, 1.0);
-
-    setup_player("barbarian.png", &mut commands, player_transform, &asset_server, &mut texture_atlases, animation_func, characters);
-}
+// fn setup_players(mut commands: &mut Commands, asset_server: &Res<AssetServer>,
+//                  mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+//                  characters: &HashMap<&str, [CharacterStats; 9]>) {
+//     let animation_func = |action: GameAction, rows: usize, columns: usize| {
+//         return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
+//     };
+//
+//     let mut player_transform = Transform::default();
+//     player_transform.scale = Vec3::splat(0.0);
+//     player_transform.translation = Vec3::new(-300.0, -300.0, 1.0);
+//
+//     setup_player("barbarian.png", &mut commands, player_transform, &asset_server, &mut texture_atlases, animation_func, characters);
+// }
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_background(&asset_server, &mut texture_atlases);
@@ -239,19 +274,48 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
 
-fn setup_player<A: Component>(image_name: &str,
-                              mut commands: &mut Commands,
-                              player_1_transform: Transform,
-                              asset_server: &&Res<AssetServer>,
-                              mut texture_atlases: &mut &mut ResMut<Assets<TextureAtlas>>,
-                              animation_func: fn(GameAction, usize, usize) -> A,
-                              characters: &HashMap<&str, [CharacterStats; 9]>) {
-    for character_stats in characters.get(image_name).unwrap() {
+fn setup_player(player_name: &str,
+                mut commands: &mut Commands,
+                asset_server: &Res<AssetServer>,
+                mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+                characters: &HashMap<&str, [CharacterStats; 9]>) {
+    let animation_func = |action: GameAction, rows: usize, columns: usize| {
+        return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
+    };
+
+    let mut player_transform = Transform::default();
+    player_transform.scale = Vec3::splat(0.0);
+    player_transform.translation = Vec3::new(-300.0, -300.0, 1.0);
+
+    for character_stats in characters.get(player_name).unwrap() {
         let (atlas_handle, animation) =
             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
-                          image_name, character_stats.x.clone(), character_stats.y.clone(),
+                          player_name, character_stats.x.clone(), character_stats.y.clone(),
                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
-        sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), animation, player_1_transform);
+        sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), animation, player_transform);
+    }
+}
+
+fn setup_enemy(enemy_name: &str,
+               mut commands: &mut Commands,
+               asset_server: &Res<AssetServer>,
+               mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+               characters: &HashMap<&str, [CharacterStats; 9]>, ) {
+    let animation_func = |action: GameAction, rows: usize, columns: usize| {
+        return EnemyAnimation { action, first: rows - 1, last: columns - 1 };
+    };
+    let mut enemy_transform = Transform::default();
+    enemy_transform.scale = Vec3::splat(2.0);
+    enemy_transform.translation = Vec3::new(-150.0, -150.0, 1.0);
+    let mut sprite = TextureAtlasSprite::new(0);
+    sprite.flip_x = true;
+
+    for character_stats in characters.get(enemy_name).unwrap() {
+        let (atlas_handle, animation) =
+            create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
+                          enemy_name, character_stats.x.clone(), character_stats.y.clone(),
+                          character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
+        sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, enemy_transform);
     }
 }
 
@@ -345,6 +409,17 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 9]> {
             CharacterStats { action: DOWN.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: FIGHT.clone(), x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0) },
             CharacterStats { action: HIT.clone(), x: 78.0, y: 75.0, column: 7, row: 1, offset: Vec2::new(0.0, 560.0) },
+            CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
+        ]),
+        ("Heninger.png", [
+            CharacterStats { action: STAND.clone(), x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: MOVE.clone(), x: 51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
+            CharacterStats { action: UP_MOVE.clone(), x: 47.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: UP.clone(), x: 47.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: DOWN_MOVE.clone(), x: 51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
+            CharacterStats { action: DOWN.clone(), x:51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
+            CharacterStats { action: FIGHT.clone(), x: 60.0, y: 66.0, column: 4, row: 1, offset: Vec2::new(0.0, 145.0) },
+            CharacterStats { action: HIT.clone(), x: 53.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 560.0) },
             CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
         ]),
     ])
