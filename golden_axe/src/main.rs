@@ -21,7 +21,7 @@ fn main() {
             player_left_orientation: false,
             player_position: Vec2::new(-300.0, -300.0),
             player_action: STAND.clone(),
-            enemy_action: FIGHT.clone(),
+            enemy_action: MOVE.clone(),
             enemy_position: Vec2::new(-150.0, -300.0),
             enemy_left_orientation: false,
         })
@@ -180,7 +180,6 @@ fn animate_player(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            info!("Game action {:?}",game_info.player_action);
             if animation.action == game_info.player_action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
                 let (x, y) = game_info.player_action.get_values();
@@ -216,13 +215,49 @@ fn animate_enemy(
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
             if animation.action == game_info.enemy_action {
-                info!("Enemy action {:?}",game_info.player_action);
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                let direction = subtract(&game_info.player_position, &game_info.enemy_position);
+                let normalized_direction = normalize(&direction);
+                let movement = multiply(&normalized_direction, &5.0);
+                info!("movement {:?}",movement);
+                if movement.x < 0.0 {
+                    sprite.flip_x = true;
+                }else{
+                    sprite.flip_x = false;
+                }
+                if movement.y < 0.0 {
+                    game_info.enemy_action = DOWN.clone();
+                } else {
+                    game_info.enemy_action = UP.clone();
+                }
+                let new_movement = Vec2::new(game_info.enemy_position.clone().x + movement.x, game_info.enemy_position.clone().y + movement.y);
+                game_info.enemy_position = new_movement.clone();
+                transform.translation = Vec3::new(new_movement.x, new_movement.y, 1.0);
                 transform.scale = Vec3::splat(2.0);
             }
         }
     }
 }
+
+/// Enemy IA
+/// ----------
+
+/// Follow enemy
+fn subtract(player_position: &Vec2, enemy_position: &Vec2) -> Vec2 {
+    Vec2::new(player_position.clone().x - enemy_position.clone().x, player_position.clone().y - enemy_position.clone().y)
+}
+
+fn normalize(position: &Vec2) -> Vec2 {
+    let length = (position.x.powi(2) + position.y.powi(2)).sqrt();
+    Vec2::new(position.clone().x / length, position.clone().y / length.clone())
+}
+
+fn multiply(position: &Vec2, factor: &f32) -> Vec2 {
+    Vec2::new(position.clone().x * factor, position.clone().y * factor)
+}
+
+/// Attack enemy
+
 
 fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
     if sprite.index == last {
@@ -252,20 +287,6 @@ fn setup_sprites(
     setup_player("barbarian.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
     setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
 }
-
-// fn setup_players(mut commands: &mut Commands, asset_server: &Res<AssetServer>,
-//                  mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-//                  characters: &HashMap<&str, [CharacterStats; 9]>) {
-//     let animation_func = |action: GameAction, rows: usize, columns: usize| {
-//         return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
-//     };
-//
-//     let mut player_transform = Transform::default();
-//     player_transform.scale = Vec3::splat(0.0);
-//     player_transform.translation = Vec3::new(-300.0, -300.0, 1.0);
-//
-//     setup_player("barbarian.png", &mut commands, player_transform, &asset_server, &mut texture_atlases, animation_func, characters);
-// }
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_background(&asset_server, &mut texture_atlases);
@@ -417,9 +438,9 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 9]> {
             CharacterStats { action: UP_MOVE.clone(), x: 47.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: UP.clone(), x: 47.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: DOWN_MOVE.clone(), x: 51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
-            CharacterStats { action: DOWN.clone(), x:51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
+            CharacterStats { action: DOWN.clone(), x: 51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
             CharacterStats { action: FIGHT.clone(), x: 60.0, y: 66.0, column: 4, row: 1, offset: Vec2::new(0.0, 145.0) },
-            CharacterStats { action: HIT.clone(), x: 53.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 560.0) },
+            CharacterStats { action: HIT.clone(), x: 53.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 220.0) },
             CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
         ]),
     ])
