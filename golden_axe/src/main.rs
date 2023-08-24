@@ -30,14 +30,14 @@ fn main() {
 /// -----------------
 ///
 static STAND: GameAction = Stand(0.0, 0.0);
-static MOVE: GameAction = Right(5.0, 0.0);
-static UP_MOVE: GameAction = UpMove(5.0, 5.0);
-static DOWN_MOVE: GameAction = DownMove(5.0, -5.0);
+static MOVE: GameAction = Right(10.0, 0.0);
+static UP_MOVE: GameAction = UpMove(10.0, 10.0);
+static DOWN_MOVE: GameAction = DownMove(10.0, -10.0);
 static FIGHT: GameAction = Fight(0.0, 0.0);
 static HIT: GameAction = Hit(0.0, 0.0);
-static RUN: GameAction = Run(10.0, 0.0);
-static UP: GameAction = UpMove(0.0, 5.0);
-static DOWN: GameAction = DownMove(0.0, -5.0);
+static RUN: GameAction = Run(20.0, 0.0);
+static UP: GameAction = UpMove(0.0, 10.0);
+static DOWN: GameAction = DownMove(0.0, -10.0);
 
 #[derive(Clone, Debug, PartialEq)]
 struct CharacterStats {
@@ -118,25 +118,25 @@ fn keyboard_update(
     } else if keyboard_input.pressed(KeyCode::Left) && keyboard_input.pressed(KeyCode::Up) {
         game_info.player_action = UP_MOVE.clone();
         game_info.player_left_orientation = true;
-    } else if keyboard_input.pressed(KeyCode::Up) {
-        game_info.player_action = UP.clone();
     } else if keyboard_input.pressed(KeyCode::Right) & &keyboard_input.pressed(KeyCode::ShiftRight) {
         game_info.player_action = RUN.clone();
         game_info.player_left_orientation = false;
     } else if keyboard_input.pressed(KeyCode::Left) & &keyboard_input.pressed(KeyCode::ShiftRight) {
         game_info.player_action = RUN.clone();
         game_info.player_left_orientation = true;
+    } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Right) {
+        game_info.player_action = DOWN_MOVE.clone();
+        game_info.player_left_orientation = false;
+    } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Left) {
+        game_info.player_action = DOWN_MOVE.clone();
+        game_info.player_left_orientation = true;
+    } else if keyboard_input.pressed(KeyCode::Up) {
+        game_info.player_action = UP.clone();
     } else if keyboard_input.pressed(KeyCode::Right) {
         game_info.player_action = MOVE.clone();
         game_info.player_left_orientation = false;
     } else if keyboard_input.pressed(KeyCode::Left) {
         game_info.player_action = MOVE.clone();
-        game_info.player_left_orientation = true;
-    } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Right) {
-        game_info.player_action = DOWN.clone();
-        game_info.player_left_orientation = false;
-    } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Left) {
-        game_info.player_action = DOWN.clone();
         game_info.player_left_orientation = true;
     } else if keyboard_input.pressed(KeyCode::Down) {
         game_info.player_action = DOWN.clone();
@@ -337,7 +337,6 @@ fn setup_window() -> (PluginGroupBuilder, ) {
 fn create_characters() -> HashMap<&'static str, [CharacterStats; 9]> {
     HashMap::from([
         ("barbarian.png", [
-            //Right
             CharacterStats { action: STAND.clone(), x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: MOVE.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: UP_MOVE.clone(), x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0) },
