@@ -18,6 +18,7 @@ fn main() {
             turn_time: SystemTime::now(),
             player_life: 100.0,
             player_left_orientation: false,
+            player_position: Vec2::new(-300.0, -300.0, ),
             enemy_action: STAND.clone(),
             player_action: STAND.clone(),
             enemy_left_orientation: false,
@@ -52,6 +53,7 @@ struct CharacterStats {
 struct GameInfo {
     turn_time: SystemTime,
     player_life: f32,
+    player_position: Vec2,
     player_left_orientation: bool,
     player_action: GameAction,
     enemy_action: GameAction,
@@ -172,15 +174,15 @@ fn animate_player(
             info!("Game action {:?}",game_info.player_action);
             if animation.action == game_info.player_action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                let old_transform = transform.clone();
                 let (x, y) = game_info.player_action.get_values();
                 if game_info.player_left_orientation {
                     sprite.flip_x = true;
-                    transform.translation = Vec3::new(old_transform.translation.x - x, old_transform.translation.y - y, 1.0);
+                    transform.translation = Vec3::new(game_info.player_position.clone().x - x, game_info.player_position.clone().y + y, 1.0);
                 } else {
                     sprite.flip_x = false;
-                    transform.translation = Vec3::new(old_transform.translation.x + x, old_transform.translation.y + y, 1.0);
+                    transform.translation = Vec3::new(game_info.player_position.clone().x + x, game_info.player_position.clone().y + y, 1.0);
                 }
+                game_info.player_position = Vec2::new(transform.translation.clone().x, transform.translation.clone().y);
                 transform.scale = Vec3::splat(2.0);
             }
         }
