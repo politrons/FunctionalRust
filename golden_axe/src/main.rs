@@ -216,26 +216,47 @@ fn animate_enemy(
             transform.scale = Vec3::splat(0.0);
             if animation.action == game_info.enemy_action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                let direction = subtract(&game_info.player_position, &game_info.enemy_position);
-                let normalized_direction = normalize(&direction);
-                let movement = multiply(&normalized_direction, &5.0);
-                info!("movement {:?}",movement);
-                if movement.x < 0.0 {
-                    sprite.flip_x = true;
+
+                let distance = distance(&game_info.player_position, &game_info.enemy_position);
+                if distance <= 60.0 {
+                    info!("Enemy reach player. Distance{:?}",distance);
+                    game_info.enemy_action=FIGHT.clone();
+                    if game_info.enemy_left_orientation {
+                        sprite.flip_x = true;
+                    }
+                    transform.translation = Vec3::new(game_info.enemy_position.clone().x, game_info.enemy_position.clone().y, 1.0);
                 }else{
-                    sprite.flip_x = false;
+                    let direction = subtract(&game_info.player_position, &game_info.enemy_position);
+                    let normalized_direction = normalize(&direction);
+                    let movement = multiply(&normalized_direction, &5.0);
+                    info!("movement {:?}",movement);
+                    if movement.x < 0.0 {
+                        sprite.flip_x = true;
+                        game_info.enemy_left_orientation=true;
+                    } else {
+                        sprite.flip_x = false;
+                        game_info.enemy_left_orientation=false;
+                    }
+                    if movement.y < 0.0 {
+                        game_info.enemy_action = DOWN.clone();
+                    } else {
+                        game_info.enemy_action = UP.clone();
+                    }
+                    let new_movement = Vec2::new(game_info.enemy_position.clone().x + movement.x, game_info.enemy_position.clone().y + movement.y);
+                    game_info.enemy_position = new_movement.clone();
+                    transform.translation = Vec3::new(new_movement.x, new_movement.y, 1.0);
                 }
-                if movement.y < 0.0 {
-                    game_info.enemy_action = DOWN.clone();
-                } else {
-                    game_info.enemy_action = UP.clone();
-                }
-                let new_movement = Vec2::new(game_info.enemy_position.clone().x + movement.x, game_info.enemy_position.clone().y + movement.y);
-                game_info.enemy_position = new_movement.clone();
-                transform.translation = Vec3::new(new_movement.x, new_movement.y, 1.0);
                 transform.scale = Vec3::splat(2.0);
             }
         }
+    }
+}
+
+fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
+    if sprite.index == last {
+        first
+    } else {
+        &sprite.index + 1
     }
 }
 
@@ -243,6 +264,7 @@ fn animate_enemy(
 /// ----------
 
 /// Follow enemy
+/// -------------
 fn subtract(player_position: &Vec2, enemy_position: &Vec2) -> Vec2 {
     Vec2::new(player_position.clone().x - enemy_position.clone().x, player_position.clone().y - enemy_position.clone().y)
 }
@@ -257,15 +279,14 @@ fn multiply(position: &Vec2, factor: &f32) -> Vec2 {
 }
 
 /// Attack enemy
+/// ------------
 
-
-fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
-    if sprite.index == last {
-        first
-    } else {
-        &sprite.index + 1
-    }
+///Calc the distance between the player and enemy.
+fn distance(player_position: &Vec2, enemy_position: &Vec2) -> f32 {
+    let position =  Vec2::new(player_position.clone().x - enemy_position.clone().x, player_position.clone().y - enemy_position.clone().y);
+    (position.x.powi(2) + position.y.powi(2)).sqrt()
 }
+
 
 
 /// Setup game
