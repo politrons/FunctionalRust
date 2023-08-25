@@ -24,13 +24,13 @@ fn main() {
                 left_orientation: false,
                 position: Vec2::new(-300.0, -300.0),
                 action: STAND.clone(),
-                number_of_hits:0,
+                number_of_hits: 0,
             },
             enemy_info: EnemyInfo {
                 action: MOVE.clone(),
                 position: Vec2::new(-150.0, -300.0),
                 left_orientation: false,
-                number_of_hits:0,
+                number_of_hits: 0,
             },
         })
         .run();
@@ -42,7 +42,7 @@ fn main() {
 const ATTACK_REACH: f32 = 70.0;
 const ENEMY_STEP: f32 = 5.0;
 const PLAYER_STEP: f32 = 10.0;
-const NUMBER_OF_HITS: usize = 20;
+const NUMBER_OF_HITS: usize = 10;
 
 static STAND: GameAction = Stand(0.0, 0.0);
 static MOVE: GameAction = Right(PLAYER_STEP, 0.0);
@@ -50,7 +50,7 @@ static UP_MOVE: GameAction = UpMove(PLAYER_STEP, PLAYER_STEP);
 static DOWN_MOVE: GameAction = DownMove(PLAYER_STEP, -PLAYER_STEP);
 static FIGHT: GameAction = Fight(0.0, 0.0);
 static HIT: GameAction = Hit(0.0, 0.0);
-static DEAD: GameAction = Dead(-75.0, 0.0);
+static DEAD: GameAction = Dead(-60.0, 0.0);
 static RUN: GameAction = Run(20.0, 0.0);
 static UP: GameAction = UpMove(0.0, PLAYER_STEP);
 static DOWN: GameAction = DownMove(0.0, -PLAYER_STEP);
@@ -235,15 +235,18 @@ fn animate_player(
 
 fn animate_enemy(
     time: Res<Time>,
+    mut command:Commands,
     mut game_info: ResMut<GameInfo>,
     mut query: Query<(
+        Entity,
         &EnemyAnimation,
         &mut AnimationTimer,
         &mut TextureAtlasSprite,
         &mut Transform,
     )>,
 ) {
-    for (animation,
+    for (entity,
+        animation,
         mut timer,
         mut sprite,
         mut transform) in &mut query {
@@ -252,6 +255,10 @@ fn animate_enemy(
             transform.scale = Vec3::splat(0.0);
             if animation.action == game_info.enemy_info.action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                if animation.action == DEAD && sprite.index == animation.last {
+                    info!("Enemy killed");
+                    command.get_entity(entity).unwrap().despawn();
+                }
                 let distance = distance(&game_info.player_info.position, &game_info.enemy_info.position);
                 if distance <= ATTACK_REACH {
                     enemy_attack_logic(&mut game_info, &mut sprite, &mut transform, distance);
@@ -323,13 +330,22 @@ fn distance(player_position: &Vec2, enemy_position: &Vec2) -> f32 {
 
 fn enemy_attack_logic(game_info: &mut ResMut<GameInfo>, sprite: &mut Mut<TextureAtlasSprite>, transform: &mut Mut<Transform>, distance: f32) {
     info!("Enemy reach player. Distance{:?}",distance);
-    game_info.player_info.number_of_hits += 1;
-    if game_info.player_info.number_of_hits >= NUMBER_OF_HITS {
-        info!("Player killed");
-        game_info.player_info.action=DEAD.clone();
-        game_info.enemy_info.action = STAND.clone();
-    }else{
-        game_info.enemy_info.action = FIGHT.clone();
+    if game_info.player_info.action == FIGHT {
+        game_info.enemy_info.number_of_hits += 1;
+        game_info.enemy_info.action = HIT.clone();
+        if game_info.enemy_info.number_of_hits >= NUMBER_OF_HITS {
+            info!("Enemy killed");
+            game_info.enemy_info.action = DEAD.clone();
+        }
+    } else {
+        game_info.player_info.number_of_hits += 1;
+        if game_info.player_info.number_of_hits >= NUMBER_OF_HITS {
+            info!("Player killed");
+            game_info.player_info.action = DEAD.clone();
+            game_info.enemy_info.action = STAND.clone();
+        } else {
+            game_info.enemy_info.action = FIGHT.clone();
+        }
     }
     if game_info.enemy_info.left_orientation {
         sprite.flip_x = true;
@@ -521,7 +537,7 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: DOWN.clone(), x: 51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
             CharacterStats { action: FIGHT.clone(), x: 60.0, y: 66.0, column: 4, row: 1, offset: Vec2::new(0.0, 145.0) },
             CharacterStats { action: HIT.clone(), x: 53.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 220.0) },
-            CharacterStats { action: DEAD.clone(), x: 53.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(165.0, 220.0) },
+            CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(165.0, 220.0) },
             CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
         ]),
     ])
