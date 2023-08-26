@@ -23,7 +23,7 @@ fn main() {
 
         .insert_resource(GameInfo {
             player_info: PlayerInfo {
-                life: 10,
+                life: 3,
                 left_orientation: false,
                 position: Vec2::new(0.0, -200.0),
                 action: STAND.clone(),
@@ -379,6 +379,7 @@ fn enemy_logic(game_info: &mut ResMut<GameInfo>,
         sprite.index = move_sprite(first, last, &mut sprite);
         return if action == DEAD && sprite.index == last {
             info!("Enemy killed");
+            transform.scale = Vec3::splat(2.2);
             (STAND, enemy_init_position, enemy_info.clone().left_orientation, 0)
         } else {
             let distance = distance(&game_info.player_info.position, &enemy_info.position);
@@ -414,12 +415,12 @@ fn animate_life_bar_2(
     time: Res<Time>,
     mut command: Commands,
     game_info: ResMut<GameInfo>,
-    mut query: Query<(Entity, &LifeBar1Animation, &mut AnimationTimer)>,
+    mut query: Query<(Entity, &LifeBar2Animation, &mut AnimationTimer)>,
 ) {
     for (entity, animation, mut timer) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
-            if game_info.player_info.life == 1 {
+            if game_info.player_info.life < 2 {
                 command.get_entity(entity).unwrap().despawn()
             }
         }
@@ -430,12 +431,12 @@ fn animate_life_bar_3(
     time: Res<Time>,
     mut command: Commands,
     game_info: ResMut<GameInfo>,
-    mut query: Query<(Entity, &LifeBar1Animation, &mut AnimationTimer)>,
+    mut query: Query<(Entity, &LifeBar3Animation, &mut AnimationTimer)>,
 ) {
     for (entity, animation, mut timer) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
-            if game_info.player_info.life == 2 {
+            if game_info.player_info.life < 3 {
                 command.get_entity(entity).unwrap().despawn()
             }
         }
@@ -570,12 +571,12 @@ fn setup_sprites(
 ) {
     let characters = create_characters();
     commands.spawn(Camera2dBundle::default());
-    setup_background(&mut commands, &asset_server, &mut texture_atlases);
-    setup_player("barbarian.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
-    setup_enemies(&mut commands, &asset_server, &mut texture_atlases, &characters);
     setup_life_bar(&mut commands, Color::BLUE, -300.0, -350.0, LifeBar1Animation {});
     setup_life_bar(&mut commands, Color::BLUE, -380.0, -350.0, LifeBar2Animation {});
     setup_life_bar(&mut commands, Color::BLUE, -460.0, -350.0, LifeBar3Animation {});
+    setup_background(&mut commands, &asset_server, &mut texture_atlases);
+    setup_player("barbarian.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_enemies(&mut commands, &asset_server, &mut texture_atlases, &characters);
 }
 
 fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, characters: &HashMap<&str, [CharacterStats; 10]>) {
@@ -785,7 +786,7 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: DOWN_MOVE.clone(),x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
             CharacterStats { action: DOWN.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
             CharacterStats { action: FIGHT.clone(), x: 60.0, y: 66.0, column: 4, row: 1, offset: Vec2::new(0.0, 145.0) },
-            CharacterStats { action: HIT.clone(), x: 53.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 220.0) },
+            CharacterStats { action: HIT.clone(), x: 46.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 220.0) },
             CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(165.0, 220.0) },
             CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
         ]),
