@@ -23,7 +23,7 @@ fn main() {
 
         .insert_resource(GameInfo {
             player_info: PlayerInfo {
-                life: 3,
+                life: 10,
                 left_orientation: false,
                 position: Vec2::new(0.0, -200.0),
                 action: STAND.clone(),
@@ -77,7 +77,7 @@ static UP_MOVE: GameAction = UpMove(PLAYER_STEP, PLAYER_STEP);
 static DOWN_MOVE: GameAction = DownMove(PLAYER_STEP, -PLAYER_STEP);
 static FIGHT: GameAction = Fight(0.0, 0.0);
 static HIT: GameAction = Hit(0.0, 0.0);
-static DEAD: GameAction = Dead(-60.0, 0.0);
+static DEAD: GameAction = Dead(-100.0, 0.0);
 static RUN: GameAction = Run(20.0, 0.0);
 static UP: GameAction = UpMove(0.0, PLAYER_STEP);
 static DOWN: GameAction = DownMove(0.0, -PLAYER_STEP);
@@ -287,7 +287,7 @@ fn animate_player(
                     transform.translation = Vec3::new(game_info.player_info.position.clone().x + x, game_info.player_info.position.clone().y + y, 1.0);
                 }
                 game_info.player_info.position = Vec2::new(transform.translation.clone().x, transform.translation.clone().y);
-                transform.scale = Vec3::splat(2.5);
+                transform.scale = Vec3::splat(2.2);
             }
         }
     }
@@ -387,7 +387,7 @@ fn enemy_logic(game_info: &mut ResMut<GameInfo>,
             } else {
                 follow_logic(game_info, enemy_info, &mut sprite, &mut transform)
             };
-            transform.scale = Vec3::splat(2.5);
+            transform.scale = Vec3::splat(2.2);
             (new_enemy_info.action, new_enemy_info.position, new_enemy_info.clone().left_orientation, new_enemy_info.clone().number_of_hits)
         };
     }
@@ -582,7 +582,7 @@ fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, m
     let animation_1_func = |action: GameAction, rows: usize, columns: usize| {
         return Enemy1Animation { action, first: rows - 1, last: columns - 1 };
     };
-    setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_1_func);
+    setup_enemy("Storchinaya.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_1_func);
 
     let animation_2_func = |action: GameAction, rows: usize, columns: usize| {
         return Enemy2Animation { action, first: rows - 1, last: columns - 1 };
@@ -592,7 +592,7 @@ fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, m
     let animation_3_func = |action: GameAction, rows: usize, columns: usize| {
         return Enemy3Animation { action, first: rows - 1, last: columns - 1 };
     };
-    setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_3_func);
+    setup_enemy("Storchinaya.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_3_func);
 
     let animation_4_func = |action: GameAction, rows: usize, columns: usize| {
         return Enemy4Animation { action, first: rows - 1, last: columns - 1 };
@@ -743,7 +743,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Golden axe".into(),
-                resolution: (1600.0, 800.0).into(),
+                resolution: (1900.0, 1080.0).into(),
                 ..default()
             }),
             ..default()
@@ -772,6 +772,18 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: UP.clone(), x: 47.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: DOWN_MOVE.clone(), x: 51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
             CharacterStats { action: DOWN.clone(), x: 51.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(197.0, 0.0) },
+            CharacterStats { action: FIGHT.clone(), x: 60.0, y: 66.0, column: 4, row: 1, offset: Vec2::new(0.0, 145.0) },
+            CharacterStats { action: HIT.clone(), x: 53.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 220.0) },
+            CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(165.0, 220.0) },
+            CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
+        ]),
+        ("Storchinaya.png", [
+            CharacterStats { action: STAND.clone(), x: 32.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: MOVE.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
+            CharacterStats { action: UP_MOVE.clone(), x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: UP.clone(), x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: DOWN_MOVE.clone(),x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
+            CharacterStats { action: DOWN.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
             CharacterStats { action: FIGHT.clone(), x: 60.0, y: 66.0, column: 4, row: 1, offset: Vec2::new(0.0, 145.0) },
             CharacterStats { action: HIT.clone(), x: 53.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 220.0) },
             CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(165.0, 220.0) },
