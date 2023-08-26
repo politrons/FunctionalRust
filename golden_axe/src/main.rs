@@ -22,10 +22,11 @@ fn main() {
         .add_systems(Update, animate_enemy_2)
         .add_systems(Update, animate_enemy_3)
         .add_systems(Update, animate_enemy_4)
+        .add_systems(Update, animate_life_bar)
 
         .insert_resource(GameInfo {
             player_info: PlayerInfo {
-                life: 100.0,
+                life: 3,
                 left_orientation: false,
                 position: Vec2::new(0.0, -200.0),
                 action: STAND.clone(),
@@ -62,11 +63,13 @@ fn main() {
 ///  Game logic types
 /// -----------------
 
+/// Constants
 const ATTACK_REACH: f32 = 70.0;
 const ENEMY_STEP: f32 = 5.0;
 const PLAYER_STEP: f32 = 10.0;
 const NUMBER_OF_HITS: usize = 10;
 
+/// Actions and the movement for each
 static STAND: GameAction = Stand(0.0, 0.0);
 static MOVE: GameAction = Right(PLAYER_STEP, 0.0);
 static UP_MOVE: GameAction = UpMove(PLAYER_STEP, PLAYER_STEP);
@@ -89,6 +92,7 @@ struct CharacterStats {
     offset: Vec2,
 }
 
+/// Game info type with all game info needed for business logic
 #[derive(Resource)]
 struct GameInfo {
     player_info: PlayerInfo,
@@ -99,15 +103,17 @@ struct GameInfo {
 
 }
 
+/// Player info type with all info needed for player business logic
 #[derive(Component, Copy, Clone)]
 struct PlayerInfo {
-    life: f32,
+    life: usize,
     position: Vec2,
     left_orientation: bool,
     action: GameAction,
     number_of_hits: usize,
 }
 
+/// Enemy info type with all info needed for enemy business logic
 #[derive(Component, Copy, Clone)]
 struct EnemyInfo {
     action: GameAction,
@@ -115,7 +121,6 @@ struct EnemyInfo {
     left_orientation: bool,
     number_of_hits: usize,
 }
-
 
 #[derive(Clone, PartialEq, Debug, Copy)]
 enum GameAction {
@@ -154,6 +159,8 @@ impl GameAction {
 /// -----------
 
 /// Animation structs to define first and last index of Sprites.
+/// Each aninamtion is attached with a [animate_] function to render and implement the logic of each
+/// sprite.
 #[derive(Clone, Component)]
 struct PlayerAnimation {
     action: GameAction,
@@ -188,6 +195,14 @@ struct Enemy4Animation {
     first: usize,
     last: usize,
 }
+
+
+#[derive(Clone, Component)]
+struct LifeBarAnimation {
+    first: usize,
+    last: usize,
+}
+
 
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
@@ -243,27 +258,23 @@ fn keyboard_update(
 fn animate_player(
     time: Res<Time>,
     mut game_info: ResMut<GameInfo>,
-    mut query: Query<(
-        &PlayerAnimation,
-        &mut AnimationTimer,
-        &mut TextureAtlasSprite,
-        &mut Transform,
+    mut command: Commands,
+    mut query: Query<(Entity, &PlayerAnimation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform,
     )>,
 ) {
-    for (animation,
-        mut timer,
-        mut sprite,
-        mut transform) in &mut query {
+    for (entity, animation, mut timer, mut sprite, mut transform) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
             player_under_attack(&mut game_info);
             if animation.action == game_info.player_info.action {
                 sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                if animation.action == DEAD && sprite.index == animation.last {
+                if game_info.player_info.life <= 0 {
+                    info!("Player Dead");
+                    command.get_entity(entity).unwrap().despawn();
+                } else if animation.action == DEAD && sprite.index == animation.last {
                     info!("Player recovered");
                     game_info.player_info.action = STAND.clone();
-                    game_info.player_info.number_of_hits = 0;
                 }
                 let (x, y) = game_info.player_info.action.get_values();
                 if game_info.player_info.left_orientation {
@@ -274,7 +285,7 @@ fn animate_player(
                     transform.translation = Vec3::new(game_info.player_info.position.clone().x + x, game_info.player_info.position.clone().y + y, 1.0);
                 }
                 game_info.player_info.position = Vec2::new(transform.translation.clone().x, transform.translation.clone().y);
-                transform.scale = Vec3::splat(2.0);
+                transform.scale = Vec3::splat(2.5);
             }
         }
     }
@@ -358,7 +369,7 @@ fn animate_enemy_4(
 
 fn enemy_logic<'a, 'b>(command: &mut Commands,
                        game_info: &mut ResMut<GameInfo>,
-                       mut enemy_info:EnemyInfo,
+                       enemy_info: EnemyInfo,
                        entity: Entity,
                        action: GameAction,
                        first: usize,
@@ -373,16 +384,30 @@ fn enemy_logic<'a, 'b>(command: &mut Commands,
         }
         let distance = distance(&game_info.player_info.position, &enemy_info.position);
         let new_enemy_info = if distance <= ATTACK_REACH {
-            let x = enemy_attack_logic(game_info, enemy_info, &mut sprite, &mut transform, distance);
-            x
+            enemy_attack_logic(game_info, enemy_info, &mut sprite, &mut transform, distance)
         } else {
-            let c = follow_logic(game_info, enemy_info, &mut sprite, &mut transform);
-            c
+            follow_logic(game_info, enemy_info, &mut sprite, &mut transform)
         };
-        transform.scale = Vec3::splat(2.0);
+        transform.scale = Vec3::splat(2.5);
         return (new_enemy_info.action, new_enemy_info.position, new_enemy_info.clone().left_orientation, new_enemy_info.clone().number_of_hits);
     }
     return (enemy_info.action, enemy_info.position, enemy_info.clone().left_orientation, enemy_info.clone().number_of_hits);
+}
+
+fn animate_life_bar(
+    time: Res<Time>,
+    mut command: Commands,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(Entity, &LifeBarAnimation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
+) {
+    for (entity, animation, mut timer, mut sprite, mut transform) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            if game_info.player_info.life < sprite.index {
+                command.get_entity(entity).unwrap().despawn()
+            }
+        }
+    }
 }
 
 fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
@@ -398,6 +423,7 @@ fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) 
 
 /// Follow enemy
 /// -------------
+/// Logic to try to reach the player position from [enemy] Vec2 to [player] Vec2
 fn follow_logic(
     game_info: &mut ResMut<GameInfo>,
     mut enemy_info: EnemyInfo,
@@ -426,15 +452,18 @@ fn follow_logic(
     enemy_info
 }
 
+///Total distance Vec2 between [Player] and [Enemy]
 fn subtract(player_position: &Vec2, enemy_position: &Vec2) -> Vec2 {
     Vec2::new(player_position.clone().x - enemy_position.clone().x, player_position.clone().y - enemy_position.clone().y)
 }
 
+///One Distance step Vec2 between [Player] and [Enemy]
 fn normalize(position: &Vec2) -> Vec2 {
     let length = (position.x.powi(2) + position.y.powi(2)).sqrt();
     Vec2::new(position.clone().x / length, position.clone().y / length.clone())
 }
 
+///Point Vec2 between [Player] and [Enemy] with a factor used as movement speed.
 fn multiply(position: &Vec2, factor: &f32) -> Vec2 {
     Vec2::new(position.clone().x * factor, position.clone().y * factor)
 }
@@ -466,7 +495,6 @@ fn enemy_attack_logic(
         game_info.player_info.number_of_hits += 1;
         if game_info.player_info.number_of_hits >= NUMBER_OF_HITS {
             info!("Player killed");
-            game_info.player_info.action = DEAD.clone();
             enemy_info.action = STAND.clone();
         } else {
             enemy_info.action = FIGHT.clone();
@@ -481,8 +509,12 @@ fn enemy_attack_logic(
 
 fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
     if game_info.player_info.number_of_hits >= NUMBER_OF_HITS {
-        info!("Player Dead");
+        info!("Player Life ${:?}", game_info.player_info.life);
+        if game_info.player_info.life > 0 {
+            game_info.player_info.life -= 1;
+        }
         game_info.player_info.action = DEAD.clone();
+        game_info.player_info.number_of_hits = 0;
     } else if game_info.enemy_1_info.action == FIGHT ||
         game_info.enemy_3_info.action == FIGHT ||
         game_info.enemy_3_info.action == FIGHT ||
@@ -509,6 +541,9 @@ fn setup_sprites(
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
     setup_player("barbarian.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
     setup_enemies(&mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_life_bar(&mut commands, Color::BLUE, -300.0, -350.0);
+    setup_life_bar(&mut commands, Color::BLUE, -380.0, -350.0);
+    setup_life_bar(&mut commands, Color::BLUE, -460.0, -350.0);
 }
 
 fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, characters: &HashMap<&str, [CharacterStats; 10]>) {
@@ -583,6 +618,17 @@ fn setup_enemy<A: Component, F: Fn(GameAction, usize, usize) -> A>(enemy_name: &
     }
 }
 
+fn setup_life_bar(mut commands: &mut Commands, color: Color, x: f32, y: f32) {
+    let mut game_bar_transform = Transform::default();
+    game_bar_transform.scale = Vec3::splat(2.0);
+    game_bar_transform.translation = Vec3::new(x, y, 1.0);
+    let mut sprite = Sprite::default();
+    sprite.color = color;
+    sprite.custom_size = Some(Vec2::new(35.0, 10.00));
+    game_bar_spawn(&mut commands, sprite, game_bar_transform)
+}
+
+
 /// We load the image and we create a [Handle<Image>]
 /// Once we got it, we create [TextureAtlas] specifying the size of Sprite, and how many sprites we have in the pictures.
 /// Using [column] and [row] here since is a single Picture/Sprite is marked as 1:1
@@ -643,7 +689,19 @@ fn sprite_spawn<A: Component>(commands: &mut Commands,
             ..default()
         },
         sprite_animation,
-        AnimationTimer(Timer::from_seconds(0.15, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(0.12, TimerMode::Repeating)),
+    ));
+}
+
+fn game_bar_spawn(commands: &mut Commands, sprite: Sprite, sprite_transform: Transform) {
+    commands.spawn((
+        SpriteBundle {
+            sprite,
+            transform: sprite_transform,
+            ..default()
+        },
+        LifeBarAnimation { first: 3, last: 3 },
+        AnimationTimer(Timer::from_seconds(0.27, TimerMode::Repeating)),
     ));
 }
 
