@@ -2,6 +2,7 @@
 //! into a texture atlas, and changing the displayed image periodically.
 
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::thread;
 use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
@@ -16,7 +17,8 @@ fn main() {
         .add_systems(Startup, setup_sprites)
         .add_systems(Update, keyboard_update)
         .add_systems(Update, animate_player)
-        .add_systems(Update, animate_enemy)
+        .add_systems(Update, animate_enemy_1)
+        .add_systems(Update, animate_enemy_2)
         .insert_resource(GameInfo {
             turn_time: SystemTime::now(),
             player_info: PlayerInfo {
@@ -26,9 +28,27 @@ fn main() {
                 action: STAND.clone(),
                 number_of_hits: 0,
             },
-            enemy_info: EnemyInfo {
+            enemy_1_info: Enemy1Info {
                 action: MOVE.clone(),
                 position: Vec2::new(-150.0, -300.0),
+                left_orientation: false,
+                number_of_hits: 0,
+            },
+            enemy_2_info: Enemy1Info {
+                action: MOVE.clone(),
+                position: Vec2::new(0.0, -300.0),
+                left_orientation: false,
+                number_of_hits: 0,
+            },
+            enemy_3_info: Enemy1Info {
+                action: MOVE.clone(),
+                position: Vec2::new(150.0, -300.0),
+                left_orientation: false,
+                number_of_hits: 0,
+            },
+            enemy_4_info: Enemy1Info {
+                action: MOVE.clone(),
+                position: Vec2::new(300.0, -300.0),
                 left_orientation: false,
                 number_of_hits: 0,
             },
@@ -70,10 +90,14 @@ struct CharacterStats {
 struct GameInfo {
     turn_time: SystemTime,
     player_info: PlayerInfo,
-    enemy_info: EnemyInfo,
+    enemy_1_info: Enemy1Info,
+    enemy_2_info: Enemy1Info,
+    enemy_3_info: Enemy1Info,
+    enemy_4_info: Enemy1Info,
+
 }
 
-#[derive(Resource)]
+#[derive(Component, Copy, Clone)]
 struct PlayerInfo {
     life: f32,
     position: Vec2,
@@ -82,8 +106,20 @@ struct PlayerInfo {
     number_of_hits: usize,
 }
 
-#[derive(Resource)]
-struct EnemyInfo {
+trait EnemyInfo {
+    fn set_action(&mut self, action: GameAction);
+    fn set_position(&mut self, position: Vec2);
+    fn set_left_orientation(&mut self, left_orientation: bool);
+    fn set_number_of_hits(&mut self, number_of_hits: usize);
+
+    fn get_action(&self) -> GameAction;
+    fn get_position(&self) -> Vec2;
+    fn get_left_orientation(&self) -> bool;
+    fn get_number_of_hits(&self) -> usize;
+}
+
+#[derive(Component, Copy, Clone)]
+struct Enemy1Info {
     action: GameAction,
     position: Vec2,
     left_orientation: bool,
@@ -91,7 +127,7 @@ struct EnemyInfo {
 }
 
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Copy)]
 enum GameAction {
     Stand(f32, f32),
     Right(f32, f32),
@@ -136,7 +172,28 @@ struct PlayerAnimation {
 }
 
 #[derive(Clone, Component)]
-struct EnemyAnimation {
+struct Enemy1Animation {
+    action: GameAction,
+    first: usize,
+    last: usize,
+}
+
+#[derive(Clone, Component)]
+struct Enemy2Animation {
+    action: GameAction,
+    first: usize,
+    last: usize,
+}
+
+#[derive(Clone, Component)]
+struct Enemy3Animation {
+    action: GameAction,
+    first: usize,
+    last: usize,
+}
+
+#[derive(Clone, Component)]
+struct Enemy4Animation {
     action: GameAction,
     first: usize,
     last: usize,
@@ -233,42 +290,71 @@ fn animate_player(
     }
 }
 
-fn animate_enemy(
+fn animate_enemy_1(
     time: Res<Time>,
-    mut command:Commands,
+    mut command: Commands,
     mut game_info: ResMut<GameInfo>,
-    mut query: Query<(
-        Entity,
-        &EnemyAnimation,
-        &mut AnimationTimer,
-        &mut TextureAtlasSprite,
-        &mut Transform,
-    )>,
+    mut query: Query<(Entity, &Enemy1Animation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
 ) {
-    for (entity,
-        animation,
-        mut timer,
-        mut sprite,
-        mut transform) in &mut query {
+    for (entity, animation, mut timer, mut sprite, mut transform) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
-            if animation.action == game_info.enemy_info.action {
-                sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
-                if animation.action == DEAD && sprite.index == animation.last {
-                    info!("Enemy killed");
-                    command.get_entity(entity).unwrap().despawn();
-                }
-                let distance = distance(&game_info.player_info.position, &game_info.enemy_info.position);
-                if distance <= ATTACK_REACH {
-                    enemy_attack_logic(&mut game_info, &mut sprite, &mut transform, distance);
-                } else {
-                    follow_logic(&mut game_info, &mut sprite, &mut transform);
-                }
-                transform.scale = Vec3::splat(2.0);
-            }
+            let enemy_info: Box<Enemy1Info> = Box::new(game_info.enemy_1_info);
+            let (action, position, left_orientation, number_of_hits) =
+                enemy_logic(&mut command, &mut game_info, enemy_info, entity, animation.action,
+                            animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
+            game_info.enemy_1_info = Enemy1Info { action, position, left_orientation, number_of_hits }
         }
     }
+}
+
+fn animate_enemy_2(
+    time: Res<Time>,
+    mut command: Commands,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(Entity, &Enemy2Animation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
+) {
+    for (entity, animation, mut timer, mut sprite, mut transform) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            transform.scale = Vec3::splat(0.0);
+            let enemy_info: Box<Enemy1Info> = Box::new(game_info.enemy_2_info);
+            let (action, position, left_orientation, number_of_hits) =
+                enemy_logic(&mut command, &mut game_info, enemy_info, entity, animation.action,
+                            animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
+            game_info.enemy_2_info = Enemy1Info { action, position, left_orientation, number_of_hits }
+        }
+    }
+}
+
+fn enemy_logic<'a, 'b>(command: &mut Commands,
+                       game_info: &mut ResMut<GameInfo>,
+                       mut enemy_info: Box<dyn EnemyInfo>,
+                       entity: Entity,
+                       action: GameAction,
+                       first: usize,
+                       last: usize,
+                       mut sprite: &mut Mut<TextureAtlasSprite>,
+                       mut transform: &mut Mut<Transform>) -> (GameAction, Vec2, bool, usize) {
+    if action == enemy_info.get_action() {
+        sprite.index = move_sprite(first, last, &mut sprite);
+        if action == DEAD && sprite.index == last {
+            info!("Enemy killed");
+            command.get_entity(entity).unwrap().despawn();
+        }
+        let distance = distance(&game_info.player_info.position, &enemy_info.get_position());
+        let new_enemy_info: &mut Box<dyn EnemyInfo> = if distance <= ATTACK_REACH {
+            let x = enemy_attack_logic(game_info, &mut enemy_info, &mut sprite, &mut transform, distance);
+            x
+        } else {
+            let c = follow_logic(game_info, &mut enemy_info, &mut sprite, &mut transform);
+            c
+        };
+        transform.scale = Vec3::splat(2.0);
+        return (new_enemy_info.get_action(), new_enemy_info.get_position(), new_enemy_info.get_left_orientation(), new_enemy_info.get_number_of_hits());
+    }
+    return (enemy_info.get_action(), enemy_info.get_position(), enemy_info.get_left_orientation(), enemy_info.get_number_of_hits());
 }
 
 fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
@@ -284,26 +370,32 @@ fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) 
 
 /// Follow enemy
 /// -------------
-fn follow_logic(game_info: &mut ResMut<GameInfo>, sprite: &mut Mut<TextureAtlasSprite>, transform: &mut Mut<Transform>) {
-    let direction = subtract(&game_info.player_info.position, &game_info.enemy_info.position);
+fn follow_logic<'b>(
+    game_info: &mut ResMut<GameInfo>,
+    enemy_info: &'b mut Box<dyn EnemyInfo>,
+    sprite: &mut Mut<TextureAtlasSprite>,
+    transform: &mut Mut<Transform>,
+) -> &'b mut Box<dyn EnemyInfo> {
+    let direction = subtract(&game_info.player_info.position, &enemy_info.get_position());
     let normalized_direction = normalize(&direction);
     let movement = multiply(&normalized_direction, &ENEMY_STEP);
     info!("movement {:?}",movement);
     if movement.x < 0.0 {
         sprite.flip_x = true;
-        game_info.enemy_info.left_orientation = true;
+        enemy_info.set_left_orientation(true);
     } else {
         sprite.flip_x = false;
-        game_info.enemy_info.left_orientation = false;
+        enemy_info.set_left_orientation(false);
     }
     if movement.y < 0.0 {
-        game_info.enemy_info.action = DOWN.clone();
+        enemy_info.set_action(DOWN.clone());
     } else {
-        game_info.enemy_info.action = UP.clone();
+        enemy_info.set_action(UP.clone());
     }
-    let new_movement = Vec2::new(game_info.enemy_info.position.clone().x + movement.x, game_info.enemy_info.position.clone().y + movement.y);
-    game_info.enemy_info.position = new_movement.clone();
+    let new_movement = Vec2::new(enemy_info.get_position().x + movement.x, enemy_info.get_position().y + movement.y);
+    enemy_info.set_position(new_movement.clone());
     transform.translation = Vec3::new(new_movement.x, new_movement.y, 1.0);
+    enemy_info
 }
 
 fn subtract(player_position: &Vec2, enemy_position: &Vec2) -> Vec2 {
@@ -328,40 +420,45 @@ fn distance(player_position: &Vec2, enemy_position: &Vec2) -> f32 {
     (position.x.powi(2) + position.y.powi(2)).sqrt()
 }
 
-fn enemy_attack_logic(game_info: &mut ResMut<GameInfo>, sprite: &mut Mut<TextureAtlasSprite>, transform: &mut Mut<Transform>, distance: f32) {
+fn enemy_attack_logic<'b>(
+    game_info: &mut ResMut<GameInfo>,
+    enemy_info: &'b mut Box<dyn EnemyInfo>,
+    sprite: &mut Mut<TextureAtlasSprite>,
+    transform: &mut Mut<Transform>, distance: f32,
+) -> &'b mut Box<dyn EnemyInfo> {
     info!("Enemy reach player. Distance{:?}",distance);
     if game_info.player_info.action == FIGHT {
-        game_info.enemy_info.number_of_hits += 1;
-        game_info.enemy_info.action = HIT.clone();
-        if game_info.enemy_info.number_of_hits >= NUMBER_OF_HITS {
+        enemy_info.set_number_of_hits(enemy_info.get_number_of_hits() + 1);
+        enemy_info.set_action(HIT.clone());
+        if enemy_info.get_number_of_hits() >= NUMBER_OF_HITS {
             info!("Enemy killed");
-            game_info.enemy_info.action = DEAD.clone();
+            enemy_info.set_action(DEAD.clone());
         }
     } else {
         game_info.player_info.number_of_hits += 1;
         if game_info.player_info.number_of_hits >= NUMBER_OF_HITS {
             info!("Player killed");
             game_info.player_info.action = DEAD.clone();
-            game_info.enemy_info.action = STAND.clone();
+            enemy_info.set_action(STAND.clone());
         } else {
-            game_info.enemy_info.action = FIGHT.clone();
+            enemy_info.set_action(FIGHT.clone());
         }
     }
-    if game_info.enemy_info.left_orientation {
+    if enemy_info.get_left_orientation() {
         sprite.flip_x = true;
     }
-    transform.translation = Vec3::new(game_info.enemy_info.position.clone().x, game_info.enemy_info.position.clone().y, 1.0);
+    transform.translation = Vec3::new(enemy_info.get_position().clone().x, enemy_info.get_position().clone().y, 1.0);
+    enemy_info
 }
 
 fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
     if game_info.player_info.number_of_hits >= NUMBER_OF_HITS {
         info!("Player Dead");
         game_info.player_info.action = DEAD.clone();
-    } else if game_info.enemy_info.action == FIGHT && game_info.player_info.action != FIGHT {
+    } else if game_info.enemy_1_info.action == FIGHT && game_info.player_info.action != FIGHT {
         game_info.player_info.action = HIT.clone();
     }
 }
-
 
 /// Setup game
 /// -----------
@@ -380,7 +477,18 @@ fn setup_sprites(
     commands.spawn(Camera2dBundle::default());
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
     setup_player("barbarian.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
-    setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
+
+    let animation_1_func = |action: GameAction, rows: usize, columns: usize| {
+        return Enemy1Animation { action, first: rows - 1, last: columns - 1 };
+    };
+
+    setup_enemy("Heninger.png", -300.0, -150.0, &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_1_func);
+
+    let animation_2_func = |action: GameAction, rows: usize, columns: usize| {
+        return Enemy2Animation { action, first: rows - 1, last: columns - 1 };
+    };
+
+    setup_enemy("Heninger.png", 300.0, 300.0, &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_2_func);
 }
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
@@ -401,7 +509,7 @@ fn setup_player(player_name: &str,
 
     let mut player_transform = Transform::default();
     player_transform.scale = Vec3::splat(0.0);
-    player_transform.translation = Vec3::new(-300.0, -300.0, 1.0);
+    player_transform.translation = Vec3::new(-150.0, -300.0, 1.0);
 
     for character_stats in characters.get(player_name).unwrap() {
         let (atlas_handle, animation) =
@@ -412,17 +520,17 @@ fn setup_player(player_name: &str,
     }
 }
 
-fn setup_enemy(enemy_name: &str,
-               mut commands: &mut Commands,
-               asset_server: &Res<AssetServer>,
-               mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-               characters: &HashMap<&str, [CharacterStats; 10]>, ) {
-    let animation_func = |action: GameAction, rows: usize, columns: usize| {
-        return EnemyAnimation { action, first: rows - 1, last: columns - 1 };
-    };
+fn setup_enemy<A: Component, F: Fn(GameAction, usize, usize) -> A>(enemy_name: &str,
+                                                                   x: f32,
+                                                                   y: f32,
+                                                                   mut commands: &mut Commands,
+                                                                   asset_server: &Res<AssetServer>,
+                                                                   mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+                                                                   characters: &HashMap<&str, [CharacterStats; 10]>,
+                                                                   animation_func: &F) {
     let mut enemy_transform = Transform::default();
     enemy_transform.scale = Vec3::splat(2.0);
-    enemy_transform.translation = Vec3::new(-150.0, -150.0, 1.0);
+    enemy_transform.translation = Vec3::new(x, y, 1.0);
     let mut sprite = TextureAtlasSprite::new(0);
     sprite.flip_x = true;
 
@@ -480,7 +588,6 @@ fn image_spawn(commands: &mut Commands, background_atlas_handle: Handle<TextureA
         },
     ));
 }
-
 
 fn sprite_spawn<A: Component>(commands: &mut Commands,
                               texture_atlas_handle: Handle<TextureAtlas>,
@@ -543,4 +650,40 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
     ])
 }
 
+
+/// Enemy info implementation
+/// --------------------------
+impl EnemyInfo for Enemy1Info {
+    fn set_action(&mut self, action: GameAction) {
+        self.action = action;
+    }
+
+    fn set_position(&mut self, position: Vec2) {
+        self.position = position;
+    }
+
+    fn set_left_orientation(&mut self, left_orientation: bool) {
+        self.left_orientation = left_orientation;
+    }
+
+    fn set_number_of_hits(&mut self, number_of_hits: usize) {
+        self.number_of_hits = number_of_hits;
+    }
+
+    fn get_action(&self) -> GameAction {
+        self.action
+    }
+
+    fn get_position(&self) -> Vec2 {
+        self.position
+    }
+
+    fn get_left_orientation(&self) -> bool {
+        self.clone().left_orientation
+    }
+
+    fn get_number_of_hits(&self) -> usize {
+        self.clone().number_of_hits
+    }
+}
 

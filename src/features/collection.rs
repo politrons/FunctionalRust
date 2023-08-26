@@ -62,6 +62,9 @@ fn fold_list() {
         .into_iter()
         .fold("-->".to_string(), |acc, elem| acc.to_string() + &"-".to_string() + &elem);
     println!("{}", result)
+
+
+
 }
 
 /**
