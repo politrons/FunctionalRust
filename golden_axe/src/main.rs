@@ -2,7 +2,7 @@
 //! into a texture atlas, and changing the displayed image periodically.
 
 use std::collections::HashMap;
-use std::time::{ SystemTime};
+use std::time::{SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use crate::GameAction::{Dead, Down, DownMove, Fight, Hit, Left, Right, Run, Stand, Up, UpMove};
@@ -377,6 +377,7 @@ fn enemy_logic(game_info: &mut ResMut<GameInfo>,
                mut transform: &mut Mut<Transform>) -> (GameAction, Vec2, bool, usize) {
     if action == enemy_info.action {
         sprite.index = move_sprite(first, last, &mut sprite);
+
         return if action == DEAD && sprite.index == last {
             info!("Enemy killed");
             transform.scale = Vec3::splat(2.2);
@@ -571,10 +572,12 @@ fn setup_sprites(
 ) {
     let characters = create_characters();
     commands.spawn(Camera2dBundle::default());
+    setup_background(&mut commands, &asset_server, &mut texture_atlases);
+    setup_logo(&mut commands, &asset_server, &mut texture_atlases);
+    setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
     setup_life_bar(&mut commands, Color::BLUE, -300.0, -350.0, LifeBar1Animation {});
     setup_life_bar(&mut commands, Color::BLUE, -380.0, -350.0, LifeBar2Animation {});
     setup_life_bar(&mut commands, Color::BLUE, -460.0, -350.0, LifeBar3Animation {});
-    setup_background(&mut commands, &asset_server, &mut texture_atlases);
     setup_player("barbarian.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
     setup_enemies(&mut commands, &asset_server, &mut texture_atlases, &characters);
 }
@@ -607,6 +610,22 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
     transform.translation = Vec3::new(0.0, 0.0, 0.0);
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
+
+fn setup_logo(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let atlas_handle = create_logo(&asset_server, &mut texture_atlases);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(0.0, 300.0, 1.0);
+    image_spawn(&mut commands, atlas_handle, transform);
+}
+
+fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let atlas_handle = create_player_image(&asset_server, &mut texture_atlases);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(-220.0, -350.0, 1.0);
+    transform.scale = Vec3::splat(3.0);
+    image_spawn(&mut commands, atlas_handle, transform);
+}
+
 
 fn setup_player(player_name: &str,
                 mut commands: &mut Commands,
@@ -667,6 +686,14 @@ fn setup_life_bar<A: Component>(mut commands: &mut Commands, color: Color, x: f3
 /// Using [column] and [row] here since is a single Picture/Sprite is marked as 1:1
 fn create_background(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
     create_image("background.png", 1900.0, 1000.0, asset_server, texture_atlases)
+}
+
+fn create_logo(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
+    create_image("logo.png", 270.0, 210.0, asset_server, texture_atlases)
+}
+
+fn create_player_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
+    create_image("player.png", 15.0, 15.0, asset_server, texture_atlases)
 }
 
 fn create_image(image_name: &str, x: f32, y: f32, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
@@ -783,11 +810,11 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: MOVE.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
             CharacterStats { action: UP_MOVE.clone(), x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: UP.clone(), x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
-            CharacterStats { action: DOWN_MOVE.clone(),x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
+            CharacterStats { action: DOWN_MOVE.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
             CharacterStats { action: DOWN.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(178.0, 0.0) },
             CharacterStats { action: FIGHT.clone(), x: 60.0, y: 66.0, column: 4, row: 1, offset: Vec2::new(0.0, 145.0) },
             CharacterStats { action: HIT.clone(), x: 46.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(0.0, 220.0) },
-            CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(165.0, 220.0) },
+            CharacterStats { action: DEAD.clone(), x: 70.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(225.0, 210.0) },
             CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
         ]),
     ])
