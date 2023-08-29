@@ -403,14 +403,10 @@ fn animate_life_bar_1(
     mut query: Query<(Entity, &LifeBar1Animation, &mut AnimationTimer)>,
 ) {
     for (entity, animation, mut timer) in &mut query {
-        timer.tick(time.delta());
-        if timer.just_finished() {
-            if game_info.player_info.life == 0 {
-                command.get_entity(entity).unwrap().despawn()
-            }
-        }
+        life_bar_logic(&time, &mut command, &game_info, entity, &mut timer, 0)
     }
 }
+
 
 fn animate_life_bar_2(
     time: Res<Time>,
@@ -419,12 +415,7 @@ fn animate_life_bar_2(
     mut query: Query<(Entity, &LifeBar2Animation, &mut AnimationTimer)>,
 ) {
     for (entity, animation, mut timer) in &mut query {
-        timer.tick(time.delta());
-        if timer.just_finished() {
-            if game_info.player_info.life < 2 {
-                command.get_entity(entity).unwrap().despawn()
-            }
-        }
+        life_bar_logic(&time, &mut command, &game_info, entity, &mut timer, 1)
     }
 }
 
@@ -435,15 +426,22 @@ fn animate_life_bar_3(
     mut query: Query<(Entity, &LifeBar3Animation, &mut AnimationTimer)>,
 ) {
     for (entity, animation, mut timer) in &mut query {
-        timer.tick(time.delta());
-        if timer.just_finished() {
-            if game_info.player_info.life < 3 {
-                command.get_entity(entity).unwrap().despawn()
-            }
-        }
+        life_bar_logic(&time, &mut command, &game_info, entity, &mut timer, 2)
     }
 }
 
+/// Logic to reduce the life
+fn life_bar_logic(time: &Res<Time>, command: &mut Commands,
+                  game_info: &ResMut<GameInfo>, entity: Entity,
+                  timer: &mut Mut<AnimationTimer>,
+                  life: usize) {
+    timer.tick(time.delta());
+    if timer.just_finished() {
+        if game_info.player_info.life == life {
+            command.get_entity(entity).unwrap().despawn()
+        }
+    }
+}
 fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
     if sprite.index == last {
         first
@@ -689,7 +687,7 @@ fn create_background(asset_server: &Res<AssetServer>, texture_atlases: &mut ResM
 }
 
 fn create_logo(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
-    create_image("logo.png", 270.0, 210.0, asset_server, texture_atlases)
+    create_image("logo.png", 270.0, 218.0, asset_server, texture_atlases)
 }
 
 fn create_player_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
