@@ -1,4 +1,7 @@
-# Rust Dragon Ball Z 
+# Rust Golden Axe
+
+![My image](assets/logo.png)
+
 
 Author Pablo Picouto Garcia
 
