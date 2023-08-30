@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
-use crate::GameAction::{Dead, Down, DownMove, Fight, Hit, Left, Right, Run, Stand, Up, UpMove};
+use crate::GameAction::{UpFist, Down, DownMove, Fist, Hit, Left, Move, Kick, Stand, Up, UpMove};
 
 fn main() {
     App::new()
@@ -45,13 +45,13 @@ const ENEMY_4_INIT_POSITION: Vec2 = Vec2::new(300.0, -700.0);
 
 /// Actions and the movement for each
 static STAND: GameAction = Stand(0.0, 0.0);
-static MOVE: GameAction = Right(PLAYER_STEP, 0.0);
+static MOVE: GameAction = Move(PLAYER_STEP, 0.0);
 static JUMP_RIGHT: GameAction = UpMove(PLAYER_STEP, PLAYER_STEP);
 static DOWN_MOVE: GameAction = DownMove(PLAYER_STEP, -PLAYER_STEP);
-static FIGHT: GameAction = Fight(0.0, 0.0);
+static UP_FIST: GameAction = UpFist(0.0, 0.0);
+static FIST: GameAction = Fist(0.0, 0.0);
+static KICK: GameAction = Kick(0.0, 0.0);
 static HIT: GameAction = Hit(0.0, 0.0);
-static DEAD: GameAction = Dead(-100.0, 0.0);
-static RUN: GameAction = Run(20.0, 0.0);
 static UP: GameAction = UpMove(0.0, 0.0);
 static DOWN: GameAction = DownMove(0.0, -PLAYER_STEP);
 
@@ -94,32 +94,32 @@ struct EnemyInfo {
 #[derive(Clone, PartialEq, Debug, Copy)]
 enum GameAction {
     Stand(f32, f32),
-    Right(f32, f32),
+    Move(f32, f32),
     Left(f32, f32),
     Up(f32, f32),
     UpMove(f32, f32),
     Down(f32, f32),
     DownMove(f32, f32),
     Hit(f32, f32),
-    Dead(f32, f32),
-    Fight(f32, f32),
-    Run(f32, f32),
+    UpFist(f32, f32),
+    Fist(f32, f32),
+    Kick(f32, f32),
 }
 
 impl GameAction {
     fn get_values(&self) -> (f32, f32) {
         match self {
             Stand(value1, value2)
-            | Right(value1, value2)
+            | Move(value1, value2)
             | Left(value1, value2)
             | Up(value1, value2)
             | UpMove(value1, value2)
             | Down(value1, value2)
             | DownMove(value1, value2)
             | Hit(value1, value2)
-            | Dead(value1, value2)
-            | Fight(value1, value2)
-            | Run(value1, value2) => (value1.clone(), value2.clone()),
+            | UpFist(value1, value2)
+            | Fist(value1, value2)
+            | Kick(value1, value2) => (value1.clone(), value2.clone()),
         }
     }
 }
@@ -189,18 +189,14 @@ fn keyboard_update(
     } else if keyboard_input.pressed(KeyCode::Left) && keyboard_input.pressed(KeyCode::Up) {
         game_info.player_info.action = JUMP_RIGHT.clone();
         game_info.player_info.left_orientation = true;
-    } else if keyboard_input.pressed(KeyCode::Right) & &keyboard_input.pressed(KeyCode::ShiftRight) {
-        game_info.player_info.action = RUN.clone();
-        game_info.player_info.left_orientation = false;
-    } else if keyboard_input.pressed(KeyCode::Left) & &keyboard_input.pressed(KeyCode::ShiftRight) {
-        game_info.player_info.action = RUN.clone();
-        game_info.player_info.left_orientation = true;
     } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Right) {
         game_info.player_info.action = DOWN_MOVE.clone();
         game_info.player_info.left_orientation = false;
     } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Left) {
         game_info.player_info.action = DOWN_MOVE.clone();
         game_info.player_info.left_orientation = true;
+    } else if keyboard_input.pressed(KeyCode::Up) && keyboard_input.pressed(KeyCode::A){
+        game_info.player_info.action = UP_FIST.clone();
     } else if keyboard_input.pressed(KeyCode::Up) {
         game_info.player_info.action = UP.clone();
     } else if keyboard_input.pressed(KeyCode::Right) {
@@ -211,8 +207,10 @@ fn keyboard_update(
         game_info.player_info.left_orientation = true;
     } else if keyboard_input.pressed(KeyCode::Down) {
         game_info.player_info.action = DOWN.clone();
-    } else if keyboard_input.pressed(KeyCode::Space) {
-        game_info.player_info.action = FIGHT.clone();
+    } else if keyboard_input.pressed(KeyCode::A) {
+        game_info.player_info.action = FIST.clone();
+    } else if keyboard_input.pressed(KeyCode::S) {
+        game_info.player_info.action = KICK.clone();
     } else {
         game_info.player_info.action = STAND.clone();
     }
@@ -535,13 +533,13 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: STAND.clone(), x: 50.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: MOVE.clone(), x: 49.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(202.5, 0.0) },
             CharacterStats { action: UP.clone(), x: 39.0, y: 104.0, column: 6, row: 1, offset: Vec2::new(500.0, 0.0) },
+            CharacterStats { action: UP_FIST.clone(), x: 50.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(3.0, 520.0) },
+            CharacterStats { action: FIST.clone(), x: 55.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(0.0, 120.0) },
+            CharacterStats { action: KICK.clone(), x: 63.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(0.0, 250.0) },
             CharacterStats { action: JUMP_RIGHT.clone(), x: 37.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(190.0, 0.0) },
             CharacterStats { action: DOWN_MOVE.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: DOWN.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
-            CharacterStats { action: FIGHT.clone(), x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0) },
             CharacterStats { action: HIT.clone(), x: 65.0, y: 75.0, column: 2, row: 1, offset: Vec2::new(0.0, 560.0) },
-            CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(140.0, 560.0) },
-            CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
         ]),
     ])
 }
