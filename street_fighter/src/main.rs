@@ -2,9 +2,10 @@
 //! into a texture atlas, and changing the displayed image periodically.
 
 use std::collections::HashMap;
-use std::time::{SystemTime};
+use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
+use rand::Rng;
 use crate::GameAction::{UpFist, Down, DownMove, Fist, HitFace, Left, Move, Kick, Stand, Up, HitBody};
 
 fn main() {
@@ -15,6 +16,7 @@ fn main() {
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_enemy)
         .insert_resource(GameInfo {
+            turn_time: SystemTime::now(),
             player_info: PlayerInfo {
                 life: 3,
                 left_orientation: false,
@@ -67,6 +69,7 @@ struct CharacterStats {
 /// Game info type with all game info needed for business logic
 #[derive(Resource)]
 struct GameInfo {
+    turn_time: SystemTime,
     player_info: PlayerInfo,
     enemy_info: EnemyInfo,
 }
@@ -211,6 +214,7 @@ fn animate_player(
         timer.tick(time.delta());
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
+            player_under_attack(&mut game_info);
             if animation.action == game_info.player_info.action {
                 sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
                 let (x, y) = game_info.player_info.action.get_values();
@@ -362,7 +366,14 @@ fn enemy_attack_logic(
     enemy_info.action = match game_info.player_info.action {
         Fist(_, _) => HIT_BODY.clone(),
         Kick(_, _) => HIT_FACE.clone(),
-        _ => enemy_info.action,
+        _ => {
+            if game_info.turn_time.lt(&SystemTime::now()) {
+                game_info.turn_time = SystemTime::now() + Duration::from_secs(2);
+                throw_dice()
+            }else {
+                game_info.enemy_info.action
+            }
+        }
     };
     if enemy_info.left_orientation {
         sprite.flip_x = true;
@@ -377,6 +388,16 @@ fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
         Kick(_, _) => HIT_FACE.clone(),
         _ => game_info.player_info.action,
     };
+}
+
+
+fn throw_dice() -> GameAction {
+    let mut rng = rand::thread_rng();
+    match rng.gen_range(0..6) {
+        1 | 2 => FIST.clone(),
+        3 | 4 => KICK.clone(),
+        _ => STAND.clone(),
+    }
 }
 
 
