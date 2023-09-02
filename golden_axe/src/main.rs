@@ -270,7 +270,7 @@ fn animate_player(
             transform.scale = Vec3::splat(0.0);
             player_under_attack(&mut game_info);
             if animation.action == game_info.player_info.action {
-                sprite.index = move_sprite(animation.first, animation.last, &mut sprite);
+                sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
                 if game_info.player_info.life <= 0 {
                     info!("Player Dead");
                     command.get_entity(entity).unwrap().despawn();

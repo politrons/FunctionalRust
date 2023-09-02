@@ -242,8 +242,14 @@ fn animate_enemy(
             let enemy_info = game_info.enemy_info;
             if animation.action == enemy_info.action {
                 sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
-                game_info.enemy_info = follow_logic(&mut game_info, enemy_info, &mut sprite, &mut transform);
+                let distance = distance(&game_info.player_info.position, &enemy_info.position);
+                let new_enemy_info = if distance <= ATTACK_REACH {
+                    enemy_attack_logic(&mut game_info, enemy_info, &mut sprite, &mut transform, distance)
+                } else {
+                    follow_logic(&mut game_info, enemy_info, &mut sprite, &mut transform)
+                };
                 transform.scale = Vec3::splat(2.2);
+                game_info.enemy_info = new_enemy_info;
             }
 
             // let (action, position, left_orientation, number_of_hits) =
@@ -295,8 +301,8 @@ fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) 
 /// Enemy IA
 /// ----------
 
-/// Follow enemy
-/// -------------
+/// Follow
+/// -------
 /// Logic to try to reach the player position from [enemy] Vec2 to [player] Vec2
 fn follow_logic(
     game_info: &mut ResMut<GameInfo>,
@@ -342,6 +348,35 @@ fn multiply(position: &Vec2, factor: &f32) -> Vec2 {
 fn distance(player_position: &Vec2, enemy_position: &Vec2) -> f32 {
     let position = Vec2::new(player_position.clone().x - enemy_position.clone().x, player_position.clone().y - enemy_position.clone().y);
     (position.x.powi(2) + position.y.powi(2)).sqrt()
+}
+
+/// Attack
+/// -------
+fn enemy_attack_logic(
+    game_info: &mut ResMut<GameInfo>,
+    mut enemy_info: EnemyInfo,
+    sprite: &mut Mut<TextureAtlasSprite>,
+    transform: &mut Mut<Transform>, distance: f32,
+) -> EnemyInfo {
+    info!("Enemy reach player. Distance{:?}",distance);
+    enemy_info.action = match game_info.player_info.action {
+        Fist(_, _) => HIT_BODY.clone(),
+        Kick(_, _) => HIT_FACE.clone(),
+        _ => enemy_info.action,
+    };
+    if enemy_info.left_orientation {
+        sprite.flip_x = true;
+    }
+    transform.translation = Vec3::new(enemy_info.position.clone().x, enemy_info.position.clone().y, 1.0);
+    enemy_info
+}
+
+fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
+    game_info.player_info.action = match game_info.enemy_info.action {
+        Fist(_, _) => HIT_BODY.clone(),
+        Kick(_, _) => HIT_FACE.clone(),
+        _ => game_info.player_info.action,
+    };
 }
 
 
