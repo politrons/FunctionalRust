@@ -24,12 +24,12 @@ fn main() {
 /// -----------------
 
 /// Constants
-const ATTACK_REACH: f32 = 70.0;
+const ATTACK_REACH: f32 = 100.0;
 const ENEMY_STEP: f32 = 10.0;
 const PLAYER_STEP: f32 = 10.0;
 const NUMBER_OF_HITS: usize = 10;
-const PLAYER_INIT_POSITION: Vec2 = Vec2::new(-300.0, -200.0);
-const ENEMY_INIT_POSITION: Vec2 = Vec2::new(300.0, -200.0);
+const PLAYER_INIT_POSITION: Vec2 = Vec2::new(-300.0, -250.0);
+const ENEMY_INIT_POSITION: Vec2 = Vec2::new(300.0, -250.0);
 
 /// Actions and the movement for each
 static STAND: GameAction = Stand(0.0, 0.0);
@@ -399,7 +399,7 @@ fn enemy_attack_logic(
     if enemy_info.left_orientation {
         sprite.flip_x = true;
     }
-    transform.translation = Vec3::new(enemy_info.position.clone().x, enemy_info.position.clone().y, 1.0);
+    transform.translation = Vec3::new(enemy_info.position.clone().x, enemy_info.position.clone().y, 2.0);
     enemy_info
 }
 
@@ -439,6 +439,7 @@ fn setup_sprites(
     commands.spawn(Camera2dBundle::default());
     setup_background_sky(&mut commands, &asset_server, &mut texture_atlases);
     setup_background_building(&mut commands, &asset_server, &mut texture_atlases);
+    setup_background_static_people(&mut commands, &asset_server, &mut texture_atlases);
     setup_background_people("background.png", &mut commands, &asset_server, &mut texture_atlases, &create_background_players());
     // setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
     // setup_life_bar(&mut commands, Color::BLUE, -300.0, -350.0, LifeBar1Animation {});
@@ -449,7 +450,7 @@ fn setup_sprites(
 
 
 fn setup_background_sky(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
-    let background_atlas_handle = create_image("background.png", 510.0, 253.0, Vec2::new(0.0, 750.0), asset_server, texture_atlases);
+    let background_atlas_handle = create_image("background.png", 505.0, 245.0, Vec2::new(0.0, 754.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
     transform.translation = Vec3::new(0.0, 0.0, 0.0);
     transform.scale = Vec3::splat(3.0);
@@ -459,7 +460,15 @@ fn setup_background_sky(mut commands: &mut Commands, asset_server: &Res<AssetSer
 fn setup_background_building(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_image("background.png", 512.0, 224.0, Vec2::new(0.0, 488.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
-    transform.translation = Vec3::new(0.0, 0.0, 0.0);
+    transform.translation = Vec3::new(0.0, -60.0, 1.0);
+    transform.scale = Vec3::splat(3.0);
+    image_spawn(&mut commands, background_atlas_handle, transform);
+}
+
+fn setup_background_static_people(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let background_atlas_handle = create_image("background.png", 512.0, 224.0, Vec2::new(0.0, 223.0), asset_server, texture_atlases);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(-25.0, 0.0, 1.0);
     transform.scale = Vec3::splat(3.0);
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
@@ -484,7 +493,7 @@ fn setup_background_people(player_name: &str,
 
     let mut player_transform = Transform::default();
     player_transform.scale = Vec3::splat(0.0);
-    player_transform.translation = Vec3::new(0.0, 0.0, 0.0);
+    player_transform.translation = Vec3::new(52.0, -55.0, 1.0);
 
     for character_stats in characters.get(player_name).unwrap() {
         let (atlas_handle, animation) =
@@ -506,7 +515,7 @@ fn setup_player(player_name: &str,
 
     let mut player_transform = Transform::default();
     player_transform.scale = Vec3::splat(0.0);
-    player_transform.translation = Vec3::new(-300.0, -200.0, 2.0);
+    player_transform.translation = Vec3::new(-300.0, -250.0, 2.0);
 
     for character_stats in characters.get(player_name).unwrap() {
         let (atlas_handle, animation) =
@@ -527,7 +536,7 @@ fn setup_enemy(enemy_name: &str,
     };
     let mut enemy_transform = Transform::default();
     enemy_transform.scale = Vec3::splat(0.0);
-    enemy_transform.translation = Vec3::new(300.0, -200.0, 2.0);
+    enemy_transform.translation = Vec3::new(300.0, -250.0, 2.0);
     let mut sprite = TextureAtlasSprite::new(0);
     sprite.flip_x = true;
     for character_stats in characters.get(enemy_name).unwrap() {
@@ -629,7 +638,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Street fighter".into(),
-                resolution: (1900.0, 700.0).into(),
+                resolution: (1900.0, 800.0).into(),
                 ..default()
             }),
             ..default()
