@@ -15,20 +15,8 @@ fn main() {
         .add_systems(Update, keyboard_update)
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_enemy)
-        .insert_resource(GameInfo {
-            turn_time: SystemTime::now(),
-            player_info: PlayerInfo {
-                life: 3,
-                left_orientation: false,
-                position: PLAYER_INIT_POSITION,
-                action: STAND.clone(),
-            },
-            enemy_info: EnemyInfo {
-                action: MOVE.clone(),
-                position: ENEMY_INIT_POSITION,
-                left_orientation: false,
-            },
-        })
+        .add_systems(Update, animate_background)
+        .insert_resource(GameInfo::new())
         .run();
 }
 
@@ -40,8 +28,8 @@ const ATTACK_REACH: f32 = 70.0;
 const ENEMY_STEP: f32 = 10.0;
 const PLAYER_STEP: f32 = 10.0;
 const NUMBER_OF_HITS: usize = 10;
-const PLAYER_INIT_POSITION: Vec2 = Vec2::new(-300.0, 0.0);
-const ENEMY_INIT_POSITION: Vec2 = Vec2::new(300.0, 0.0);
+const PLAYER_INIT_POSITION: Vec2 = Vec2::new(-300.0, -200.0);
+const ENEMY_INIT_POSITION: Vec2 = Vec2::new(300.0, -200.0);
 
 /// Actions and the movement for each
 static STAND: GameAction = Stand(0.0, 0.0);
@@ -55,6 +43,32 @@ static HIT_BODY: GameAction = HitBody(0.0, 0.0);
 static UP: GameAction = Up(0.0, 0.0);
 static DOWN: GameAction = DownMove(0.0, -PLAYER_STEP);
 
+/// Game info type with all game info needed for business logic
+#[derive(Resource)]
+struct GameInfo {
+    turn_time: SystemTime,
+    player_info: PlayerInfo,
+    enemy_info: EnemyInfo,
+}
+
+impl GameInfo {
+    fn new() -> Self {
+        GameInfo {
+            turn_time: SystemTime::now(),
+            player_info: PlayerInfo {
+                life: 3,
+                left_orientation: false,
+                position: PLAYER_INIT_POSITION,
+                action: STAND.clone(),
+            },
+            enemy_info: EnemyInfo {
+                action: MOVE.clone(),
+                position: ENEMY_INIT_POSITION,
+                left_orientation: false,
+            },
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 struct CharacterStats {
@@ -64,14 +78,6 @@ struct CharacterStats {
     column: usize,
     row: usize,
     offset: Vec2,
-}
-
-/// Game info type with all game info needed for business logic
-#[derive(Resource)]
-struct GameInfo {
-    turn_time: SystemTime,
-    player_info: PlayerInfo,
-    enemy_info: EnemyInfo,
 }
 
 /// Player info type with all info needed for player business logic
@@ -140,6 +146,12 @@ struct PlayerAnimation {
 #[derive(Clone, Component)]
 struct EnemyAnimation {
     action: GameAction,
+    first: usize,
+    last: usize,
+}
+
+#[derive(Clone, Component)]
+struct BackgroundPlayerAnimation {
     first: usize,
     last: usize,
 }
@@ -220,13 +232,13 @@ fn animate_player(
                 let (x, y) = game_info.player_info.action.get_values();
                 if game_info.player_info.left_orientation {
                     sprite.flip_x = true;
-                    transform.translation = Vec3::new(game_info.player_info.position.clone().x - x, game_info.player_info.position.clone().y + y, 1.0);
+                    transform.translation = Vec3::new(game_info.player_info.position.clone().x - x, game_info.player_info.position.clone().y + y, 2.0);
                 } else {
                     sprite.flip_x = false;
-                    transform.translation = Vec3::new(game_info.player_info.position.clone().x + x, game_info.player_info.position.clone().y + y, 1.0);
+                    transform.translation = Vec3::new(game_info.player_info.position.clone().x + x, game_info.player_info.position.clone().y + y, 2.0);
                 }
                 game_info.player_info.position = Vec2::new(transform.translation.clone().x, transform.translation.clone().y);
-                transform.scale = Vec3::splat(2.2);
+                transform.scale = Vec3::splat(3.0);
             }
         }
     }
@@ -252,14 +264,23 @@ fn animate_enemy(
                 } else {
                     follow_logic(&mut game_info, enemy_info, &mut sprite, &mut transform)
                 };
-                transform.scale = Vec3::splat(2.2);
+                transform.scale = Vec3::splat(3.0);
                 game_info.enemy_info = new_enemy_info;
             }
+        }
+    }
+}
 
-            // let (action, position, left_orientation, number_of_hits) =
-            //     enemy_logic(&mut game_info, ENEMY_1_INIT_POSITION, enemy_info, animation.action,
-            //                 animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
-            // game_info.enemy_info = EnemyInfo { action, position, left_orientation, number_of_hits }
+fn animate_background(
+    time: Res<Time>,
+    mut query: Query<(&BackgroundPlayerAnimation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
+) {
+    for (animation, mut timer, mut sprite, mut transform) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            transform.scale = Vec3::splat(0.0);
+            sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
+            transform.scale = Vec3::splat(3.0);
         }
     }
 }
@@ -328,7 +349,7 @@ fn follow_logic(
     }
     let new_movement = Vec2::new(enemy_info.clone().position.x + movement.x, enemy_info.clone().position.y + movement.y);
     enemy_info.position = new_movement.clone();
-    transform.translation = Vec3::new(new_movement.x, new_movement.y, 1.0);
+    transform.translation = Vec3::new(new_movement.x, new_movement.y, 2.0);
     enemy_info
 }
 
@@ -370,7 +391,7 @@ fn enemy_attack_logic(
             if game_info.turn_time.lt(&SystemTime::now()) {
                 game_info.turn_time = SystemTime::now() + Duration::from_secs(2);
                 throw_dice()
-            }else {
+            } else {
                 game_info.enemy_info.action
             }
         }
@@ -416,20 +437,32 @@ fn setup_sprites(
 ) {
     let characters = create_characters();
     commands.spawn(Camera2dBundle::default());
-    // setup_background(&mut commands, &asset_server, &mut texture_atlases);
+    setup_background_sky(&mut commands, &asset_server, &mut texture_atlases);
+    setup_background_building(&mut commands, &asset_server, &mut texture_atlases);
+    setup_background_people("background.png", &mut commands, &asset_server, &mut texture_atlases, &create_background_players());
     // setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
     // setup_life_bar(&mut commands, Color::BLUE, -300.0, -350.0, LifeBar1Animation {});
+
     setup_player("ryu.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
     setup_enemy("ryu.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
 }
 
 
-// fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
-//     let background_atlas_handle = create_background(&asset_server, &mut texture_atlases);
-//     let mut transform = Transform::default();
-//     transform.translation = Vec3::new(0.0, 0.0, 0.0);
-//     image_spawn(&mut commands, background_atlas_handle, transform);
-// }
+fn setup_background_sky(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let background_atlas_handle = create_image("background.png", 510.0, 253.0, Vec2::new(0.0, 750.0), asset_server, texture_atlases);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(0.0, 0.0, 0.0);
+    transform.scale = Vec3::splat(3.0);
+    image_spawn(&mut commands, background_atlas_handle, transform);
+}
+
+fn setup_background_building(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let background_atlas_handle = create_image("background.png", 512.0, 224.0, Vec2::new(0.0, 488.0), asset_server, texture_atlases);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(0.0, 0.0, 0.0);
+    transform.scale = Vec3::splat(3.0);
+    image_spawn(&mut commands, background_atlas_handle, transform);
+}
 
 // fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
 //     let atlas_handle = create_player_image(&asset_server, &mut texture_atlases);
@@ -439,6 +472,28 @@ fn setup_sprites(
 //     image_spawn(&mut commands, atlas_handle, transform);
 // }
 
+
+fn setup_background_people(player_name: &str,
+                           mut commands: &mut Commands,
+                           asset_server: &Res<AssetServer>,
+                           mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+                           characters: &HashMap<&str, [CharacterStats; 1]>) {
+    let animation_func = |_, rows: usize, columns: usize| {
+        return BackgroundPlayerAnimation { first: rows - 1, last: columns - 1 };
+    };
+
+    let mut player_transform = Transform::default();
+    player_transform.scale = Vec3::splat(0.0);
+    player_transform.translation = Vec3::new(0.0, 0.0, 0.0);
+
+    for character_stats in characters.get(player_name).unwrap() {
+        let (atlas_handle, animation) =
+            create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
+                          player_name, character_stats.x.clone(), character_stats.y.clone(),
+                          character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
+        sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), animation, player_transform,0.3);
+    }
+}
 
 fn setup_player(player_name: &str,
                 mut commands: &mut Commands,
@@ -451,14 +506,14 @@ fn setup_player(player_name: &str,
 
     let mut player_transform = Transform::default();
     player_transform.scale = Vec3::splat(0.0);
-    player_transform.translation = Vec3::new(-300.0, 0.0, 1.0);
+    player_transform.translation = Vec3::new(-300.0, -200.0, 2.0);
 
     for character_stats in characters.get(player_name).unwrap() {
         let (atlas_handle, animation) =
             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
                           player_name, character_stats.x.clone(), character_stats.y.clone(),
                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
-        sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), animation, player_transform);
+        sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), animation, player_transform, 0.12);
     }
 }
 
@@ -472,7 +527,7 @@ fn setup_enemy(enemy_name: &str,
     };
     let mut enemy_transform = Transform::default();
     enemy_transform.scale = Vec3::splat(0.0);
-    enemy_transform.translation = Vec3::new(300.0, 0.0, 1.0);
+    enemy_transform.translation = Vec3::new(300.0, -200.0, 2.0);
     let mut sprite = TextureAtlasSprite::new(0);
     sprite.flip_x = true;
     for character_stats in characters.get(enemy_name).unwrap() {
@@ -480,7 +535,7 @@ fn setup_enemy(enemy_name: &str,
             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
                           enemy_name, character_stats.x.clone(), character_stats.y.clone(),
                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
-        sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, enemy_transform);
+        sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, enemy_transform, 0.12);
     }
 }
 
@@ -494,24 +549,16 @@ fn setup_enemy(enemy_name: &str,
 //     game_bar_spawn(&mut commands, sprite, game_bar_transform, animation)
 // }
 
-
-// /// We load the image and we create a [Handle<Image>]
-// /// Once we got it, we create [TextureAtlas] specifying the size of Sprite, and how many sprites we have in the pictures.
-// /// Using [column] and [row] here since is a single Picture/Sprite is marked as 1:1
-// fn create_background(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
-//     create_image("background.png", 1900.0, 1000.0, asset_server, texture_atlases)
-// }
-
 // fn create_player_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
 //     create_image("player.png", 15.0, 15.0, asset_server, texture_atlases)
 // }
 
-// fn create_image(image_name: &str, x: f32, y: f32, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
-//     let background_handle = asset_server.load(image_name);
-//     let background_atlas =
-//         TextureAtlas::from_grid(background_handle, Vec2::new(x, y), 1, 1, None, None);
-//     texture_atlases.add(background_atlas)
-// }
+fn create_image(image_name: &str, x: f32, y: f32, offset: Vec2, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
+    let background_handle = asset_server.load(image_name);
+    let background_atlas =
+        TextureAtlas::from_grid(background_handle, Vec2::new(x, y), 1, 1, None, Some(offset));
+    texture_atlases.add(background_atlas)
+}
 
 fn create_sprite<A: Component, F: Fn(GameAction, usize, usize) -> A>(asset_server: &Res<AssetServer>,
                                                                      texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
@@ -534,22 +581,23 @@ fn create_sprite<A: Component, F: Fn(GameAction, usize, usize) -> A>(asset_serve
     (atlas_handle, animation)
 }
 
-// fn image_spawn(commands: &mut Commands, background_atlas_handle: Handle<TextureAtlas>, background_transform: Transform) {
-//     commands.spawn((
-//         SpriteSheetBundle {
-//             texture_atlas: background_atlas_handle,
-//             sprite: TextureAtlasSprite::new(0),
-//             transform: background_transform,
-//             ..default()
-//         },
-//     ));
-// }
+fn image_spawn(commands: &mut Commands, background_atlas_handle: Handle<TextureAtlas>, background_transform: Transform) {
+    commands.spawn((
+        SpriteSheetBundle {
+            texture_atlas: background_atlas_handle,
+            sprite: TextureAtlasSprite::new(0),
+            transform: background_transform,
+            ..default()
+        },
+    ));
+}
 
 fn sprite_spawn<A: Component>(commands: &mut Commands,
                               texture_atlas_handle: Handle<TextureAtlas>,
                               sprite: TextureAtlasSprite,
                               sprite_animation: A,
                               transform: Transform,
+                              duration: f32,
 ) {
     commands.spawn((
         SpriteSheetBundle {
@@ -559,7 +607,7 @@ fn sprite_spawn<A: Component>(commands: &mut Commands,
             ..default()
         },
         sprite_animation,
-        AnimationTimer(Timer::from_seconds(0.12, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(duration, TimerMode::Repeating)),
     ));
 }
 
@@ -581,7 +629,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Street fighter".into(),
-                resolution: (1900.0, 1080.0).into(),
+                resolution: (1900.0, 700.0).into(),
                 ..default()
             }),
             ..default()
@@ -602,6 +650,14 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: HIT_BODY.clone(), x: 50.0, y: 90.0, column: 4, row: 1, offset: Vec2::new(4.0, 745.0) },
             CharacterStats { action: DOWN_MOVE.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
             CharacterStats { action: DOWN.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+        ]),
+    ])
+}
+
+fn create_background_players() -> HashMap<&'static str, [CharacterStats; 1]> {
+    HashMap::from([
+        ("background.png", [
+            CharacterStats { action: STAND.clone(), x: 216.0, y: 104.0, column: 2, row: 1, offset: Vec2::new(70.0, 1110.0) },
         ]),
     ])
 }
