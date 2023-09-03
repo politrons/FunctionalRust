@@ -285,36 +285,6 @@ fn animate_background(
     }
 }
 
-// fn enemy_logic(game_info: &mut ResMut<GameInfo>,
-//                enemy_init_position: Vec2,
-//                enemy_info: EnemyInfo,
-//                action: GameAction,
-//                first: usize,
-//                last: usize,
-//                mut sprite: &mut Mut<TextureAtlasSprite>,
-//                mut transform: &mut Mut<Transform>) -> (GameAction, Vec2, bool, usize) {
-//     if action == enemy_info.action {
-//         sprite.index = move_sprite(first, last, &mut sprite);
-//
-//         return if action == DEAD && sprite.index == last {
-//             info!("Enemy killed");
-//             transform.scale = Vec3::splat(2.2);
-//             (STAND, enemy_init_position, enemy_info.clone().left_orientation, 0)
-//         } else {
-//             let distance = distance(&game_info.player_info.position, &enemy_info.position);
-//             let new_enemy_info = if distance <= ATTACK_REACH {
-//                 enemy_attack_logic(game_info, enemy_info, &mut sprite, &mut transform, distance)
-//             } else {
-//                 follow_logic(game_info, enemy_info, &mut sprite, &mut transform)
-//             };
-//             transform.scale = Vec3::splat(2.2);
-//             (new_enemy_info.action, new_enemy_info.position, new_enemy_info.clone().left_orientation, new_enemy_info.clone().number_of_hits)
-//         };
-//     }
-//     return (enemy_info.action, enemy_info.position, enemy_info.clone().left_orientation, enemy_info.clone().number_of_hits);
-// }
-
-
 fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
     if sprite.index == last {
         first
@@ -441,7 +411,7 @@ fn setup_sprites(
     setup_background_building(&mut commands, &asset_server, &mut texture_atlases);
     setup_background_static_people(&mut commands, &asset_server, &mut texture_atlases);
     setup_background_people("background.png", &mut commands, &asset_server, &mut texture_atlases, &create_background_players());
-    // setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
+    setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
     // setup_life_bar(&mut commands, Color::BLUE, -300.0, -350.0, LifeBar1Animation {});
 
     setup_player("ryu.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
@@ -458,9 +428,9 @@ fn setup_background_sky(mut commands: &mut Commands, asset_server: &Res<AssetSer
 }
 
 fn setup_background_building(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
-    let background_atlas_handle = create_image("background.png", 512.0, 224.0, Vec2::new(0.0, 488.0), asset_server, texture_atlases);
+    let background_atlas_handle = create_image("background.png", 512.0, 224.0, Vec2::new(0.0, 490.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
-    transform.translation = Vec3::new(0.0, -60.0, 1.0);
+    transform.translation = Vec3::new(10.0, -60.0, 1.0);
     transform.scale = Vec3::splat(3.5);
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
@@ -468,18 +438,18 @@ fn setup_background_building(mut commands: &mut Commands, asset_server: &Res<Ass
 fn setup_background_static_people(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let background_atlas_handle = create_image("background.png", 512.0, 224.0, Vec2::new(0.0, 223.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
-    transform.translation = Vec3::new(-25.0, 0.0, 1.0);
+    transform.translation = Vec3::new(-20.0, 0.0, 1.0);
     transform.scale = Vec3::splat(3.5);
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
 
-// fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
-//     let atlas_handle = create_player_image(&asset_server, &mut texture_atlases);
-//     let mut transform = Transform::default();
-//     transform.translation = Vec3::new(-220.0, -350.0, 1.0);
-//     transform.scale = Vec3::splat(3.0);
-//     image_spawn(&mut commands, atlas_handle, transform);
-// }
+fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let atlas_handle =  create_image("background.png", 76.0, 110.0, Vec2::new(885.0, 845.0), asset_server, texture_atlases);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(-300.0, 650.0, 1.0);
+    transform.scale = Vec3::splat(3.0);
+    image_spawn(&mut commands, atlas_handle, transform);
+}
 
 
 fn setup_background_people(player_name: &str,
@@ -493,7 +463,7 @@ fn setup_background_people(player_name: &str,
 
     let mut player_transform = Transform::default();
     player_transform.scale = Vec3::splat(0.0);
-    player_transform.translation = Vec3::new(57.0, -57.0, 1.0);
+    player_transform.translation = Vec3::new(70.0, -67.0, 1.0);
 
     for character_stats in characters.get(player_name).unwrap() {
         let (atlas_handle, animation) =
@@ -556,10 +526,6 @@ fn setup_enemy(enemy_name: &str,
 //     sprite.color = color;
 //     sprite.custom_size = Some(Vec2::new(35.0, 10.00));
 //     game_bar_spawn(&mut commands, sprite, game_bar_transform, animation)
-// }
-
-// fn create_player_image(asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
-//     create_image("player.png", 15.0, 15.0, asset_server, texture_atlases)
 // }
 
 fn create_image(image_name: &str, x: f32, y: f32, offset: Vec2, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
@@ -638,7 +604,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Street fighter".into(),
-                resolution: (1900.0, 1080.0).into(),
+                resolution: (1850.0, 1080.0).into(),
                 ..default()
             }),
             ..default()
