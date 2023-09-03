@@ -238,7 +238,7 @@ fn animate_player(
                     transform.translation = Vec3::new(game_info.player_info.position.clone().x + x, game_info.player_info.position.clone().y + y, 2.0);
                 }
                 game_info.player_info.position = Vec2::new(transform.translation.clone().x, transform.translation.clone().y);
-                transform.scale = Vec3::splat(3.0);
+                transform.scale = Vec3::splat(3.5);
             }
         }
     }
@@ -264,7 +264,7 @@ fn animate_enemy(
                 } else {
                     follow_logic(&mut game_info, enemy_info, &mut sprite, &mut transform)
                 };
-                transform.scale = Vec3::splat(3.0);
+                transform.scale = Vec3::splat(3.5);
                 game_info.enemy_info = new_enemy_info;
             }
         }
@@ -280,7 +280,7 @@ fn animate_background(
         if timer.just_finished() {
             transform.scale = Vec3::splat(0.0);
             sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
-            transform.scale = Vec3::splat(3.0);
+            transform.scale = Vec3::splat(3.5);
         }
     }
 }
@@ -453,7 +453,7 @@ fn setup_background_sky(mut commands: &mut Commands, asset_server: &Res<AssetSer
     let background_atlas_handle = create_image("background.png", 505.0, 245.0, Vec2::new(0.0, 754.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
     transform.translation = Vec3::new(0.0, 0.0, 0.0);
-    transform.scale = Vec3::splat(3.0);
+    transform.scale = Vec3::splat(3.5);
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
 
@@ -461,7 +461,7 @@ fn setup_background_building(mut commands: &mut Commands, asset_server: &Res<Ass
     let background_atlas_handle = create_image("background.png", 512.0, 224.0, Vec2::new(0.0, 488.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
     transform.translation = Vec3::new(0.0, -60.0, 1.0);
-    transform.scale = Vec3::splat(3.0);
+    transform.scale = Vec3::splat(3.5);
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
 
@@ -469,7 +469,7 @@ fn setup_background_static_people(mut commands: &mut Commands, asset_server: &Re
     let background_atlas_handle = create_image("background.png", 512.0, 224.0, Vec2::new(0.0, 223.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
     transform.translation = Vec3::new(-25.0, 0.0, 1.0);
-    transform.scale = Vec3::splat(3.0);
+    transform.scale = Vec3::splat(3.5);
     image_spawn(&mut commands, background_atlas_handle, transform);
 }
 
@@ -493,7 +493,7 @@ fn setup_background_people(player_name: &str,
 
     let mut player_transform = Transform::default();
     player_transform.scale = Vec3::splat(0.0);
-    player_transform.translation = Vec3::new(52.0, -55.0, 1.0);
+    player_transform.translation = Vec3::new(57.0, -57.0, 1.0);
 
     for character_stats in characters.get(player_name).unwrap() {
         let (atlas_handle, animation) =
@@ -638,7 +638,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Street fighter".into(),
-                resolution: (1900.0, 800.0).into(),
+                resolution: (1900.0, 1080.0).into(),
                 ..default()
             }),
             ..default()
