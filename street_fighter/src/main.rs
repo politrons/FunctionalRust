@@ -232,7 +232,6 @@ fn animate_player(
             transform.scale = Vec3::splat(0.0);
             player_under_attack(&mut game_info);
             if animation.action == game_info.player_info.action {
-                info!("Player Number of hits {:?}",game_info.player_info.number_of_hits);
                 if animation.action == FALL.clone() && sprite.index == animation.last {
                     info!("Player recovery....");
                     game_info.player_info.number_of_hits = 0;
@@ -267,14 +266,19 @@ fn animate_enemy(
             transform.scale = Vec3::splat(0.0);
             let mut enemy_info = game_info.enemy_info;
             if animation.action == enemy_info.action {
-                info!("Enemy Number of hits {:?}",enemy_info.number_of_hits);
-                let new_enemy_info = if animation.action == FALL.clone() && sprite.index == animation.last {
-                    info!("Enemy recovery....");
-                    enemy_info.number_of_hits = 0;
-                    enemy_info.action = STAND.clone();
+                info!("Enemy actions ${:?}",enemy_info.action );
+                info!("Enemy position ${:?}",enemy_info.position );
+                let new_enemy_info = if enemy_info.action == FALL.clone() {
+                    if sprite.index == animation.last {
+                        info!("Enemy recovery....");
+                        enemy_info.number_of_hits = 0;
+                        enemy_info.action = STAND.clone();
+                    } else {
+                        let (x, y) = enemy_info.action.get_values();
+                        enemy_info.position = Vec2::new(enemy_info.position.clone().x - x, enemy_info.position.clone().y - y);
+                    }
                     enemy_info
                 } else {
-                    sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
                     let distance = distance(&game_info.player_info.position, &enemy_info.position);
                     let new_enemy_info = if distance <= ATTACK_REACH {
                         enemy_attack_logic(&mut game_info, enemy_info, &mut sprite, &mut transform)
@@ -283,6 +287,7 @@ fn animate_enemy(
                     };
                     new_enemy_info
                 };
+                sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
                 transform.scale = Vec3::splat(3.5);
                 game_info.enemy_info = new_enemy_info;
             }
@@ -371,9 +376,8 @@ fn enemy_attack_logic(
     sprite: &mut Mut<TextureAtlasSprite>,
     transform: &mut Mut<Transform>,
 ) -> EnemyInfo {
-    enemy_info.action = if enemy_info.number_of_hits >= 10 {
+    enemy_info.action = if enemy_info.action == FALL.clone() || enemy_info.number_of_hits >= 10 {
         info!("Enemy falling ");
-        enemy_info.position = Vec2::new(enemy_info.position.clone().x - FALL.get_values().0, enemy_info.position.clone().y);
         FALL.clone()
     } else {
         match game_info.player_info.action {
