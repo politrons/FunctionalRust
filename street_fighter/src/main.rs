@@ -279,8 +279,6 @@ fn animate_enemy(
             let mut enemy_info = game_info.enemy_info;
             if animation.action == enemy_info.action {
                 info!("Enemy actions ${:?} sprite ${:?}",enemy_info.action, sprite.index );
-                // let new_enemy_info = if enemy_info.action == FALL.clone() {
-                //     enemy_fall_logic(animation, &mut sprite, &mut transform, enemy_info)
                 let new_enemy_info = if animation.action == RECOVERY.clone() && sprite.index == animation.last {
                     info!("Enemy recover");
                     enemy_info.action = STAND.clone();
@@ -479,7 +477,7 @@ fn setup_sprites(
     setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
     // setup_life_bar(&mut commands, Color::BLUE, -300.0, -350.0, LifeBar1Animation {});
 
-    setup_player("ryu.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_player("ken.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
     setup_enemy("ryu.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
 }
 
@@ -690,6 +688,19 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
             CharacterStats { action: HIT_BODY.clone(), x: 50.0, y: 90.0, column: 4, row: 1, offset: Vec2::new(4.0, 745.0) },
             CharacterStats { action: FALL.clone(), x: 76.0, y: 95.0, column: 5, row: 1, offset: Vec2::new(1160.0, 740.0) },
             CharacterStats { action: RECOVERY.clone(), x: 58.0, y: 106.0, column: 4, row: 1, offset: Vec2::new(771.0, 728.0) },
+            CharacterStats { action: DOWN.clone(), x: 45.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1158.0, 0.0) },
+        ]),
+        ("ken.png", [
+            CharacterStats { action: STAND.clone(), x: 50.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: MOVE.clone(), x: 49.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(202.5, 0.0) },
+            CharacterStats { action: UP.clone(), x: 39.0, y: 104.0, column: 6, row: 1, offset: Vec2::new(500.0, 0.0) },
+            CharacterStats { action: UP_FIST.clone(), x: 50.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(3.0, 520.0) },
+            CharacterStats { action: FIST.clone(), x: 55.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(0.0, 120.0) },
+            CharacterStats { action: KICK.clone(), x: 63.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(0.0, 250.0) },
+            CharacterStats { action: HIT_FACE.clone(), x: 55.5, y: 90.0, column: 4, row: 1, offset: Vec2::new(215.0, 765.0) },
+            CharacterStats { action: HIT_BODY.clone(), x: 50.0, y: 90.0, column: 4, row: 1, offset: Vec2::new(4.0, 765.0) },
+            CharacterStats { action: FALL.clone(), x: 76.0, y: 95.0, column: 5, row: 1, offset: Vec2::new(1160.0, 760.0) },
+            CharacterStats { action: RECOVERY.clone(), x: 58.0, y: 106.0, column: 4, row: 1, offset: Vec2::new(771.0, 738.0) },
             CharacterStats { action: DOWN.clone(), x: 45.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1158.0, 0.0) },
         ]),
     ])
