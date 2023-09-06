@@ -7,6 +7,7 @@ use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use rand::Rng;
 use crate::GameAction::{UpFist, Down, Fall, Fist, HitFace, Left, Move, Kick, Stand, Up, HitBody, Recovery};
+use crate::GamePlayers::{Enemy, Player};
 
 fn main() {
     App::new()
@@ -16,6 +17,7 @@ fn main() {
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_enemy)
         .add_systems(Update, animate_background)
+        .add_systems(Update, animate_bar)
         .insert_resource(GameInfo::new())
         .run();
 }
@@ -58,13 +60,14 @@ impl GameInfo {
             turn_time: SystemTime::now(),
             player_info: PlayerInfo {
                 number_of_hits: 0,
-                life: 3,
+                life: 100.0,
                 left_orientation: false,
                 position: PLAYER_INIT_POSITION,
                 action: STAND.clone(),
             },
             enemy_info: EnemyInfo {
                 number_of_hits: 0,
+                life: 100.0,
                 action: MOVE.clone(),
                 position: ENEMY_INIT_POSITION,
                 left_orientation: false,
@@ -87,7 +90,7 @@ struct CharacterStats {
 #[derive(Component, Copy, Clone)]
 struct PlayerInfo {
     number_of_hits: usize,
-    life: usize,
+    life: f32,
     position: Vec2,
     left_orientation: bool,
     action: GameAction,
@@ -97,6 +100,7 @@ struct PlayerInfo {
 #[derive(Component, Copy, Clone)]
 struct EnemyInfo {
     number_of_hits: usize,
+    life: f32,
     action: GameAction,
     position: Vec2,
     left_orientation: bool,
@@ -116,6 +120,12 @@ enum GameAction {
     UpFist(f32, f32),
     Fist(f32, f32),
     Kick(f32, f32),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum GamePlayers {
+    Player,
+    Enemy,
 }
 
 impl GameAction {
@@ -163,15 +173,10 @@ struct BackgroundPlayerAnimation {
     last: usize,
 }
 
-
 #[derive(Clone, Component)]
-struct LifeBar1Animation {}
-
-#[derive(Clone, Component)]
-struct LifeBar2Animation {}
-
-#[derive(Clone, Component)]
-struct LifeBar3Animation {}
+struct BarAnimation {
+    game_player: GamePlayers,
+}
 
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
@@ -214,7 +219,7 @@ fn keyboard_update(
     } else {
         if game_info.player_info.action == RECOVERY {
             game_info.player_info.action = game_info.player_info.action
-        }else {
+        } else {
             game_info.player_info.action = STAND
         }
     }
@@ -313,6 +318,47 @@ fn animate_background(
             transform.scale = Vec3::splat(3.5);
         }
     }
+}
+
+fn animate_bar(
+    time: Res<Time>,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(
+        &BarAnimation,
+        &mut AnimationTimer,
+        &mut Sprite,
+    )>,
+) {
+    for (animation,
+        mut timer,
+        mut sprite) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            if animation.game_player == Player {
+                if player_has_been_hit(&game_info) {
+                    game_info.player_info.life = &game_info.player_info.life - 2.0;
+                }
+                change_game_bar(&mut sprite, game_info.player_info.life.clone());
+            } else {
+                if enemy_has_been_hit(&game_info) {
+                    game_info.enemy_info.life = &game_info.enemy_info.life - 2.0;
+                }
+                change_game_bar(&mut sprite, game_info.enemy_info.life.clone());
+            }
+        }
+    }
+}
+
+fn player_has_been_hit(game_info: &GameInfo) -> bool {
+    return game_info.player_info.action == HIT_FACE.clone() || game_info.player_info.action == HIT_BODY.clone();
+}
+
+fn enemy_has_been_hit(game_info: &GameInfo) -> bool {
+    return game_info.enemy_info.action == HIT_FACE.clone() || game_info.enemy_info.action == HIT_BODY.clone();
+}
+
+fn change_game_bar(sprite: &mut Mut<Sprite>, life: f32) {
+    sprite.custom_size = Some(Vec2::new(life, 10.00));
 }
 
 fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) -> usize {
@@ -475,10 +521,12 @@ fn setup_sprites(
     setup_background_static_people(&mut commands, &asset_server, &mut texture_atlases);
     setup_background_people("background.png", &mut commands, &asset_server, &mut texture_atlases, &create_background_players());
     setup_player_image(&mut commands, &asset_server, &mut texture_atlases);
-    // setup_life_bar(&mut commands, Color::BLUE, -300.0, -350.0, LifeBar1Animation {});
+    setup_enemy_image(&mut commands, &asset_server, &mut texture_atlases);
+    setup_player_life_bar(&mut commands);
+    setup_enemy_life_bar(&mut commands);
 
-    setup_player("ken.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
-    setup_enemy("ryu.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_player("ryu.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_enemy("ken.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
 }
 
 
@@ -509,7 +557,15 @@ fn setup_background_static_people(mut commands: &mut Commands, asset_server: &Re
 fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let atlas_handle = create_image("ryu.png", 76.0, 110.0, Vec2::new(885.0, 845.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
-    transform.translation = Vec3::new(-600.0, 350.0, 1.0);
+    transform.translation = Vec3::new(-600.0, 350.0, 2.0);
+    transform.scale = Vec3::splat(1.0);
+    image_spawn(&mut commands, atlas_handle, transform);
+}
+
+fn setup_enemy_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+    let atlas_handle = create_image("ken.png", 76.0, 110.0, Vec2::new(712.0, 875.0), asset_server, texture_atlases);
+    let mut transform = Transform::default();
+    transform.translation = Vec3::new(400.0, 350.0, 2.0);
     transform.scale = Vec3::splat(1.0);
     image_spawn(&mut commands, atlas_handle, transform);
 }
@@ -581,15 +637,23 @@ fn setup_enemy(enemy_name: &str,
     }
 }
 
-// fn setup_life_bar<A: Component>(mut commands: &mut Commands, color: Color, x: f32, y: f32, animation: A) {
-//     let mut game_bar_transform = Transform::default();
-//     game_bar_transform.scale = Vec3::splat(2.0);
-//     game_bar_transform.translation = Vec3::new(x, y, 1.0);
-//     let mut sprite = Sprite::default();
-//     sprite.color = color;
-//     sprite.custom_size = Some(Vec2::new(35.0, 10.00));
-//     game_bar_spawn(&mut commands, sprite, game_bar_transform, animation)
-// }
+fn setup_player_life_bar(mut commands: &mut Commands) {
+    setup_game_bar(&mut commands, Player, Color::rgb(0.219, 0.78, 0.74), -500.0, 275.0);
+}
+
+fn setup_enemy_life_bar(mut commands: &mut Commands) {
+    setup_game_bar(&mut commands, Enemy, Color::rgb(0.219, 0.78, 0.74), 500.0, 275.0);
+}
+
+fn setup_game_bar(mut commands: &mut Commands, game_player: GamePlayers, color: Color, x: f32, y: f32) {
+    let mut game_bar_transform = Transform::default();
+    game_bar_transform.scale = Vec3::splat(2.0);
+    game_bar_transform.translation = Vec3::new(x, y, 2.0);
+    let mut sprite = Sprite::default();
+    sprite.color = color;
+    sprite.custom_size = Some(Vec2::new(100.0, 10.00));
+    game_bar_spawn(&mut commands, game_player, sprite, game_bar_transform)
+}
 
 fn create_image(image_name: &str, x: f32, y: f32, offset: Vec2, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) -> Handle<TextureAtlas> {
     let background_handle = asset_server.load(image_name);
@@ -649,17 +713,17 @@ fn sprite_spawn<A: Component>(commands: &mut Commands,
     ));
 }
 
-// fn game_bar_spawn<A: Component>(commands: &mut Commands, sprite: Sprite, sprite_transform: Transform, animation: A) {
-//     commands.spawn((
-//         SpriteBundle {
-//             sprite,
-//             transform: sprite_transform,
-//             ..default()
-//         },
-//         animation,
-//         AnimationTimer(Timer::from_seconds(0.27, TimerMode::Repeating)),
-//     ));
-// }
+fn game_bar_spawn(commands: &mut Commands, game_player: GamePlayers, sprite: Sprite, sprite_transform: Transform) {
+    commands.spawn((
+        SpriteBundle {
+            sprite,
+            transform: sprite_transform,
+            ..default()
+        },
+        BarAnimation { game_player },
+        AnimationTimer(Timer::from_seconds(0.3, TimerMode::Repeating)),
+    ));
+}
 
 /// Setup of the App Window where using [WindowPlugin] we set the [Window] type with [title] and [resolution].
 fn setup_window() -> (PluginGroupBuilder, ) {
@@ -700,7 +764,7 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
             CharacterStats { action: HIT_FACE.clone(), x: 55.5, y: 90.0, column: 4, row: 1, offset: Vec2::new(215.0, 765.0) },
             CharacterStats { action: HIT_BODY.clone(), x: 50.0, y: 90.0, column: 4, row: 1, offset: Vec2::new(4.0, 765.0) },
             CharacterStats { action: FALL.clone(), x: 76.0, y: 95.0, column: 5, row: 1, offset: Vec2::new(1160.0, 760.0) },
-            CharacterStats { action: RECOVERY.clone(), x: 58.0, y: 106.0, column: 4, row: 1, offset: Vec2::new(771.0, 738.0) },
+            CharacterStats { action: RECOVERY.clone(), x: 58.0, y: 106.0, column: 4, row: 1, offset: Vec2::new(771.0, 750.0) },
             CharacterStats { action: DOWN.clone(), x: 45.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1158.0, 0.0) },
         ]),
     ])
