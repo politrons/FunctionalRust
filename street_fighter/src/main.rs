@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use rand::Rng;
-use crate::GameAction::{UpFist, Down, Fall, Fist, HitFace, Left, Move, Kick, Stand, Up, HitBody};
+use crate::GameAction::{UpFist, Down, Fall, Fist, HitFace, Left, Move, Kick, Stand, Up, HitBody, Recovery};
 
 fn main() {
     App::new()
@@ -35,13 +35,14 @@ const ENEMY_INIT_POSITION: Vec2 = Vec2::new(300.0, -250.0);
 static STAND: GameAction = Stand(0.0, 0.0);
 static MOVE: GameAction = Move(PLAYER_STEP, 0.0);
 static FALL: GameAction = Fall(-50.0, 0.0);
+static RECOVERY: GameAction = Recovery(0.0, 0.0);
 static UP_FIST: GameAction = UpFist(0.0, 0.0);
 static FIST: GameAction = Fist(0.0, 0.0);
 static KICK: GameAction = Kick(0.0, 0.0);
 static HIT_FACE: GameAction = HitFace(0.0, 0.0);
 static HIT_BODY: GameAction = HitBody(0.0, 0.0);
 static UP: GameAction = Up(0.0, 0.0);
-static DOWN: GameAction = Fall(0.0, -PLAYER_STEP);
+static DOWN: GameAction = Down(0.0, 0.0);
 
 /// Game info type with all game info needed for business logic
 #[derive(Resource)]
@@ -111,6 +112,7 @@ enum GameAction {
     HitFace(f32, f32),
     Down(f32, f32),
     Fall(f32, f32),
+    Recovery(f32, f32),
     UpFist(f32, f32),
     Fist(f32, f32),
     Kick(f32, f32),
@@ -127,6 +129,7 @@ impl GameAction {
             | HitFace(value1, value2)
             | Down(value1, value2)
             | Fall(value1, value2)
+            | Recovery(value1, value2)
             | UpFist(value1, value2)
             | Fist(value1, value2)
             | Kick(value1, value2) => (value1.clone(), value2.clone()),
@@ -209,7 +212,11 @@ fn keyboard_update(
     } else if keyboard_input.pressed(KeyCode::B) {
         game_info.player_info.action = HIT_BODY.clone();
     } else {
-        game_info.player_info.action = STAND.clone();
+        if game_info.player_info.action == RECOVERY {
+            game_info.player_info.action = game_info.player_info.action
+        }else {
+            game_info.player_info.action = STAND
+        }
     }
 }
 
@@ -232,10 +239,15 @@ fn animate_player(
             transform.scale = Vec3::splat(0.0);
             player_under_attack(&mut game_info);
             if animation.action == game_info.player_info.action {
-                if animation.action == FALL.clone() && sprite.index == animation.last {
-                    info!("Player recovery....");
-                    game_info.player_info.number_of_hits = 0;
+                info!("Player actions ${:?} sprite ${:?}",game_info.player_info.action, sprite.index );
+                if animation.action == RECOVERY.clone() && sprite.index == animation.last {
+                    info!("Player recover");
                     game_info.player_info.action = STAND.clone()
+                }
+                if animation.action == FALL.clone() && sprite.index == animation.last {
+                    info!("Player recovering");
+                    game_info.player_info.number_of_hits = 0;
+                    game_info.player_info.action = RECOVERY.clone()
                 }
                 sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
                 let (x, y) = game_info.player_info.action.get_values();
@@ -266,26 +278,22 @@ fn animate_enemy(
             transform.scale = Vec3::splat(0.0);
             let mut enemy_info = game_info.enemy_info;
             if animation.action == enemy_info.action {
-                info!("Enemy actions ${:?}",enemy_info.action );
-                info!("Enemy position ${:?}",enemy_info.position );
-                let new_enemy_info = if enemy_info.action == FALL.clone() {
-                    if sprite.index == animation.last {
-                        info!("Enemy recovery....");
-                        enemy_info.number_of_hits = 0;
-                        enemy_info.action = STAND.clone();
-                    } else {
-                        let (x, y) = enemy_info.action.get_values();
-                        enemy_info.position = Vec2::new(enemy_info.position.clone().x - x, enemy_info.position.clone().y - y);
-                    }
+                info!("Enemy actions ${:?} sprite ${:?}",enemy_info.action, sprite.index );
+                // let new_enemy_info = if enemy_info.action == FALL.clone() {
+                //     enemy_fall_logic(animation, &mut sprite, &mut transform, enemy_info)
+                let new_enemy_info = if animation.action == RECOVERY.clone() && sprite.index == animation.last {
+                    info!("Enemy recover");
+                    enemy_info.action = STAND.clone();
                     enemy_info
+                } else if animation.action == FALL.clone() {
+                    enemy_fall_logic(animation, &mut sprite, &mut transform, enemy_info)
                 } else {
                     let distance = distance(&game_info.player_info.position, &enemy_info.position);
-                    let new_enemy_info = if distance <= ATTACK_REACH {
+                    if distance <= ATTACK_REACH {
                         enemy_attack_logic(&mut game_info, enemy_info, &mut sprite, &mut transform)
                     } else {
                         follow_logic(&mut game_info, enemy_info, &mut sprite, &mut transform)
-                    };
-                    new_enemy_info
+                    }
                 };
                 sprite.index = move_sprite(animation.first.clone(), animation.last.clone(), &mut sprite);
                 transform.scale = Vec3::splat(3.5);
@@ -408,7 +416,6 @@ fn enemy_attack_logic(
 
 fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
     game_info.player_info.action = if game_info.player_info.number_of_hits >= 100 {
-        info!("Player falling ");
         FALL.clone()
     } else {
         match game_info.enemy_info.action {
@@ -423,6 +430,20 @@ fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
             _ => game_info.player_info.action,
         }
     }
+}
+
+/// Logic to detect
+fn enemy_fall_logic(animation: &EnemyAnimation, sprite: &mut TextureAtlasSprite, transform: &mut Transform, mut enemy_info: EnemyInfo) -> EnemyInfo {
+    if sprite.index == animation.last {
+        info!("Enemy recovering.");
+        enemy_info.number_of_hits = 0;
+        enemy_info.action = RECOVERY.clone();
+    } else {
+        let (x, y) = enemy_info.action.get_values();
+        transform.translation = Vec3::new(enemy_info.position.x, enemy_info.position.y, 2.0);
+        enemy_info.position = Vec2::new(enemy_info.position.clone().x - x, enemy_info.position.clone().y - y);
+    }
+    enemy_info
 }
 
 
@@ -522,7 +543,7 @@ fn setup_player(player_name: &str,
                 mut commands: &mut Commands,
                 asset_server: &Res<AssetServer>,
                 mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                characters: &HashMap<&str, [CharacterStats; 10]>) {
+                characters: &HashMap<&str, [CharacterStats; 11]>) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
     };
@@ -544,7 +565,7 @@ fn setup_enemy(enemy_name: &str,
                mut commands: &mut Commands,
                asset_server: &Res<AssetServer>,
                mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-               characters: &HashMap<&str, [CharacterStats; 10]>, ) {
+               characters: &HashMap<&str, [CharacterStats; 11]>, ) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return EnemyAnimation { action, first: rows - 1, last: columns - 1 };
     };
@@ -656,7 +677,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
     )
 }
 
-fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
+fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
     HashMap::from([
         ("ryu.png", [
             CharacterStats { action: STAND.clone(), x: 50.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
@@ -668,7 +689,8 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: HIT_FACE.clone(), x: 55.5, y: 90.0, column: 4, row: 1, offset: Vec2::new(215.0, 745.0) },
             CharacterStats { action: HIT_BODY.clone(), x: 50.0, y: 90.0, column: 4, row: 1, offset: Vec2::new(4.0, 745.0) },
             CharacterStats { action: FALL.clone(), x: 76.0, y: 95.0, column: 5, row: 1, offset: Vec2::new(1160.0, 740.0) },
-            CharacterStats { action: DOWN.clone(), x: 35.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
+            CharacterStats { action: RECOVERY.clone(), x: 58.0, y: 106.0, column: 4, row: 1, offset: Vec2::new(771.0, 728.0) },
+            CharacterStats { action: DOWN.clone(), x: 45.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1158.0, 0.0) },
         ]),
     ])
 }
