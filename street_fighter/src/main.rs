@@ -2,6 +2,7 @@
 //! into a texture atlas, and changing the displayed image periodically.
 
 use std::collections::HashMap;
+use std::thread;
 use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
@@ -13,6 +14,7 @@ fn main() {
     App::new()
         .add_plugins(setup_window())
         .add_systems(Startup, setup_sprites)
+        .add_systems(Startup, setup_fight_audio)
         .add_systems(Update, keyboard_update)
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_enemy)
@@ -235,6 +237,8 @@ fn keyboard_update(
 /// We use [Transform] in case we want to move the Sprite in the screen.
 fn animate_player(
     time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
     mut game_info: ResMut<GameInfo>,
     mut query: Query<(&PlayerAnimation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform,
     )>,
@@ -246,6 +250,12 @@ fn animate_player(
             player_under_attack(&mut game_info);
             if animation.action == game_info.player_info.action {
                 info!("Player actions ${:?} sprite ${:?}",game_info.player_info.action, sprite.index );
+                if animation.action == HADOKEN.clone() && sprite.index == animation.last {
+                    commands.spawn(AudioBundle {
+                        source: asset_server.load("hadooken.ogg"),
+                        settings: PlaybackSettings::REMOVE,
+                    });
+                }
                 if animation.action == RECOVERY.clone() && sprite.index == animation.last {
                     info!("Player recover");
                     game_info.player_info.action = STAND.clone()
@@ -275,6 +285,8 @@ fn animate_player(
 
 fn animate_enemy(
     time: Res<Time>,
+    asset_server: Res<AssetServer>,
+    mut commands: Commands,
     mut game_info: ResMut<GameInfo>,
     mut query: Query<(&EnemyAnimation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
 ) {
@@ -285,8 +297,14 @@ fn animate_enemy(
             let mut enemy_info = game_info.enemy_info;
             if animation.action == enemy_info.action {
                 info!("Enemy actions ${:?} sprite ${:?}",enemy_info.action, sprite.index );
+                if animation.action == HADOKEN.clone() && sprite.index == animation.last {
+                    commands.spawn(AudioBundle {
+                        source: asset_server.load("shoryuken.ogg"),
+                        settings: PlaybackSettings::REMOVE,
+                    });
+                }
                 let new_enemy_info = if animation.action == RECOVERY.clone() && sprite.index == animation.last {
-                    info!("Enemy recover");
+                    info!("Enemy recovery");
                     enemy_info.action = STAND.clone();
                     enemy_info
                 } else if animation.action == FALL.clone() {
@@ -506,12 +524,8 @@ fn enemy_fall_logic(animation: &EnemyAnimation, sprite: &mut TextureAtlasSprite,
 fn throw_dice() -> GameAction {
     let mut rng = rand::thread_rng();
     match rng.gen_range(0..8) {
-        // 1 | 2 => FIST.clone(),
-        // 3 | 4 => KICK.clone(),
-        // 5 | 6 => HADOKEN.clone(),
-        // _ => STAND.clone(),
-        1 | 2 => HADOKEN.clone(),
-        3 | 4 => HADOKEN.clone(),
+        1 | 2 => FIST.clone(),
+        3 | 4 => KICK.clone(),
         5 | 6 => HADOKEN.clone(),
         _ => STAND.clone(),
     }
@@ -755,6 +769,16 @@ fn setup_window() -> (PluginGroupBuilder, ) {
     )
 }
 
+fn setup_fight_audio(asset_server: Res<AssetServer>, mut commands: Commands) {
+    let duration = Duration::from_secs(1);
+    thread::sleep(duration);
+    commands.spawn(AudioBundle {
+        source: asset_server.load("fight.ogg"),
+        settings: PlaybackSettings::REMOVE,
+    });
+}
+
+
 fn create_characters() -> HashMap<&'static str, [CharacterStats; 14]> {
     HashMap::from([
         ("ryu.png", [
@@ -772,7 +796,6 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 14]> {
             CharacterStats { action: DOWN.clone(), x: 45.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1158.0, 0.0) },
             CharacterStats { action: BLOCK.clone(), x: 50.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1210.0, 0.0) },
             CharacterStats { action: HADOKEN.clone(), x: 72.0, y: 83.0, column: 3, row: 1, offset: Vec2::new(58.0, 632.0) },
-
         ]),
         ("ken.png", [
             CharacterStats { action: STAND.clone(), x: 50.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
