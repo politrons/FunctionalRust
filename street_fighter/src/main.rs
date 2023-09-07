@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use rand::Rng;
-use crate::GameAction::{UpFist, Down, Fall, Fist, HitFace, Left, Move, Kick, Stand, Up, HitBody, Recovery, Block};
+use crate::GameAction::{UpFist, Down, Fall, Fist, HitFace, Left, Right, Kick, Stand, Up, HitBody, Recovery, Block};
 use crate::GamePlayers::{Enemy, Player};
 
 fn main() {
@@ -35,7 +35,8 @@ const ENEMY_INIT_POSITION: Vec2 = Vec2::new(300.0, -250.0);
 
 /// Actions and the movement for each
 static STAND: GameAction = Stand(0.0, 0.0);
-static MOVE: GameAction = Move(PLAYER_STEP, 0.0);
+static RIGHT: GameAction = Right(PLAYER_STEP, 0.0);
+static LEFT: GameAction = Left(-PLAYER_STEP, 0.0);
 static FALL: GameAction = Fall(-50.0, 0.0);
 static RECOVERY: GameAction = Recovery(0.0, 0.0);
 static UP_FIST: GameAction = UpFist(0.0, 0.0);
@@ -70,7 +71,7 @@ impl GameInfo {
             enemy_info: EnemyInfo {
                 number_of_hits: 0,
                 life: 100.0,
-                action: MOVE.clone(),
+                action: LEFT.clone(),
                 position: ENEMY_INIT_POSITION,
                 left_orientation: false,
             },
@@ -111,7 +112,7 @@ struct EnemyInfo {
 #[derive(Clone, PartialEq, Debug, Copy)]
 enum GameAction {
     Stand(f32, f32),
-    Move(f32, f32),
+    Right(f32, f32),
     Left(f32, f32),
     Up(f32, f32),
     HitBody(f32, f32),
@@ -135,7 +136,7 @@ impl GameAction {
     fn get_values(&self) -> (f32, f32) {
         match self {
             Stand(value1, value2)
-            | Move(value1, value2)
+            | Right(value1, value2)
             | Left(value1, value2)
             | Up(value1, value2)
             | HitBody(value1, value2)
@@ -192,27 +193,18 @@ fn keyboard_update(
     mut game_info: ResMut<GameInfo>,
 ) {
     if keyboard_input.pressed(KeyCode::Right) && keyboard_input.pressed(KeyCode::Up) {
-        game_info.player_info.action = MOVE.clone();
-        game_info.player_info.left_orientation = false;
-    } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Right) {
-        game_info.player_info.action = FALL.clone();
-        game_info.player_info.left_orientation = false;
-    } else if keyboard_input.pressed(KeyCode::Down) && keyboard_input.pressed(KeyCode::Left) {
-        game_info.player_info.action = FALL.clone();
-        game_info.player_info.left_orientation = true;
+        game_info.player_info.action = RIGHT.clone();
     } else if keyboard_input.pressed(KeyCode::Up) && keyboard_input.pressed(KeyCode::A) {
         game_info.player_info.action = UP_FIST.clone();
     } else if keyboard_input.pressed(KeyCode::Up) {
         game_info.player_info.action = UP.clone();
     } else if keyboard_input.pressed(KeyCode::Right) {
-        game_info.player_info.action = MOVE.clone();
-        game_info.player_info.left_orientation = false;
+        game_info.player_info.action = RIGHT.clone();
     } else if keyboard_input.pressed(KeyCode::Left) {
         if game_info.enemy_info.action == FIST || game_info.enemy_info.action == KICK {
             game_info.player_info.action = BLOCK.clone();
         } else {
-            game_info.player_info.action = MOVE.clone();
-            game_info.player_info.left_orientation = true;
+            game_info.player_info.action = LEFT.clone();
         }
     } else if keyboard_input.pressed(KeyCode::Down) {
         game_info.player_info.action = DOWN.clone();
@@ -392,13 +384,13 @@ fn follow_logic(
     let direction = subtract(&game_info.player_info.position, &enemy_info.position);
     let normalized_direction = normalize(&direction);
     let movement = multiply(&normalized_direction, &ENEMY_STEP);
-    enemy_info.action = MOVE.clone();
+    enemy_info.action = RIGHT.clone();
     if movement.x < 0.0 {
         sprite.flip_x = true;
-        enemy_info.left_orientation = true;
+        enemy_info.action = LEFT.clone();
     } else {
         sprite.flip_x = false;
-        enemy_info.left_orientation = false;
+        enemy_info.action = RIGHT.clone();
     }
     let new_movement = Vec2::new(enemy_info.clone().position.x + movement.x, enemy_info.clone().position.y + movement.y);
     enemy_info.position = new_movement.clone();
@@ -535,7 +527,6 @@ fn setup_sprites(
     setup_enemy_image(&mut commands, &asset_server, &mut texture_atlases);
     setup_player_life_bar(&mut commands);
     setup_enemy_life_bar(&mut commands);
-
     setup_player("ryu.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
     setup_enemy("ken.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
 }
@@ -608,7 +599,7 @@ fn setup_player(player_name: &str,
                 mut commands: &mut Commands,
                 asset_server: &Res<AssetServer>,
                 mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                characters: &HashMap<&str, [CharacterStats; 12]>) {
+                characters: &HashMap<&str, [CharacterStats; 13]>) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
     };
@@ -630,7 +621,7 @@ fn setup_enemy(enemy_name: &str,
                mut commands: &mut Commands,
                asset_server: &Res<AssetServer>,
                mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-               characters: &HashMap<&str, [CharacterStats; 12]>, ) {
+               characters: &HashMap<&str, [CharacterStats; 13]>, ) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return EnemyAnimation { action, first: rows - 1, last: columns - 1 };
     };
@@ -750,11 +741,12 @@ fn setup_window() -> (PluginGroupBuilder, ) {
     )
 }
 
-fn create_characters() -> HashMap<&'static str, [CharacterStats; 12]> {
+fn create_characters() -> HashMap<&'static str, [CharacterStats; 13]> {
     HashMap::from([
         ("ryu.png", [
             CharacterStats { action: STAND.clone(), x: 50.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
-            CharacterStats { action: MOVE.clone(), x: 49.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(202.5, 0.0) },
+            CharacterStats { action: RIGHT.clone(), x: 49.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(202.5, 0.0) },
+            CharacterStats { action: LEFT.clone(), x: 49.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(202.5, 0.0) },
             CharacterStats { action: UP.clone(), x: 39.0, y: 104.0, column: 6, row: 1, offset: Vec2::new(500.0, 0.0) },
             CharacterStats { action: UP_FIST.clone(), x: 50.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(3.0, 520.0) },
             CharacterStats { action: FIST.clone(), x: 55.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(0.0, 120.0) },
@@ -768,7 +760,8 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 12]> {
         ]),
         ("ken.png", [
             CharacterStats { action: STAND.clone(), x: 50.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
-            CharacterStats { action: MOVE.clone(), x: 49.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(202.5, 0.0) },
+            CharacterStats { action: RIGHT.clone(), x: 49.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(202.5, 0.0) },
+            CharacterStats { action: LEFT.clone(), x: 49.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(202.5, 0.0) },
             CharacterStats { action: UP.clone(), x: 39.0, y: 104.0, column: 6, row: 1, offset: Vec2::new(500.0, 0.0) },
             CharacterStats { action: UP_FIST.clone(), x: 50.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(3.0, 520.0) },
             CharacterStats { action: FIST.clone(), x: 55.0, y: 95.0, column: 3, row: 1, offset: Vec2::new(0.0, 120.0) },
