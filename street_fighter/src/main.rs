@@ -475,6 +475,10 @@ fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
                     game_info.player_info.number_of_hits += 1;
                     HIT_BODY.clone()
                 }
+                Hadoken(_, _) => {
+                    game_info.player_info.number_of_hits += 1;
+                    HIT_BODY.clone()
+                }
                 Kick(_, _) => {
                     game_info.player_info.number_of_hits += 1;
                     HIT_FACE.clone()
@@ -501,9 +505,14 @@ fn enemy_fall_logic(animation: &EnemyAnimation, sprite: &mut TextureAtlasSprite,
 
 fn throw_dice() -> GameAction {
     let mut rng = rand::thread_rng();
-    match rng.gen_range(0..6) {
-        1 | 2 => FIST.clone(),
-        3 | 4 => KICK.clone(),
+    match rng.gen_range(0..8) {
+        // 1 | 2 => FIST.clone(),
+        // 3 | 4 => KICK.clone(),
+        // 5 | 6 => HADOKEN.clone(),
+        // _ => STAND.clone(),
+        1 | 2 => HADOKEN.clone(),
+        3 | 4 => HADOKEN.clone(),
+        5 | 6 => HADOKEN.clone(),
         _ => STAND.clone(),
     }
 }
@@ -779,7 +788,7 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 14]> {
             CharacterStats { action: RECOVERY.clone(), x: 58.0, y: 106.0, column: 4, row: 1, offset: Vec2::new(771.0, 750.0) },
             CharacterStats { action: DOWN.clone(), x: 45.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1158.0, 0.0) },
             CharacterStats { action: BLOCK.clone(), x: 50.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1210.0, 0.0) },
-            CharacterStats { action: HADOKEN.clone(), x: 72.0, y: 81.0, column: 3, row: 1, offset: Vec2::new(58.0, 620.0) },
+            CharacterStats { action: HADOKEN.clone(), x: 52.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(381.0, 635.0) },
         ]),
     ])
 }
