@@ -559,7 +559,7 @@ fn setup_background_static_people(mut commands: &mut Commands, asset_server: &Re
 fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let atlas_handle = create_image("ryu.png", 76.0, 110.0, Vec2::new(885.0, 845.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
-    transform.translation = Vec3::new(-600.0, 350.0, 2.0);
+    transform.translation = Vec3::new(-600.0, 350.0, 1.0);
     transform.scale = Vec3::splat(1.0);
     image_spawn(&mut commands, atlas_handle, transform);
 }
@@ -567,7 +567,7 @@ fn setup_player_image(mut commands: &mut Commands, asset_server: &Res<AssetServe
 fn setup_enemy_image(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let atlas_handle = create_image("ken.png", 76.0, 110.0, Vec2::new(712.0, 875.0), asset_server, texture_atlases);
     let mut transform = Transform::default();
-    transform.translation = Vec3::new(400.0, 350.0, 2.0);
+    transform.translation = Vec3::new(400.0, 350.0, 1.0);
     transform.scale = Vec3::splat(1.0);
     image_spawn(&mut commands, atlas_handle, transform);
 }
