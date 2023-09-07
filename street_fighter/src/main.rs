@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use rand::Rng;
-use crate::GameAction::{UpFist, Down, Fall, Fist, HitFace, Left, Right, Kick, Stand, Up, HitBody, Recovery, Block};
+use crate::GameAction::{UpFist, Down, Fall, Fist, HitFace, Left, Right, Kick, Stand, Up, HitBody, Recovery, Block, Hadoken};
 use crate::GamePlayers::{Enemy, Player};
 
 fn main() {
@@ -47,6 +47,7 @@ static HIT_BODY: GameAction = HitBody(0.0, 0.0);
 static UP: GameAction = Up(0.0, 0.0);
 static DOWN: GameAction = Down(0.0, 0.0);
 static BLOCK: GameAction = Block(0.0, 0.0);
+static HADOKEN: GameAction = Hadoken(0.0, 0.0);
 
 
 /// Game info type with all game info needed for business logic
@@ -124,6 +125,7 @@ enum GameAction {
     Fist(f32, f32),
     Kick(f32, f32),
     Block(f32, f32),
+    Hadoken(f32, f32),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -143,6 +145,7 @@ impl GameAction {
             | HitFace(value1, value2)
             | Down(value1, value2)
             | Block(value1, value2)
+            | Hadoken(value1, value2)
             | Fall(value1, value2)
             | Recovery(value1, value2)
             | UpFist(value1, value2)
@@ -212,10 +215,8 @@ fn keyboard_update(
         game_info.player_info.action = FIST.clone();
     } else if keyboard_input.pressed(KeyCode::S) {
         game_info.player_info.action = KICK.clone();
-    } else if keyboard_input.pressed(KeyCode::H) {
-        game_info.player_info.action = HIT_FACE.clone();
-    } else if keyboard_input.pressed(KeyCode::B) {
-        game_info.player_info.action = HIT_BODY.clone();
+    } else if keyboard_input.pressed(KeyCode::D) {
+        game_info.player_info.action = HADOKEN.clone();
     } else {
         if game_info.player_info.action == RECOVERY {
             game_info.player_info.action = game_info.player_info.action
@@ -437,6 +438,10 @@ fn enemy_attack_logic(
                 enemy_info.number_of_hits += 1;
                 HIT_BODY.clone()
             }
+            Hadoken(_, _) => {
+                enemy_info.number_of_hits += 1;
+                HIT_BODY.clone()
+            }
             Kick(_, _) => {
                 enemy_info.number_of_hits += 1;
                 HIT_FACE.clone()
@@ -599,7 +604,7 @@ fn setup_player(player_name: &str,
                 mut commands: &mut Commands,
                 asset_server: &Res<AssetServer>,
                 mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                characters: &HashMap<&str, [CharacterStats; 13]>) {
+                characters: &HashMap<&str, [CharacterStats; 14]>) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
     };
@@ -621,7 +626,7 @@ fn setup_enemy(enemy_name: &str,
                mut commands: &mut Commands,
                asset_server: &Res<AssetServer>,
                mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-               characters: &HashMap<&str, [CharacterStats; 13]>, ) {
+               characters: &HashMap<&str, [CharacterStats; 14]>, ) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return EnemyAnimation { action, first: rows - 1, last: columns - 1 };
     };
@@ -741,7 +746,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
     )
 }
 
-fn create_characters() -> HashMap<&'static str, [CharacterStats; 13]> {
+fn create_characters() -> HashMap<&'static str, [CharacterStats; 14]> {
     HashMap::from([
         ("ryu.png", [
             CharacterStats { action: STAND.clone(), x: 50.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
@@ -757,6 +762,8 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 13]> {
             CharacterStats { action: RECOVERY.clone(), x: 58.0, y: 106.0, column: 4, row: 1, offset: Vec2::new(771.0, 728.0) },
             CharacterStats { action: DOWN.clone(), x: 45.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1158.0, 0.0) },
             CharacterStats { action: BLOCK.clone(), x: 50.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1210.0, 0.0) },
+            CharacterStats { action: HADOKEN.clone(), x: 72.0, y: 83.0, column: 3, row: 1, offset: Vec2::new(58.0, 632.0) },
+
         ]),
         ("ken.png", [
             CharacterStats { action: STAND.clone(), x: 50.0, y: 104.0, column: 4, row: 1, offset: Vec2::new(0.0, 0.0) },
@@ -772,6 +779,7 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 13]> {
             CharacterStats { action: RECOVERY.clone(), x: 58.0, y: 106.0, column: 4, row: 1, offset: Vec2::new(771.0, 750.0) },
             CharacterStats { action: DOWN.clone(), x: 45.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1158.0, 0.0) },
             CharacterStats { action: BLOCK.clone(), x: 50.0, y: 104.0, column: 1, row: 1, offset: Vec2::new(1210.0, 0.0) },
+            CharacterStats { action: HADOKEN.clone(), x: 72.0, y: 81.0, column: 3, row: 1, offset: Vec2::new(58.0, 620.0) },
         ]),
     ])
 }
