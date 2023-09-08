@@ -34,6 +34,8 @@ Clone the repo, and run ```Main``` class
 
 ```S``` Kick.
 
+```D``` Hadoken.
+
 ```<-``` Block under attack.
 
 
