@@ -6,6 +6,8 @@ Street Fighter 2 Game Engine Using [Bevy](https://bevyengine.org)
 
 All used Sprites are coming from  [spriters-resource](https://www.spriters-resource.com)
 
+You can also find the [crates.io](https://crates.io/crates/street_fighter)
+
 
 https://github.com/politrons/FunctionalRust/assets/2054461/ae9d5aa3-f7c7-4915-ae18-b11ba785d382
 

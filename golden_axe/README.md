@@ -19,7 +19,7 @@ Golden Axe Game Engine Using [Bevy](https://bevyengine.org)
 
 All used Sprites are coming from  [spriters-resource](https://www.spriters-resource.com)
 
-[//]: # (You can also find the [crates.io]&#40;https://crates.io/crates/dragon_ball&#41; )
+You can also find the [crates.io](https://crates.io/crates/golden_axe)
 
 ## Sprites
 
