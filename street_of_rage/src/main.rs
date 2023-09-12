@@ -15,7 +15,7 @@ fn main() {
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_background)
         .add_systems(Update, animate_enemy_1)
-        // .add_systems(Update, animate_enemy_2)
+        .add_systems(Update, animate_enemy_2)
         // .add_systems(Update, animate_enemy_3)
         // .add_systems(Update, animate_enemy_4)
 
@@ -33,12 +33,12 @@ fn main() {
                 left_orientation: false,
                 number_of_hits: 0,
             },
-            // enemy_2_info: EnemyInfo {
-            //     action: MOVE.clone(),
-            //     position: ENEMY_2_INIT_POSITION,
-            //     left_orientation: false,
-            //     number_of_hits: 0,
-            // },
+            enemy_2_info: EnemyInfo {
+                action: MOVE.clone(),
+                position: ENEMY_2_INIT_POSITION,
+                left_orientation: false,
+                number_of_hits: 0,
+            },
             // enemy_3_info: EnemyInfo {
             //     action: MOVE.clone(),
             //     position: ENEMY_3_INIT_POSITION,
@@ -64,7 +64,7 @@ const ENEMY_STEP: f32 = 5.0;
 const PLAYER_STEP: f32 = 10.0;
 const NUMBER_OF_HITS: usize = 10;
 const ENEMY_1_INIT_POSITION: Vec2 = Vec2::new(200.0, -600.0);
-const ENEMY_2_INIT_POSITION: Vec2 = Vec2::new(800.0, -400.0);
+const ENEMY_2_INIT_POSITION: Vec2 = Vec2::new(400.0, -400.0);
 const ENEMY_3_INIT_POSITION: Vec2 = Vec2::new(0.0, -700.0);
 const ENEMY_4_INIT_POSITION: Vec2 = Vec2::new(300.0, -700.0);
 
@@ -96,7 +96,7 @@ struct CharacterStats {
 struct GameInfo {
     player_info: PlayerInfo,
     enemy_1_info: EnemyInfo,
-    // enemy_2_info: EnemyInfo,
+    enemy_2_info: EnemyInfo,
     // enemy_3_info: EnemyInfo,
     // enemy_4_info: EnemyInfo,
 }
@@ -320,24 +320,24 @@ fn animate_enemy_1(
         }
     }
 }
-//
-// fn animate_enemy_2(
-//     time: Res<Time>,
-//     mut game_info: ResMut<GameInfo>,
-//     mut query: Query<(&Enemy2Animation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
-// ) {
-//     for (animation, mut timer, mut sprite, mut transform) in &mut query {
-//         timer.tick(time.delta());
-//         if timer.just_finished() {
-//             transform.scale = Vec3::splat(0.0);
-//             let enemy_info = game_info.enemy_2_info;
-//             let (action, position, left_orientation, number_of_hits) =
-//                 enemy_logic(&mut game_info, ENEMY_2_INIT_POSITION, enemy_info, animation.action,
-//                             animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
-//             game_info.enemy_2_info = EnemyInfo { action, position, left_orientation, number_of_hits }
-//         }
-//     }
-// }
+
+fn animate_enemy_2(
+    time: Res<Time>,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(&Enemy2Animation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
+) {
+    for (animation, mut timer, mut sprite, mut transform) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            transform.scale = Vec3::splat(0.0);
+            let enemy_info = game_info.enemy_2_info;
+            let (action, position, left_orientation, number_of_hits) =
+                enemy_logic(&mut game_info, ENEMY_2_INIT_POSITION, enemy_info, animation.action,
+                            animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
+            game_info.enemy_2_info = EnemyInfo { action, position, left_orientation, number_of_hits }
+        }
+    }
+}
 //
 // fn animate_enemy_3(
 //     time: Res<Time>,
@@ -545,10 +545,10 @@ fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, m
     };
     setup_enemy("punk.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_1_func);
 
-    // let animation_2_func = |action: GameAction, rows: usize, columns: usize| {
-    //     return Enemy2Animation { action, first: rows - 1, last: columns - 1 };
-    // };
-    // setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_2_func);
+    let animation_2_func = |action: GameAction, rows: usize, columns: usize| {
+        return Enemy2Animation { action, first: rows - 1, last: columns - 1 };
+    };
+    setup_enemy("skin.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_2_func);
     //
     // let animation_3_func = |action: GameAction, rows: usize, columns: usize| {
     //     return Enemy3Animation { action, first: rows - 1, last: columns - 1 };
