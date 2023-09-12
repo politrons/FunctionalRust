@@ -677,10 +677,10 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: UP.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0) },
             CharacterStats { action: DOWN_MOVE.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0) },
             CharacterStats { action: DOWN.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0) },
-            CharacterStats { action: FIGHT.clone(), x: 56.0, y: 80.0, column: 6, row: 1, offset: Vec2::new(0.0, 185.0) },
+            CharacterStats { action: FIGHT.clone(), x: 66.5, y: 100.0, column: 6, row: 1, offset: Vec2::new(5.0, 1124.0) },
             CharacterStats { action: HIT.clone(), x: 65.0, y: 75.0, column: 2, row: 1, offset: Vec2::new(0.0, 560.0) },
             CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(140.0, 560.0) },
-            CharacterStats { action: RUN.clone(), x: 55.0, y: 65.0, column: 4, row: 1, offset: Vec2::new(0.0, 100.0) },
+            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(5.0, 100.0) },
         ]),
     ])
 }
