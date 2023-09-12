@@ -14,8 +14,7 @@ fn main() {
         .add_systems(Update, keyboard_update)
         .add_systems(Update, animate_player)
         .add_systems(Update, animate_background)
-
-        // .add_systems(Update, animate_enemy_1)
+        .add_systems(Update, animate_enemy_1)
         // .add_systems(Update, animate_enemy_2)
         // .add_systems(Update, animate_enemy_3)
         // .add_systems(Update, animate_enemy_4)
@@ -28,12 +27,12 @@ fn main() {
                 action: STAND.clone(),
                 number_of_hits: 0,
             },
-            // enemy_1_info: EnemyInfo {
-            //     action: MOVE.clone(),
-            //     position: ENEMY_1_INIT_POSITION,
-            //     left_orientation: false,
-            //     number_of_hits: 0,
-            // },
+            enemy_1_info: EnemyInfo {
+                action: MOVE.clone(),
+                position: ENEMY_1_INIT_POSITION,
+                left_orientation: false,
+                number_of_hits: 0,
+            },
             // enemy_2_info: EnemyInfo {
             //     action: MOVE.clone(),
             //     position: ENEMY_2_INIT_POSITION,
@@ -64,7 +63,7 @@ const ATTACK_REACH: f32 = 70.0;
 const ENEMY_STEP: f32 = 5.0;
 const PLAYER_STEP: f32 = 10.0;
 const NUMBER_OF_HITS: usize = 10;
-const ENEMY_1_INIT_POSITION: Vec2 = Vec2::new(800.0, -200.0);
+const ENEMY_1_INIT_POSITION: Vec2 = Vec2::new(50.0, -50.0);
 const ENEMY_2_INIT_POSITION: Vec2 = Vec2::new(800.0, -400.0);
 const ENEMY_3_INIT_POSITION: Vec2 = Vec2::new(0.0, -700.0);
 const ENEMY_4_INIT_POSITION: Vec2 = Vec2::new(300.0, -700.0);
@@ -96,7 +95,7 @@ struct CharacterStats {
 #[derive(Resource)]
 struct GameInfo {
     player_info: PlayerInfo,
-    // enemy_1_info: EnemyInfo,
+    enemy_1_info: EnemyInfo,
     // enemy_2_info: EnemyInfo,
     // enemy_3_info: EnemyInfo,
     // enemy_4_info: EnemyInfo,
@@ -306,23 +305,23 @@ fn animate_player(
 
 ///  Animation for all Enemies we render in the game. All of them invoke generic enemy animation logic [enemy_logic]
 
-// fn animate_enemy_1(
-//     time: Res<Time>,
-//     mut game_info: ResMut<GameInfo>,
-//     mut query: Query<(&Enemy1Animation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
-// ) {
-//     for (animation, mut timer, mut sprite, mut transform) in &mut query {
-//         timer.tick(time.delta());
-//         if timer.just_finished() {
-//             transform.scale = Vec3::splat(0.0);
-//             let enemy_info = game_info.enemy_1_info;
-//             let (action, position, left_orientation, number_of_hits) =
-//                 enemy_logic(&mut game_info, ENEMY_1_INIT_POSITION, enemy_info, animation.action,
-//                             animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
-//             game_info.enemy_1_info = EnemyInfo { action, position, left_orientation, number_of_hits }
-//         }
-//     }
-// }
+fn animate_enemy_1(
+    time: Res<Time>,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(&Enemy1Animation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
+) {
+    for (animation, mut timer, mut sprite, mut transform) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            transform.scale = Vec3::splat(0.0);
+            let enemy_info = game_info.enemy_1_info;
+            let (action, position, left_orientation, number_of_hits) =
+                enemy_logic(&mut game_info, ENEMY_1_INIT_POSITION, enemy_info, animation.action,
+                            animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
+            game_info.enemy_1_info = EnemyInfo { action, position, left_orientation, number_of_hits }
+        }
+    }
+}
 //
 // fn animate_enemy_2(
 //     time: Res<Time>,
@@ -445,7 +444,7 @@ fn follow_logic(
     }
     let new_movement = Vec2::new(enemy_info.clone().position.x + movement.x, enemy_info.clone().position.y + movement.y);
     enemy_info.position = new_movement.clone();
-    transform.translation = Vec3::new(new_movement.x, new_movement.y, 1.0);
+    transform.translation = Vec3::new(new_movement.x, new_movement.y, 2.0);
     enemy_info
 }
 
@@ -500,28 +499,30 @@ fn enemy_attack_logic(
     if enemy_info.left_orientation {
         sprite.flip_x = true;
     }
-    transform.translation = Vec3::new(enemy_info.position.clone().x, enemy_info.position.clone().y, 1.0);
+    transform.translation = Vec3::new(enemy_info.position.clone().x, enemy_info.position.clone().y, 2.0);
     enemy_info
 }
 
 fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
-    // if game_info.player_info.number_of_hits >= NUMBER_OF_HITS {
-    //     info!("Player Life ${:?}", game_info.player_info.life);
-    //     if game_info.player_info.life > 0 {
-    //         game_info.player_info.life -= 1;
-    //     }
-    //     game_info.player_info.action = DEAD.clone();
-    //     game_info.player_info.number_of_hits = 0;
-    // } else if game_info.enemy_1_info.action == FIGHT ||
-    //     game_info.enemy_3_info.action == FIGHT ||
-    //     game_info.enemy_3_info.action == FIGHT ||
-    //     game_info.enemy_4_info.action == FIGHT && game_info.player_info.action != FIGHT {
-    //     game_info.player_info.action = HIT.clone();
-    // }
+    if game_info.player_info.number_of_hits >= NUMBER_OF_HITS {
+        info!("Player Life ${:?}", game_info.player_info.life);
+        if game_info.player_info.life > 0 {
+            game_info.player_info.life -= 1;
+        }
+        game_info.player_info.action = DEAD.clone();
+        game_info.player_info.number_of_hits = 0;
+    } else if game_info.enemy_1_info.action == FIGHT
+        // game_info.enemy_3_info.action == FIGHT ||
+        // game_info.enemy_3_info.action == FIGHT ||
+        // game_info.enemy_4_info.action == FIGHT
+            && game_info.player_info.action != FIGHT {
+        game_info.player_info.action = HIT.clone();
+    }
 }
 
-/// Setup game
-/// -----------
+/// --------------
+///   Setup game
+/// --------------
 
 /// Bevy provide a [Startup] config, where we need to provide an implementation receiving the
 /// system properties that allow us to establish the game settings to be used later on.
@@ -537,30 +538,30 @@ fn setup_sprites(
     commands.spawn(Camera2dBundle::default());
     setup_background(&mut commands, &asset_server, &mut texture_atlases);
     setup_player("axel.png", &mut commands, &asset_server, &mut texture_atlases, &characters);
-    // setup_enemies(&mut commands, &asset_server, &mut texture_atlases, &characters);
+    setup_enemies(&mut commands, &asset_server, &mut texture_atlases, &characters);
 }
 
-// fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, characters: &HashMap<&str, [CharacterStats; 10]>) {
-//     let animation_1_func = |action: GameAction, rows: usize, columns: usize| {
-//         return Enemy1Animation { action, first: rows - 1, last: columns - 1 };
-//     };
-//     setup_enemy("Storchinaya.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_1_func);
-//
-//     let animation_2_func = |action: GameAction, rows: usize, columns: usize| {
-//         return Enemy2Animation { action, first: rows - 1, last: columns - 1 };
-//     };
-//     setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_2_func);
-//
-//     let animation_3_func = |action: GameAction, rows: usize, columns: usize| {
-//         return Enemy3Animation { action, first: rows - 1, last: columns - 1 };
-//     };
-//     setup_enemy("Storchinaya.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_3_func);
-//
-//     let animation_4_func = |action: GameAction, rows: usize, columns: usize| {
-//         return Enemy4Animation { action, first: rows - 1, last: columns - 1 };
-//     };
-//     setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_4_func);
-// }
+fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, characters: &HashMap<&str, [CharacterStats; 10]>) {
+    let animation_1_func = |action: GameAction, rows: usize, columns: usize| {
+        return Enemy1Animation { action, first: rows - 1, last: columns - 1 };
+    };
+    setup_enemy("punk.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_1_func);
+
+    // let animation_2_func = |action: GameAction, rows: usize, columns: usize| {
+    //     return Enemy2Animation { action, first: rows - 1, last: columns - 1 };
+    // };
+    // setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_2_func);
+    //
+    // let animation_3_func = |action: GameAction, rows: usize, columns: usize| {
+    //     return Enemy3Animation { action, first: rows - 1, last: columns - 1 };
+    // };
+    // setup_enemy("Storchinaya.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_3_func);
+    //
+    // let animation_4_func = |action: GameAction, rows: usize, columns: usize| {
+    //     return Enemy4Animation { action, first: rows - 1, last: columns - 1 };
+    // };
+    // setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_4_func);
+}
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let mut player_transform = Transform::default();
@@ -593,26 +594,25 @@ fn setup_player(player_name: &str,
     }
 }
 
-// fn setup_enemy<A: Component, F: Fn(GameAction, usize, usize) -> A>(enemy_name: &str,
-//                                                                    mut commands: &mut Commands,
-//                                                                    asset_server: &Res<AssetServer>,
-//                                                                    mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-//                                                                    characters: &HashMap<&str, [CharacterStats; 10]>,
-//                                                                    animation_func: &F) {
-//     let mut enemy_transform = Transform::default();
-//     enemy_transform.scale = Vec3::splat(2.0);
-//     enemy_transform.translation = Vec3::new(0.0, 0.0, 1.0);
-//     let mut sprite = TextureAtlasSprite::new(0);
-//     sprite.flip_x = true;
-//
-//     for character_stats in characters.get(enemy_name).unwrap() {
-//         let (atlas_handle, animation) =
-//             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
-//                           enemy_name, character_stats.x.clone(), character_stats.y.clone(),
-//                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
-//         sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, enemy_transform);
-//     }
-// }
+fn setup_enemy<A: Component, F: Fn(GameAction, usize, usize) -> A>(enemy_name: &str,
+                                                                   mut commands: &mut Commands,
+                                                                   asset_server: &Res<AssetServer>,
+                                                                   mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+                                                                   characters: &HashMap<&str, [CharacterStats; 10]>,
+                                                                   animation_func: &F) {
+    let mut enemy_transform = Transform::default();
+    enemy_transform.scale = Vec3::splat(2.0);
+    let mut sprite = TextureAtlasSprite::new(0);
+    sprite.flip_x = true;
+
+    for character_stats in characters.get(enemy_name).unwrap() {
+        let (atlas_handle, animation) =
+            create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
+                          enemy_name, character_stats.x.clone(), character_stats.y.clone(),
+                          character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
+        sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, enemy_transform);
+    }
+}
 
 
 fn create_sprite<A: Component, F: Fn(GameAction, usize, usize) -> A>(asset_server: &Res<AssetServer>,
@@ -681,6 +681,18 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: HIT.clone(), x: 65.0, y: 75.0, column: 2, row: 1, offset: Vec2::new(0.0, 560.0) },
             CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(140.0, 560.0) },
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(5.0, 100.0) },
+        ]),
+        ("punk.png", [
+            CharacterStats { action: STAND.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
+            CharacterStats { action: MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
+            CharacterStats { action: UP_MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
+            CharacterStats { action: UP.clone(),x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
+            CharacterStats { action: DOWN_MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(5.0, 0.0) },
+            CharacterStats { action: DOWN.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
+            CharacterStats { action: FIGHT.clone(), x: 66.5, y: 100.0, column: 6, row: 1, offset: Vec2::new(5.0, 1124.0) },
+            CharacterStats { action: HIT.clone(), x: 65.0, y: 75.0, column: 2, row: 1, offset: Vec2::new(155.0, 560.0) },
+            CharacterStats { action: DEAD.clone(), x: 80.0, y: 75.0, column: 4, row: 1, offset: Vec2::new(155.0, 560.0) },
+            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0) },
         ]),
     ])
 }
