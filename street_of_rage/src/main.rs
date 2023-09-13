@@ -64,7 +64,7 @@ const ENEMY_STEP: f32 = 5.0;
 const PLAYER_STEP: f32 = 10.0;
 const NUMBER_OF_HITS: usize = 10;
 const ENEMY_1_INIT_POSITION: Vec2 = Vec2::new(200.0, -600.0);
-const ENEMY_2_INIT_POSITION: Vec2 = Vec2::new(400.0, -400.0);
+const ENEMY_2_INIT_POSITION: Vec2 = Vec2::new(900.0, -100.0);
 const ENEMY_3_INIT_POSITION: Vec2 = Vec2::new(0.0, -700.0);
 const ENEMY_4_INIT_POSITION: Vec2 = Vec2::new(300.0, -700.0);
 
@@ -295,7 +295,7 @@ fn animate_player(
                     transform.translation = Vec3::new(game_info.player_info.position.clone().x + x, game_info.player_info.position.clone().y + y, 1.0);
                 }
                 game_info.player_info.position = Vec2::new(transform.translation.clone().x, transform.translation.clone().y);
-                transform.scale = Vec3::splat(2.2);
+                transform.scale = Vec3::splat(3.5);
             }
         }
     }
@@ -388,7 +388,7 @@ fn enemy_logic(game_info: &mut ResMut<GameInfo>,
 
         return if action == DEAD && sprite.index == last {
             info!("Enemy killed");
-            transform.scale = Vec3::splat(2.2);
+            transform.scale = Vec3::splat(3.5);
             (STAND, enemy_init_position, enemy_info.clone().left_orientation, 0)
         } else {
             let distance = distance(&game_info.player_info.position, &enemy_info.position);
@@ -397,7 +397,7 @@ fn enemy_logic(game_info: &mut ResMut<GameInfo>,
             } else {
                 follow_logic(game_info, enemy_info, &mut sprite, &mut transform)
             };
-            transform.scale = Vec3::splat(2.2);
+            transform.scale = Vec3::splat(3.5);
             (new_enemy_info.action, new_enemy_info.position, new_enemy_info.clone().left_orientation, new_enemy_info.clone().number_of_hits)
         };
     }
@@ -509,8 +509,8 @@ fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
         }
         game_info.player_info.action = DEAD.clone();
         game_info.player_info.number_of_hits = 0;
-    } else if game_info.enemy_1_info.action == FIGHT
-        // game_info.enemy_3_info.action == FIGHT ||
+    } else if game_info.enemy_1_info.action == FIGHT ||
+        game_info.enemy_2_info.action == FIGHT
         // game_info.enemy_3_info.action == FIGHT ||
         // game_info.enemy_4_info.action == FIGHT
         && game_info.player_info.action != FIGHT {
@@ -563,7 +563,7 @@ fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, m
 
 fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let mut transform = Transform::default();
-    transform.scale = Vec3::splat(4.0);
+    transform.scale = Vec3::splat(5.0);
     let handle = asset_server.load("street.png");
     let texture_atlas =
         TextureAtlas::from_grid(handle, Vec2::new(3900.0, 200.0),
@@ -599,7 +599,7 @@ fn setup_enemy<A: Component, F: Fn(GameAction, usize, usize) -> A>(enemy_name: &
                                                                    characters: &HashMap<&str, [CharacterStats; 10]>,
                                                                    animation_func: &F) {
     let mut enemy_transform = Transform::default();
-    enemy_transform.scale = Vec3::splat(2.0);
+    enemy_transform.scale = Vec3::splat(3.5);
     let mut sprite = TextureAtlasSprite::new(0);
     sprite.flip_x = true;
 
@@ -648,7 +648,7 @@ fn sprite_spawn<A: Component>(commands: &mut Commands,
             ..default()
         },
         sprite_animation,
-        AnimationTimer(Timer::from_seconds(0.12, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(0.10, TimerMode::Repeating)),
     ));
 }
 
@@ -658,7 +658,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Street of rage".into(),
-                resolution: (1900.0, 800.0).into(),
+                resolution: (1900.0, 1000.0).into(),
                 ..default()
             }),
             ..default()
@@ -693,13 +693,13 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0) },
         ]),
         ("skin.png", [
-            CharacterStats { action: STAND.clone(), x: 48.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: MOVE.clone(),  x: 48.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: UP_MOVE.clone(),  x: 48.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: UP.clone(),  x: 48.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: DOWN_MOVE.clone(),  x: 48.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: DOWN.clone(),  x: 48.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: FIGHT.clone(), x: 65.5, y: 100.0, column: 4, row: 1, offset: Vec2::new(0.0, 105.0) },
+            CharacterStats { action: STAND.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
+            CharacterStats { action: MOVE.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
+            CharacterStats { action: UP_MOVE.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
+            CharacterStats { action: UP.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
+            CharacterStats { action: DOWN_MOVE.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
+            CharacterStats { action: DOWN.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
+            CharacterStats { action: FIGHT.clone(), x: 71.5, y: 82.0, column: 2, row: 1, offset: Vec2::new(0.0, 255.0) },
             CharacterStats { action: HIT.clone(), x: 46.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(5.0, 162.0) },
             CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0) },
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0) },
