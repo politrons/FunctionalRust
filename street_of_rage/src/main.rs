@@ -59,7 +59,7 @@ fn main() {
 /// -----------------
 
 /// Constants
-const ATTACK_REACH: f32 = 70.0;
+const ATTACK_REACH: f32 = 150.0;
 const ENEMY_STEP: f32 = 5.0;
 const PLAYER_STEP: f32 = 10.0;
 const NUMBER_OF_HITS: usize = 10;
@@ -75,7 +75,7 @@ static UP_MOVE: GameAction = UpMove(PLAYER_STEP, PLAYER_STEP);
 static DOWN_MOVE: GameAction = DownMove(PLAYER_STEP, -PLAYER_STEP);
 static FIGHT: GameAction = Fight(0.0, 0.0);
 static HIT: GameAction = Hit(0.0, 0.0);
-static DEAD: GameAction = Dead(-100.0, 0.0);
+static DEAD: GameAction = Dead(-200.0, 0.0);
 static RUN: GameAction = Run(20.0, 0.0);
 static UP: GameAction = UpMove(0.0, PLAYER_STEP);
 static DOWN: GameAction = DownMove(0.0, -PLAYER_STEP);
@@ -89,6 +89,7 @@ struct CharacterStats {
     column: usize,
     row: usize,
     offset: Vec2,
+    time:f32,
 }
 
 /// Game info type with all game info needed for business logic
@@ -511,9 +512,9 @@ fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
         game_info.player_info.number_of_hits = 0;
     } else if game_info.enemy_1_info.action == FIGHT ||
         game_info.enemy_2_info.action == FIGHT
-        // game_info.enemy_3_info.action == FIGHT ||
-        // game_info.enemy_4_info.action == FIGHT
-        && game_info.player_info.action != FIGHT {
+            // game_info.enemy_3_info.action == FIGHT ||
+            // game_info.enemy_4_info.action == FIGHT
+            && game_info.player_info.action != FIGHT {
         game_info.player_info.action = HIT.clone();
     }
 }
@@ -561,7 +562,7 @@ fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, m
     // setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_4_func);
 }
 
-fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
+fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let mut transform = Transform::default();
     transform.scale = Vec3::splat(5.0);
     let handle = asset_server.load("street.png");
@@ -569,7 +570,7 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
         TextureAtlas::from_grid(handle, Vec2::new(3900.0, 200.0),
                                 1, 1, None, None);
     let atlas_handle = texture_atlases.add(texture_atlas);
-    sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), BackgroundAnimation {}, transform);
+    sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), BackgroundAnimation {}, transform, 0.10);
 }
 
 
@@ -588,7 +589,7 @@ fn setup_player(player_name: &str,
             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
                           player_name, character_stats.x.clone(), character_stats.y.clone(),
                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
-        sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), animation, player_transform);
+        sprite_spawn(&mut commands, atlas_handle, TextureAtlasSprite::new(0), animation, player_transform, character_stats.time.clone());
     }
 }
 
@@ -608,7 +609,7 @@ fn setup_enemy<A: Component, F: Fn(GameAction, usize, usize) -> A>(enemy_name: &
             create_sprite(&asset_server, &mut texture_atlases, animation_func, character_stats.action.clone(),
                           enemy_name, character_stats.x.clone(), character_stats.y.clone(),
                           character_stats.column.clone(), character_stats.row.clone(), Some(character_stats.offset));
-        sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, enemy_transform);
+        sprite_spawn(&mut commands, atlas_handle, sprite.clone(), animation, enemy_transform, character_stats.time.clone());
     }
 }
 
@@ -639,6 +640,7 @@ fn sprite_spawn<A: Component>(commands: &mut Commands,
                               sprite: TextureAtlasSprite,
                               sprite_animation: A,
                               transform: Transform,
+                              time: f32,
 ) {
     commands.spawn((
         SpriteSheetBundle {
@@ -648,7 +650,7 @@ fn sprite_spawn<A: Component>(commands: &mut Commands,
             ..default()
         },
         sprite_animation,
-        AnimationTimer(Timer::from_seconds(0.10, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(time, TimerMode::Repeating)),
     ));
 }
 
@@ -669,40 +671,40 @@ fn setup_window() -> (PluginGroupBuilder, ) {
 fn create_characters() -> HashMap<&'static str, [CharacterStats; 10]> {
     HashMap::from([
         ("axel.png", [
-            CharacterStats { action: STAND.clone(), x: 48.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(5.0, 0.0) },
-            CharacterStats { action: MOVE.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0) },
-            CharacterStats { action: UP_MOVE.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0) },
-            CharacterStats { action: UP.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0) },
-            CharacterStats { action: DOWN_MOVE.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0) },
-            CharacterStats { action: DOWN.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0) },
-            CharacterStats { action: FIGHT.clone(), x: 66.5, y: 100.0, column: 6, row: 1, offset: Vec2::new(5.0, 1124.0) },
-            CharacterStats { action: HIT.clone(), x: 55.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(5.0, 1330.0) },
-            CharacterStats { action: DEAD.clone(), x: 85.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(254.0, 1345.0) },
-            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(5.0, 100.0) },
+            CharacterStats { action: STAND.clone(), x: 48.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(5.0, 0.0), time: 0.10 },
+            CharacterStats { action: MOVE.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0), time: 0.10  },
+            CharacterStats { action: UP_MOVE.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0), time: 0.10  },
+            CharacterStats { action: UP.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0), time: 0.10  },
+            CharacterStats { action: DOWN_MOVE.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0), time: 0.10  },
+            CharacterStats { action: DOWN.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0), time: 0.10  },
+            CharacterStats { action: FIGHT.clone(), x: 66.5, y: 100.0, column: 6, row: 1, offset: Vec2::new(5.0, 1124.0), time: 0.10  },
+            CharacterStats { action: HIT.clone(), x: 55.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(5.0, 1330.0), time: 0.10  },
+            CharacterStats { action: DEAD.clone(), x: 85.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(254.0, 1345.0), time: 0.10  },
+            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(5.0, 100.0), time: 0.10  },
         ]),
         ("punk.png", [
-            CharacterStats { action: STAND.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
-            CharacterStats { action: MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
-            CharacterStats { action: UP_MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
-            CharacterStats { action: UP.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
-            CharacterStats { action: DOWN_MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(5.0, 0.0) },
-            CharacterStats { action: DOWN.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0) },
-            CharacterStats { action: FIGHT.clone(), x: 65.5, y: 100.0, column: 4, row: 1, offset: Vec2::new(0.0, 105.0) },
-            CharacterStats { action: HIT.clone(), x: 67.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(0.0, 200.0) },
-            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0) },
-            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0) },
+            CharacterStats { action: STAND.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0), time: 0.10  },
+            CharacterStats { action: MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0), time: 0.10  },
+            CharacterStats { action: UP_MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0), time: 0.10  },
+            CharacterStats { action: UP.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0), time: 0.10  },
+            CharacterStats { action: DOWN_MOVE.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(5.0, 0.0), time: 0.10  },
+            CharacterStats { action: DOWN.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0), time: 0.10  },
+            CharacterStats { action: FIGHT.clone(), x: 65.5, y: 100.0, column: 4, row: 1, offset: Vec2::new(0.0, 105.0), time: 0.10  },
+            CharacterStats { action: HIT.clone(), x: 67.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(0.0, 200.0), time: 0.10  },
+            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.10  },
+            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0), time: 0.10  },
         ]),
         ("skin.png", [
-            CharacterStats { action: STAND.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: MOVE.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: UP_MOVE.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: UP.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: DOWN_MOVE.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: DOWN.clone(),  x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0) },
-            CharacterStats { action: FIGHT.clone(), x: 71.5, y: 82.0, column: 2, row: 1, offset: Vec2::new(0.0, 255.0) },
-            CharacterStats { action: HIT.clone(), x: 46.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(5.0, 162.0) },
-            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0) },
-            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0) },
+            CharacterStats { action: STAND.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10  },
+            CharacterStats { action: MOVE.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10  },
+            CharacterStats { action: UP_MOVE.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10  },
+            CharacterStats { action: UP.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10  },
+            CharacterStats { action: DOWN_MOVE.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10  },
+            CharacterStats { action: DOWN.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10  },
+            CharacterStats { action: FIGHT.clone(), x: 71.5, y: 82.0, column: 2, row: 1, offset: Vec2::new(0.0, 255.0), time: 0.10  },
+            CharacterStats { action: HIT.clone(), x: 46.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.10  },
+            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.10  },
+            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0), time: 0.10  },
         ]),
     ])
 }
