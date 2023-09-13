@@ -265,7 +265,7 @@ fn animate_background(
         timer.tick(time.delta());
         if timer.just_finished() {
             info!("Background position {:?}", transform.translation);
-            transform.translation = Vec3::new(-(game_info.player_info.position.x.clone() + PLAYER_STEP), 0.0, animation.transform_level);
+                transform.translation = Vec3::new(-(game_info.player_info.position.x.clone() + PLAYER_STEP), 0.0, animation.transform_level);
         }
     }
 }
@@ -434,9 +434,7 @@ fn follow_logic(
     sprite: &mut Mut<TextureAtlasSprite>,
     transform: &mut Mut<Transform>,
 ) -> EnemyInfo {
-    let direction = subtract(&game_info.player_info.position, &enemy_info.position);
-    let normalized_direction = normalize(&direction);
-    let movement = multiply(&normalized_direction, &ENEMY_STEP);
+    let movement = get_movement(&game_info, &mut enemy_info);
     if movement.x < 0.0 {
         sprite.flip_x = true;
         enemy_info.left_orientation = true;
@@ -453,6 +451,13 @@ fn follow_logic(
     enemy_info.position = new_movement.clone();
     transform.translation = Vec3::new(new_movement.x, new_movement.y, 2.0);
     enemy_info
+}
+
+fn get_movement(game_info: &&mut ResMut<GameInfo>, enemy_info: &mut EnemyInfo) -> Vec2 {
+    let direction = subtract(&game_info.player_info.position, &enemy_info.position);
+    let normalized_direction = normalize(&direction);
+    let movement = multiply(&normalized_direction, &ENEMY_STEP);
+    movement
 }
 
 ///Total distance Vec2 between [Player] and [Enemy]
@@ -520,9 +525,9 @@ fn player_under_attack(game_info: &mut ResMut<GameInfo>) {
         game_info.player_info.number_of_hits = 0;
     } else if game_info.enemy_1_info.action == FIST ||
         game_info.enemy_2_info.action == FIST ||
-        game_info.enemy_3_info.action == FIST
-            // game_info.enemy_4_info.action == FIGHT
-            && game_info.player_info.action != FIST {
+        game_info.enemy_3_info.action == FIST ||
+        game_info.enemy_4_info.action == FIST &&
+            game_info.player_info.action != FIST {
         game_info.player_info.action = HIT.clone();
     }
 }
@@ -592,8 +597,6 @@ fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, m
     };
     setup_enemy("red.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_4_func);
 }
-
-
 
 fn setup_player(player_name: &str,
                 mut commands: &mut Commands,
@@ -746,7 +749,7 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
             CharacterStats { action: DOWN.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
             CharacterStats { action: FIST.clone(), x: 61.0, y: 82.0, column: 2, row: 1, offset: Vec2::new(0.0, 320.0), time: 0.10 },
             CharacterStats { action: HOOK.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 885.0), time: 0.10 },
-            CharacterStats { action: HIT.clone(), x: 55.0,y: 80.0, column: 2, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.10 },
+            CharacterStats { action: HIT.clone(), x: 55.0, y: 80.0, column: 2, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.10 },
             CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.10 },
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0), time: 0.10 },
         ]),
