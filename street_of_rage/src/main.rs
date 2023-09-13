@@ -249,7 +249,7 @@ fn keyboard_update(
 /// the [AnimationTimer] with the [Timer] and [TimerMode] strategy.
 fn animate_background(
     time: Res<Time>,
-    mut game_info: ResMut<GameInfo>,
+    game_info: ResMut<GameInfo>,
     mut query: Query<(Entity, &BackgroundAnimation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform,
     )>,
 ) {
