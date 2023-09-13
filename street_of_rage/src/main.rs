@@ -17,7 +17,7 @@ fn main() {
         .add_systems(Update, animate_enemy_1)
         .add_systems(Update, animate_enemy_2)
         .add_systems(Update, animate_enemy_3)
-        // .add_systems(Update, animate_enemy_4)
+        .add_systems(Update, animate_enemy_4)
 
         .insert_resource(GameInfo {
             player_info: PlayerInfo {
@@ -45,12 +45,12 @@ fn main() {
                 left_orientation: false,
                 number_of_hits: 0,
             },
-            // enemy_4_info: EnemyInfo {
-            //     action: MOVE.clone(),
-            //     position: ENEMY_4_INIT_POSITION,
-            //     left_orientation: false,
-            //     number_of_hits: 0,
-            // },
+            enemy_4_info: EnemyInfo {
+                action: MOVE.clone(),
+                position: ENEMY_4_INIT_POSITION,
+                left_orientation: false,
+                number_of_hits: 0,
+            },
         })
         .run();
 }
@@ -63,10 +63,10 @@ const ATTACK_REACH: f32 = 150.0;
 const ENEMY_STEP: f32 = 5.0;
 const PLAYER_STEP: f32 = 10.0;
 const NUMBER_OF_HITS: usize = 10;
-const ENEMY_1_INIT_POSITION: Vec2 = Vec2::new(200.0, -1000.0);
+const ENEMY_1_INIT_POSITION: Vec2 = Vec2::new(300.0, -1000.0);
 const ENEMY_2_INIT_POSITION: Vec2 = Vec2::new(1200.0, -100.0);
 const ENEMY_3_INIT_POSITION: Vec2 = Vec2::new(-1200.0, 0.0);
-const ENEMY_4_INIT_POSITION: Vec2 = Vec2::new(300.0, -1000.0);
+const ENEMY_4_INIT_POSITION: Vec2 = Vec2::new(-300.0, -1000.0);
 
 /// Actions and the movement for each
 static STAND: GameAction = Stand(0.0, 0.0);
@@ -100,7 +100,7 @@ struct GameInfo {
     enemy_1_info: EnemyInfo,
     enemy_2_info: EnemyInfo,
     enemy_3_info: EnemyInfo,
-    // enemy_4_info: EnemyInfo,
+    enemy_4_info: EnemyInfo,
 }
 
 /// Player info type with all info needed for player business logic
@@ -366,24 +366,24 @@ fn animate_enemy_3(
         }
     }
 }
-//
-// fn animate_enemy_4(
-//     time: Res<Time>,
-//     mut game_info: ResMut<GameInfo>,
-//     mut query: Query<(&Enemy4Animation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
-// ) {
-//     for (animation, mut timer, mut sprite, mut transform) in &mut query {
-//         timer.tick(time.delta());
-//         if timer.just_finished() {
-//             transform.scale = Vec3::splat(0.0);
-//             let enemy_info = game_info.enemy_4_info;
-//             let (action, position, left_orientation, number_of_hits) =
-//                 enemy_logic(&mut game_info, ENEMY_4_INIT_POSITION, enemy_info, animation.action,
-//                             animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
-//             game_info.enemy_4_info = EnemyInfo { action, position, left_orientation, number_of_hits }
-//         }
-//     }
-// }
+
+fn animate_enemy_4(
+    time: Res<Time>,
+    mut game_info: ResMut<GameInfo>,
+    mut query: Query<(&Enemy4Animation, &mut AnimationTimer, &mut TextureAtlasSprite, &mut Transform, )>,
+) {
+    for (animation, mut timer, mut sprite, mut transform) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            transform.scale = Vec3::splat(0.0);
+            let enemy_info = game_info.enemy_4_info;
+            let (action, position, left_orientation, number_of_hits) =
+                enemy_logic(&mut game_info, ENEMY_4_INIT_POSITION, enemy_info, animation.action,
+                            animation.first.clone(), animation.last.clone(), &mut sprite, &mut transform);
+            game_info.enemy_4_info = EnemyInfo { action, position, left_orientation, number_of_hits }
+        }
+    }
+}
 
 fn enemy_logic(game_info: &mut ResMut<GameInfo>,
                enemy_init_position: Vec2,
@@ -562,7 +562,7 @@ fn setup_background(mut commands: &mut Commands, asset_server: &Res<AssetServer>
 
 fn setup_street_extra_images(mut commands: &mut Commands, asset_server: &Res<AssetServer>, texture_atlases: &mut ResMut<Assets<TextureAtlas>>) {
     let x = -1000.0;
-    for i in 1..=5 {
+    for _ in 1..=5 {
         let atlas_handle = create_image("street_extra.png", 1021.0, 206.0, asset_server, texture_atlases);
         let mut transform = Transform::default();
         transform.translation = Vec3::new(x.clone() + 200.0, -50.0, 3.0);
@@ -586,11 +586,11 @@ fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, m
         return Enemy3Animation { action, first: rows - 1, last: columns - 1 };
     };
     setup_enemy("skin.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_3_func);
-    //
-    // let animation_4_func = |action: GameAction, rows: usize, columns: usize| {
-    //     return Enemy4Animation { action, first: rows - 1, last: columns - 1 };
-    // };
-    // setup_enemy("Heninger.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_4_func);
+
+    let animation_4_func = |action: GameAction, rows: usize, columns: usize| {
+        return Enemy4Animation { action, first: rows - 1, last: columns - 1 };
+    };
+    setup_enemy("red.png", &mut commands, &asset_server, &mut texture_atlases, &characters, &animation_4_func);
 }
 
 
@@ -734,6 +734,19 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
             CharacterStats { action: FIST.clone(), x: 71.5, y: 82.0, column: 2, row: 1, offset: Vec2::new(0.0, 255.0), time: 0.10 },
             CharacterStats { action: HOOK.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 885.0), time: 0.10 },
             CharacterStats { action: HIT.clone(), x: 46.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.10 },
+            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.10 },
+            CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0), time: 0.10 },
+        ]),
+        ("red.png", [
+            CharacterStats { action: STAND.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
+            CharacterStats { action: MOVE.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
+            CharacterStats { action: UP_MOVE.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
+            CharacterStats { action: UP.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
+            CharacterStats { action: DOWN_MOVE.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
+            CharacterStats { action: DOWN.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
+            CharacterStats { action: FIST.clone(), x: 61.0, y: 82.0, column: 2, row: 1, offset: Vec2::new(0.0, 320.0), time: 0.10 },
+            CharacterStats { action: HOOK.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 885.0), time: 0.10 },
+            CharacterStats { action: HIT.clone(), x: 55.0,y: 80.0, column: 2, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.10 },
             CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.10 },
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0), time: 0.10 },
         ]),
