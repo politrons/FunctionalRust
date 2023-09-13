@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::time::{SystemTime};
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
-use crate::GameAction::{Dead, Down, DownMove, Fist, Hit, Hook, Left, Right, Run, Stand, Up, UpMove};
+use crate::GameAction::{Dead, Down, DownMove, Fist, Hit, Hook, Knee, Left, Right, Run, Stand, Up, UpMove};
 
 fn main() {
     App::new()
@@ -75,6 +75,7 @@ static UP_MOVE: GameAction = UpMove(PLAYER_STEP, PLAYER_STEP);
 static DOWN_MOVE: GameAction = DownMove(PLAYER_STEP, -PLAYER_STEP);
 static FIST: GameAction = Fist(0.0, 0.0);
 static HOOK: GameAction = Hook(0.0, 0.0);
+static KNEE: GameAction = Knee(0.0, 0.0);
 static HIT: GameAction = Hit(0.0, 0.0);
 static DEAD: GameAction = Dead(-200.0, 0.0);
 static RUN: GameAction = Run(20.0, 0.0);
@@ -135,6 +136,7 @@ enum GameAction {
     Dead(f32, f32),
     Fist(f32, f32),
     Hook(f32, f32),
+    Knee(f32, f32),
     Run(f32, f32),
 }
 
@@ -152,6 +154,7 @@ impl GameAction {
             | Dead(value1, value2)
             | Fist(value1, value2)
             | Hook(value1, value2)
+            | Knee(value1, value2)
             | Run(value1, value2) => (value1.clone(), value2.clone()),
         }
     }
@@ -244,6 +247,8 @@ fn keyboard_update(
         game_info.player_info.action = FIST.clone();
     } else if keyboard_input.pressed(KeyCode::S) {
         game_info.player_info.action = HOOK.clone();
+    } else if keyboard_input.pressed(KeyCode::D) {
+        game_info.player_info.action = KNEE.clone();
     } else {
         game_info.player_info.action = STAND.clone();
     }
@@ -261,7 +266,6 @@ fn animate_background(
     )>,
 ) {
     for (_, animation, mut timer, _, mut transform) in &mut query {
-        let t: Transform = transform.clone();
         timer.tick(time.delta());
         if timer.just_finished() {
             info!("Background position {:?}", transform.translation);
@@ -504,7 +508,7 @@ fn enemy_attack_logic(
     transform: &mut Mut<Transform>, distance: f32,
 ) -> EnemyInfo {
     info!("Enemy reach player. Distance{:?}",distance);
-    if game_info.player_info.action == FIST || game_info.player_info.action == HOOK {
+    if game_info.player_info.action == FIST || game_info.player_info.action == HOOK || game_info.player_info.action == KNEE{
         enemy_info.number_of_hits += 1;
         enemy_info.action = HIT.clone();
         if enemy_info.number_of_hits >= NUMBER_OF_HITS {
@@ -588,7 +592,7 @@ fn setup_street_extra_images(mut commands: &mut Commands, asset_server: &Res<Ass
     }
 }
 
-fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, characters: &HashMap<&str, [CharacterStats; 11]>) {
+fn setup_enemies(mut commands: &mut Commands, asset_server: &Res<AssetServer>, mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>, characters: &HashMap<&str, [CharacterStats; 12]>) {
     let animation_1_func = |action: GameAction, rows: usize, columns: usize| {
         return Enemy1Animation { action, first: rows - 1, last: columns - 1 };
     };
@@ -614,7 +618,7 @@ fn setup_player(player_name: &str,
                 mut commands: &mut Commands,
                 asset_server: &Res<AssetServer>,
                 mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                characters: &HashMap<&str, [CharacterStats; 11]>) {
+                characters: &HashMap<&str, [CharacterStats; 12]>) {
     let animation_func = |action: GameAction, rows: usize, columns: usize| {
         return PlayerAnimation { action, first: rows - 1, last: columns - 1 };
     };
@@ -633,7 +637,7 @@ fn setup_enemy<A: Component, F: Fn(GameAction, usize, usize) -> A>(enemy_name: &
                                                                    mut commands: &mut Commands,
                                                                    asset_server: &Res<AssetServer>,
                                                                    mut texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-                                                                   characters: &HashMap<&str, [CharacterStats; 11]>,
+                                                                   characters: &HashMap<&str, [CharacterStats; 12]>,
                                                                    animation_func: &F) {
     let mut enemy_transform = Transform::default();
     enemy_transform.scale = Vec3::splat(3.5);
@@ -711,7 +715,7 @@ fn setup_window() -> (PluginGroupBuilder, ) {
     )
 }
 
-fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
+fn create_characters() -> HashMap<&'static str, [CharacterStats; 12]> {
     HashMap::from([
         ("axel.png", [
             CharacterStats { action: STAND.clone(), x: 48.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(5.0, 0.0), time: 0.10 },
@@ -722,8 +726,9 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
             CharacterStats { action: DOWN.clone(), x: 46.0, y: 100.0, column: 6, row: 1, offset: Vec2::new(290.0, 0.0), time: 0.10 },
             CharacterStats { action: FIST.clone(), x: 66.5, y: 100.0, column: 6, row: 1, offset: Vec2::new(5.0, 1124.0), time: 0.10 },
             CharacterStats { action: HOOK.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 895.0), time: 0.10 },
-            CharacterStats { action: HIT.clone(), x: 55.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(5.0, 1330.0), time: 0.10 },
-            CharacterStats { action: DEAD.clone(), x: 85.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(254.0, 1345.0), time: 0.10 },
+            CharacterStats { action: KNEE.clone(), x: 60.5, y: 85.0, column: 7, row: 1, offset: Vec2::new(0.0, 291.0), time: 0.13 },
+            CharacterStats { action: HIT.clone(), x: 55.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(5.0, 1330.0), time: 0.13 },
+            CharacterStats { action: DEAD.clone(), x: 85.0, y: 75.0, column: 3, row: 1, offset: Vec2::new(254.0, 1345.0), time: 0.14 },
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(5.0, 100.0), time: 0.10 },
         ]),
         ("punk.png", [
@@ -735,8 +740,9 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
             CharacterStats { action: DOWN.clone(), x: 43.0, y: 100.0, column: 3, row: 1, offset: Vec2::new(155.0, 0.0), time: 0.10 },
             CharacterStats { action: FIST.clone(), x: 65.5, y: 100.0, column: 4, row: 1, offset: Vec2::new(0.0, 105.0), time: 0.10 },
             CharacterStats { action: HOOK.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 885.0), time: 0.10 },
-            CharacterStats { action: HIT.clone(), x: 67.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(0.0, 200.0), time: 0.10 },
-            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.10 },
+            CharacterStats { action: KNEE.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 895.0), time: 0.10 },
+            CharacterStats { action: HIT.clone(), x: 67.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(0.0, 200.0), time: 0.13 },
+            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.14 },
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0), time: 0.10 },
         ]),
         ("skin.png", [
@@ -748,8 +754,9 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
             CharacterStats { action: DOWN.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
             CharacterStats { action: FIST.clone(), x: 71.5, y: 82.0, column: 2, row: 1, offset: Vec2::new(0.0, 255.0), time: 0.10 },
             CharacterStats { action: HOOK.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 885.0), time: 0.10 },
-            CharacterStats { action: HIT.clone(), x: 46.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.10 },
-            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.10 },
+            CharacterStats { action: KNEE.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 895.0), time: 0.10 },
+            CharacterStats { action: HIT.clone(), x: 46.5, y: 80.0, column: 4, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.13 },
+            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.14 },
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0), time: 0.10 },
         ]),
         ("red.png", [
@@ -761,8 +768,9 @@ fn create_characters() -> HashMap<&'static str, [CharacterStats; 11]> {
             CharacterStats { action: DOWN.clone(), x: 48.0, y: 82.0, column: 3, row: 1, offset: Vec2::new(0.0, 80.0), time: 0.10 },
             CharacterStats { action: FIST.clone(), x: 61.0, y: 82.0, column: 2, row: 1, offset: Vec2::new(0.0, 320.0), time: 0.10 },
             CharacterStats { action: HOOK.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 885.0), time: 0.10 },
-            CharacterStats { action: HIT.clone(), x: 55.0, y: 80.0, column: 2, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.10 },
-            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.10 },
+            CharacterStats { action: KNEE.clone(), x: 79.0, y: 114.0, column: 5, row: 1, offset: Vec2::new(119.0, 895.0), time: 0.10 },
+            CharacterStats { action: HIT.clone(), x: 55.0, y: 80.0, column: 2, row: 1, offset: Vec2::new(5.0, 162.0), time: 0.14 },
+            CharacterStats { action: DEAD.clone(), x: 95.0, y: 75.0, column: 1, row: 1, offset: Vec2::new(278.0, 232.0), time: 0.15 },
             CharacterStats { action: RUN.clone(), x: 80.0, y: 85.0, column: 4, row: 1, offset: Vec2::new(155.0, 100.0), time: 0.10 },
         ]),
     ])
