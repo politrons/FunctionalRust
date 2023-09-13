@@ -265,7 +265,7 @@ fn animate_background(
         timer.tick(time.delta());
         if timer.just_finished() {
             info!("Background position {:?}", transform.translation);
-                transform.translation = Vec3::new(-(game_info.player_info.position.x.clone() + PLAYER_STEP), 0.0, animation.transform_level);
+            transform.translation = Vec3::new(-(game_info.player_info.position.x.clone() + PLAYER_STEP), 0.0, animation.transform_level);
         }
     }
 }
@@ -298,11 +298,12 @@ fn animate_player(
                 }
                 let (x, y) = game_info.player_info.action.get_values();
                 sprite.flip_x = true;
+                let new_y = get_y_with_collision(&mut game_info, y);
                 if game_info.player_info.left_orientation {
                     sprite.flip_x = false;
-                    transform.translation = Vec3::new(game_info.player_info.position.clone().x - x, game_info.player_info.position.clone().y + y, 1.0);
+                    transform.translation = Vec3::new(game_info.player_info.position.clone().x - x, new_y, 1.0);
                 } else {
-                    transform.translation = Vec3::new(game_info.player_info.position.clone().x + x, game_info.player_info.position.clone().y + y, 1.0);
+                    transform.translation = Vec3::new(game_info.player_info.position.clone().x + x, new_y, 1.0);
                 }
                 game_info.player_info.position = Vec2::new(transform.translation.clone().x, transform.translation.clone().y);
                 transform.scale = Vec3::splat(3.5);
@@ -420,6 +421,17 @@ fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) 
     } else {
         &sprite.index + 1
     }
+}
+
+///Return the Y value until it get the limits of the level
+fn get_y_with_collision(game_info: &mut ResMut<GameInfo>, y: f32) -> f32 {
+    let last_y = game_info.player_info.position.clone().y + y;
+    let new_y = if last_y >= 50.0 || last_y.abs() > 380.0{
+        game_info.player_info.position.clone().y
+    } else {
+        last_y
+    };
+    new_y
 }
 
 /// Enemy IA
