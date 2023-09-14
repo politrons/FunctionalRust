@@ -17,6 +17,7 @@
       <sourceFolder url="file://$MODULE_DIR$/golden_axe/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/street_fighter/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/street_of_rage/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/game_3d/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/architecture/target" />
       <excludeFolder url="file://$MODULE_DIR$/dynamic_loading/target" />
       <excludeFolder url="file://$MODULE_DIR$/dynamic_loading_contract/target" />
@@ -31,6 +32,7 @@
       <excludeFolder url="file://$MODULE_DIR$/golden_axe/target" />
       <excludeFolder url="file://$MODULE_DIR$/street_fighter/target" />
       <excludeFolder url="file://$MODULE_DIR$/street_of_rage/target" />
+      <excludeFolder url="file://$MODULE_DIR$/game_3d/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

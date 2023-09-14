@@ -82,7 +82,6 @@ static RUN: GameAction = Run(20.0, 0.0);
 static UP: GameAction = UpMove(0.0, PLAYER_STEP);
 static DOWN: GameAction = DownMove(0.0, -PLAYER_STEP);
 
-
 #[derive(Clone, Debug, PartialEq)]
 struct CharacterStats {
     action: GameAction,
@@ -288,7 +287,6 @@ fn animate_player(
     for (entity, animation, mut timer, mut sprite, mut transform) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
-            info!("Player position {:?}", game_info.player_info.position.clone().x);
             transform.scale = Vec3::splat(0.0);
             player_under_attack(&mut game_info);
             if animation.action == game_info.player_info.action {
@@ -430,7 +428,7 @@ fn move_sprite(first: usize, last: usize, sprite: &mut Mut<TextureAtlasSprite>) 
 ///Return the Y value until it get the limits of the level
 fn get_y_with_collision(game_info: &mut ResMut<GameInfo>, y: f32) -> f32 {
     let last_y = game_info.player_info.position.clone().y + y;
-    let new_y = if last_y >= 50.0 || last_y.abs() > 380.0{
+    let new_y = if last_y >= 50.0 || last_y.abs() > 380.0 {
         game_info.player_info.position.clone().y
     } else {
         last_y
@@ -508,7 +506,7 @@ fn enemy_attack_logic(
     transform: &mut Mut<Transform>, distance: f32,
 ) -> EnemyInfo {
     info!("Enemy reach player. Distance{:?}",distance);
-    if game_info.player_info.action == FIST || game_info.player_info.action == HOOK || game_info.player_info.action == KNEE{
+    if game_info.player_info.action == FIST || game_info.player_info.action == HOOK || game_info.player_info.action == KNEE {
         enemy_info.number_of_hits += 1;
         enemy_info.action = HIT.clone();
         if enemy_info.number_of_hits >= NUMBER_OF_HITS {
