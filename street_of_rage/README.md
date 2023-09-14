@@ -1,5 +1,7 @@
 # Rust Street of Rage
 
+![My image](assets/logo.png)
+
 Author Pablo Picouto Garcia
 
 Street of Rage Game Engine Using [Bevy](https://bevyengine.org)
