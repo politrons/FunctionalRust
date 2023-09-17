@@ -177,3 +177,5 @@ Goose is a Rust load testing tool inspired by Locust.
 * [Golden Axe](golden_axe/README.md)
 
 * [Street Fighter 2](street_fighter/README.md)
+
+* [Street of Rage](street_of_rage/README.md)
