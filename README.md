@@ -46,6 +46,13 @@ Macro implementation for [rust_io] defining several operators to be used emulati
 
 [Crates dependency](https://crates.io/crates/rust_io)
 
+## RxRust
+![My image](img/reactivex.png)
+
+A Rust implementation of Reactive Extensions
+
+* **[features](RxRust/src/main.rs)**
+
 ## Tokio
 
 #### Features
@@ -92,13 +99,6 @@ Code example of **Red Panda** ```consumer/producer``` and benchmark result ```pr
 
 * **[Consumer](red_panda/src/red_panda_consumer.rs)**
 * **[Producer](red_panda/src/red_panda_producer.rs)**
-
-## RxRust
-![My image](img/reactivex.png)
-
-A Rust implementation of Reactive Extensions
-
-* **[features](RxRust/src/main.rs)**
 
 ## Dynamic loading
 
