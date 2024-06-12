@@ -2,7 +2,7 @@ use rxrust::observable;
 use rxrust::observable::{ObservableExt, ObservableItem};
 
 fn main() {
-    println!("Hello, world!");
+    println!("Hello Reactive world!");
 }
 
 #[cfg(test)]
