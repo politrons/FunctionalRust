@@ -9,6 +9,7 @@ fn main() {
 mod tests {
     use std::thread;
     use std::time::Duration;
+    use rxrust::ops::throttle::ThrottleEdge;
     use rxrust::prelude::FuturesLocalSchedulerPool;
     use super::*;
 
@@ -76,6 +77,17 @@ mod tests {
     }
 
     #[test]
+    fn throttler_observable() {
+        //Emits a value from the source Observable, then ignores subsequent source values for duration milliseconds, then repeats this process.
+        let mut scheduler_pool = FuturesLocalSchedulerPool::new();
+        let duration = Duration::from_millis(1);
+        observable::from_iter(1..1000)
+            .throttle(|d| duration, ThrottleEdge::all(), scheduler_pool.spawner())
+            .subscribe(|d| println!("{}",d));
+        scheduler_pool.run()
+    }
+    
+    #[test]
     fn take_observable() {
         // The `take` operator limits the number of items emitted by an observable.
         // It only emits the specified number of items from the start of the stream and then completes.
@@ -84,6 +96,16 @@ mod tests {
             .take(3)
             .subscribe(|n| println!("{}", n));
     }
+
+    #[test]
+    fn skip_observable() {
+        // The `skip` operator skip the number of items emitted by an observable.
+        // It only emits the specified number of items from the start after the number of skip of the stream and then completes.
+        observable::from_iter(vec!["hello", "reactive", "world", "from", "rust"])
+            .skip(1)
+            .subscribe(|n| println!("{}", n));
+    }
+
 
     #[test]
     fn take_while_observable() {
