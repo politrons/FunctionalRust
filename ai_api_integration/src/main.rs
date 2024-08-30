@@ -1,6 +1,9 @@
+use std::convert::Infallible;
 use std::error::Error;
-use reqwest::Client;
+use std::net::SocketAddr;
+use warp::Filter;
 use serde::{Deserialize, Serialize};
+use reqwest::Client;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Part {
@@ -18,13 +21,12 @@ struct ModelRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ModelResponse {
-    generated_text: String,
+struct Question {
+    question: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // Replace with your Google API key
     let api_key = "AIzaSyDUZRX8uEI1VSARyHMA3s6HjEE-5OK4-vw";
     let model_url = format!(
         "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key={}",
@@ -33,39 +35,59 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let client = Client::new();
 
-    // Adapted request body based on the curl command
-    let request_body = ModelRequest {
-        contents: vec![Content {
-            parts: vec![Part {
-                text: "what is your latest data date.".to_string(),
-            }],
-        }],
-    };
+    // Serve the HTML file
+    let index = warp::path::end()
+        .and(warp::fs::file("index.html"));
 
-    let response = client
-        .post(&model_url)
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await?;
+    // Handle POST requests to /ask
+    let ask = warp::path("ask")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(move |question: Question| {
+            let client = client.clone();
+            let model_url = model_url.clone();
+            println!("Question {:?}", question.question);
+            async move {
+                let request_body = ModelRequest {
+                    contents: vec![Content {
+                        parts: vec![Part {
+                            text: question.question,
+                        }],
+                    }],
+                };
 
-    if response.status().is_success() {
-        let response_json: serde_json::Value = response.json().await?;
+                let response = client
+                    .post(&model_url)
+                    .header("Content-Type", "application/json")
+                    .json(&request_body)
+                    .send()
+                    .await;
 
-        // Extracting the text from the JSON response
-        if let Some(text) = response_json["candidates"]
-            .get(0)
-            .and_then(|candidate| candidate["content"]["parts"].get(0))
-            .and_then(|part| part["text"].as_str())
-        {
-            println!("\nGenerated text: {}", text);
-        } else {
-            println!("Text not found in the response");
-        }
-    } else {
-        println!("Request failed with status: {}", response.status());
-    }
+                match response {
+                    Ok(res) if res.status().is_success() => {
+                        let response_json: serde_json::Value = res.json().await.unwrap();
 
+                        let text = response_json["candidates"]
+                            .get(0)
+                            .and_then(|candidate| candidate["content"]["parts"].get(0))
+                            .and_then(|part| part["text"].as_str())
+                            .unwrap_or("No response text found")
+                            .to_string();
+
+                        Ok(warp::reply::json(&serde_json::json!({ "response": text })))
+                            as Result<_, Infallible>
+                    }
+                    _ => Ok(warp::reply::json(&serde_json::json!({ "response": "Error occurred" }))),
+                }
+            }
+        });
+
+    // Combine routes
+    let routes = index.or(ask);
+
+    // Start the server
+    let addr: SocketAddr = "127.0.0.1:3030".parse()?;
+    warp::serve(routes).run(addr).await;
 
     Ok(())
 }

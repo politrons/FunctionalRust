@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Question Answering</title>
+</head>
+<body>
+<h1>Ask a Question</h1>
+<form id="question-form">
+    <label for="question-input">Enter your question:</label><br>
+    <input type="text" id="question-input" required><br><br>
+    <button type="submit">Submit</button>
+</form>
+<h2>Response:</h2>
+<p id="response-output"></p>
+
+<script>
+    document.getElementById('question-form').addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        const questionInput = document.getElementById('question-input');
+        const question = questionInput.value;
+
+        const responseOutput = document.getElementById('response-output');
+
+        try {
+            const response = await fetch('/ask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ question: question })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                responseOutput.textContent = data.response;
+            } else {
+                responseOutput.textContent = 'Error: Unable to get a response';
+            }
+        } catch (error) {
+            responseOutput.textContent = 'Error: ' + error.message;
+        }
+    });
+</script>
+</body>
+</html>
