@@ -1,0 +1,15 @@
+{
+  "name": "ai_api_integration",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "ai_api_integration_bg.wasm",
+    "ai_api_integration.js",
+    "ai_api_integration.d.ts"
+  ],
+  "main": "ai_api_integration.js",
+  "types": "ai_api_integration.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
