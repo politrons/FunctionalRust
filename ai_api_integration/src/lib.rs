@@ -25,7 +25,7 @@ pub async fn ask_question(question: String) -> Result<JsValue, JsValue> {
     println!("Request received");
     let api_key = "AIzaSyDUZRX8uEI1VSARyHMA3s6HjEE-5OK4-vw";
     let model_url = format!(
-        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key={}",
+        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={}",
         api_key
     );
 
