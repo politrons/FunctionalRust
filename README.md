@@ -191,3 +191,7 @@ Goose is a Rust load testing tool inspired by Locust.
 
 ![My image](img/tc.png)
 * [Postgres](test_container/src/main.rs )
+
+## AI
+
+* [Gemini + WASM](ai_api_integration/)
