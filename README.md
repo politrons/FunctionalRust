@@ -135,6 +135,28 @@ Dynamic loading, also known as dynamic linking or runtime linking, is a techniqu
 
 * **[Circuit breaker](architecture/src/circuit_breaker.rs)** 
 
+## Games
+![My image](img/bevy.png)
+
+* [Dragon Ball Z](dragon_ball/README.md)
+
+* [Monkey Island](monkey_island/README.md)
+
+* [Golden Axe](golden_axe/README.md)
+
+* [Street Fighter 2](street_fighter/README.md)
+
+* [Street of Rage](street_of_rage/README.md)
+
+## TestContainer
+
+![My image](img/tc.png)
+* [Postgres](test_container/src/main.rs )
+
+## AI
+
+* [Gemini + WASM](ai_api_integration/)
+
 ## Performance
 
 ### Goose
@@ -174,24 +196,3 @@ Goose is a Rust load testing tool inspired by Locust.
 
 ```
 
-## Games
-![My image](img/bevy.png)
-
-* [Dragon Ball Z](dragon_ball/README.md)
-
-* [Monkey Island](monkey_island/README.md)
-
-* [Golden Axe](golden_axe/README.md)
-
-* [Street Fighter 2](street_fighter/README.md)
-
-* [Street of Rage](street_of_rage/README.md)
-
-## TestContainer
-
-![My image](img/tc.png)
-* [Postgres](test_container/src/main.rs )
-
-## AI
-
-* [Gemini + WASM](ai_api_integration/)
