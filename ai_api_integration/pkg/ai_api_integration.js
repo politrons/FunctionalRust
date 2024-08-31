@@ -212,13 +212,16 @@ function __wbg_adapter_20(arg0, arg1, arg2) {
 }
 
 /**
+* @param {string} api_key
 * @param {string} question
 * @returns {Promise<any>}
 */
-export function ask_question(question) {
-    const ptr0 = passStringToWasm0(question, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+export function ask_question(api_key, question) {
+    const ptr0 = passStringToWasm0(api_key, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.ask_question(ptr0, len0);
+    const ptr1 = passStringToWasm0(question, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.ask_question(ptr0, len0, ptr1, len1);
     return takeObject(ret);
 }
 
@@ -430,7 +433,7 @@ function __wbg_get_imports() {
     imports.wbg.__wbindgen_throw = function(arg0, arg1) {
         throw new Error(getStringFromWasm0(arg0, arg1));
     };
-    imports.wbg.__wbindgen_closure_wrapper264 = function(arg0, arg1, arg2) {
+    imports.wbg.__wbindgen_closure_wrapper269 = function(arg0, arg1, arg2) {
         const ret = makeMutClosure(arg0, arg1, 19, __wbg_adapter_20);
         return addHeapObject(ret);
     };

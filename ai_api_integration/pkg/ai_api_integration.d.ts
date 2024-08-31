@@ -1,16 +1,17 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+* @param {string} api_key
 * @param {string} question
 * @returns {Promise<any>}
 */
-export function ask_question(question: string): Promise<any>;
+export function ask_question(api_key: string, question: string): Promise<any>;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly ask_question: (a: number, b: number) => number;
+  readonly ask_question: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_2: WebAssembly.Table;
