@@ -4,7 +4,7 @@ fn main() {
     // Example usage of the RustAIClient to interact with the AI model.
     // It initializes the client with an API token, sets the model and input text,
     // and then sends a request to the AI model, printing the response.
-    let response = RustAIClient::with_token("Add_your_own_token_here".to_string())
+    let response = RustAIClient::with_token("AIzaSyDUZRX8uEI1VSARyHMA3s6HjEE-5OK4-vw".to_string())
         .with_ai_model("Gemini".to_string())
         .with_text("hello".to_string())
         .ask();
