@@ -157,6 +157,7 @@ Dynamic loading, also known as dynamic linking or runtime linking, is a techniqu
 
 * [RustAIClient](rust_ai_dsl/src/main.rs)
 * [Gemini + WASM](ai_api_integration/)
+* [Training model](rust_ai_model/src/main.rs)
 
 ## Performance
 

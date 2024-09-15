@@ -4,6 +4,30 @@ use ndarray::Array2;
 use regex::Regex;
 use linfa_logistic::FittedLogisticRegression;
 
+/// # Sentiment Analysis Example using Linfa
+///
+/// This Rust program demonstrates how to perform sentiment analysis using the 
+/// `linfa` crate for machine learning. We use logistic regression to classify 
+/// short text reviews as positive or negative sentiments.
+///
+/// ## Overview
+/// - **Tokenization**: Convert the input text into individual words (tokens).
+/// - **Bag-of-Words Vectorization**: Represent tokenized words as numerical 
+///   features for the model.
+/// - **Logistic Regression**: Train a logistic regression model using the 
+///   `linfa_logistic` crate to classify the sentiment of reviews.
+///
+/// ## Crates Used
+/// - `linfa`: General machine learning tasks.
+/// - `linfa_logistic`: Logistic regression implementation.
+/// - `ndarray`: For creating and managing feature matrices.
+/// - `regex`: To tokenize the input text.
+///
+/// ## How to Use
+/// 1. Modify the `reviews` and `labels` arrays to test different text data.
+/// 2. Run the program to train the model and predict sentiment on new reviews.
+
+
 // Function to tokenize text using regex
 fn tokenize(text: &str) -> Vec<String> {
     let re = Regex::new(r"\w+").unwrap();
@@ -28,8 +52,8 @@ fn vectorize(tokens: Vec<Vec<String>>, vocab: &Vec<String>) -> Array2<f64> {
     array
 }
 
-// Function to predict if a new message is spam or not
-fn predict_message(
+// Function to predict sentiment of a new message (positive or negative)
+fn predict_review(
     model: &FittedLogisticRegression<f64, usize>,
     vocab: &Vec<String>,
     message: &str,
@@ -37,36 +61,39 @@ fn predict_message(
     let tokenized_message = tokenize(message);
     let data = vectorize(vec![tokenized_message], vocab);
     let prediction = model.predict(&data);
-    prediction[0] == 1 // Returns true if spam (label 1)
+    prediction[0] == 1 // Returns true if positive sentiment (label 1)
 }
 
 fn main() {
-    // Example text messages (spam and non-spam)
-    let messages = vec![
-        "Win $1000 cash now! Call this number!",
-        "Hi, how are you doing?",
-        "Exclusive offer just for you, claim your prize now!",
-        "Are we meeting at 5 pm today?",
-        "Congratulations, you've won a free vacation!",
-        "Let's catch up later, maybe grab some coffee.",
+    // Example text reviews (positive and negative)
+    let reviews = vec![
+        "I love this product, it's amazing!",
+        "This is the worst purchase I have ever made. A totally waste",
+        "Excellent quality and fast shipping.",
+        "The product broke after just one use.",
+        "I'm very happy with my order.",
+        "Terrible service and rude staff.",
+        "The shipping was fast but the product terrible.",
     ];
 
-    // Labels: 1 for spam, 0 for non-spam
-    let labels = vec![1, 0, 1, 0, 1, 0];
+    // Labels: 1 for positive, 0 for negative
+    let labels = vec![1, 0, 1, 0, 1, 0, 0];
 
-    // Tokenize the messages
-    let tokenized_messages: Vec<Vec<String>> = messages.iter().map(|msg| tokenize(msg)).collect();
+    // Tokenize the reviews
+    let tokenized_reviews: Vec<Vec<String>> = reviews.iter()
+        .map(|review| tokenize(review))
+        .collect();
 
-    // Create a vocabulary from the tokenized messages
-    let mut vocab: Vec<String> = tokenized_messages
+    // Create a vocabulary from the tokenized reviews
+    let mut vocab: Vec<String> = tokenized_reviews
         .iter()
         .flat_map(|tokens| tokens.iter().cloned())
         .collect();
     vocab.sort();
     vocab.dedup();
 
-    // Convert the tokenized messages into a feature matrix
-    let data = vectorize(tokenized_messages, &vocab);
+    // Convert the tokenized reviews into a feature matrix
+    let data = vectorize(tokenized_reviews, &vocab);
 
     // Convert labels to ndarray
     let target = ndarray::Array::from_vec(labels);
@@ -81,21 +108,29 @@ fn main() {
         .fit(&train_data)
         .expect("Failed to fit model");
 
-    // Test the model with a new example message
-    let new_message = "Claim your exclusive reward now!";
-    let is_spam = predict_message(&model, &vocab, new_message);
+    // Test the model with a new review
+    let new_review = "This is an amazing product!";
+    let is_positive = predict_review(&model, &vocab, new_review);
     println!(
-        "Prediction for message: '{}': {}",
-        new_message,
-        if is_spam { "Spam" } else { "Not Spam" }
+        "Prediction for review: '{}': {}",
+        new_review,
+        if is_positive { "Positive" } else { "Negative" }
     );
 
-    // Test another message
-    let new_message_2 = "Hey, let's meet for lunch tomorrow.";
-    let is_spam_2 = predict_message(&model, &vocab, new_message_2);
+    let new_review_2 = "This was a waste of money.";
+    let is_positive_2 = predict_review(&model, &vocab, new_review_2);
     println!(
-        "Prediction for message: '{}': {}",
-        new_message_2,
-        if is_spam_2 { "Spam" } else { "Not Spam" }
+        "Prediction for review: '{}': {}",
+        new_review_2,
+        if is_positive_2 { "Positive" } else { "Negative" }
     );
+
+    let new_review_2 = "Dont  waste time and buy it, is amazing.";
+    let is_positive_2 = predict_review(&model, &vocab, new_review_2);
+    println!(
+        "Prediction for review: '{}': {}",
+        new_review_2,
+        if is_positive_2 { "Positive" } else { "Negative" }
+    );
+
 }
