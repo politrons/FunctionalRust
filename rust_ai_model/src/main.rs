@@ -1,6 +1,6 @@
 use linfa::prelude::*;
 use linfa_logistic::LogisticRegression;
-use ndarray::Array2;
+use ndarray::{Array2, Ix1};
 use regex::Regex;
 use linfa_logistic::FittedLogisticRegression;
 
@@ -102,35 +102,25 @@ fn main() {
     let dataset = linfa::dataset::DatasetBase::from((data, target));
     let (train_data, _) = dataset.split_with_ratio(1.0); // Use all data for training
 
-    // Train a logistic regression model
-    let model = LogisticRegression::default()
+    let model = train_model(&train_data);
+
+
+    let reviews = vec!["This is an amazing product!", "This was a waste of money.", "Dont  waste time and buy it, is amazing."];
+    reviews.iter().for_each(|new_review | {
+        let is_positive = predict_review(&model, &vocab, new_review);
+        println!(
+            "Prediction for review: '{}': {}",
+            new_review,
+            if is_positive { "Positive" } else { "Negative" }
+        );
+    });
+    
+}
+
+// Train a logistic regression model
+fn train_model(train_data: &Dataset<f64, usize, Ix1>) -> FittedLogisticRegression<f64, usize> {
+    LogisticRegression::default()
         .max_iterations(100)
         .fit(&train_data)
-        .expect("Failed to fit model");
-
-    // Test the model with a new review
-    let new_review = "This is an amazing product!";
-    let is_positive = predict_review(&model, &vocab, new_review);
-    println!(
-        "Prediction for review: '{}': {}",
-        new_review,
-        if is_positive { "Positive" } else { "Negative" }
-    );
-
-    let new_review_2 = "This was a waste of money.";
-    let is_positive_2 = predict_review(&model, &vocab, new_review_2);
-    println!(
-        "Prediction for review: '{}': {}",
-        new_review_2,
-        if is_positive_2 { "Positive" } else { "Negative" }
-    );
-
-    let new_review_2 = "Dont  waste time and buy it, is amazing.";
-    let is_positive_2 = predict_review(&model, &vocab, new_review_2);
-    println!(
-        "Prediction for review: '{}': {}",
-        new_review_2,
-        if is_positive_2 { "Positive" } else { "Negative" }
-    );
-
+        .expect("Failed to fit model")
 }
