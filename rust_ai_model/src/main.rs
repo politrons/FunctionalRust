@@ -6,15 +6,15 @@ use linfa_logistic::FittedLogisticRegression;
 
 /// # Sentiment Analysis Example using Linfa
 ///
-/// This Rust program demonstrates how to perform sentiment analysis using the 
-/// `linfa` crate for machine learning. We use logistic regression to classify 
+/// This Rust program demonstrates how to perform sentiment analysis using the
+/// `linfa` crate for machine learning. We use logistic regression to classify
 /// short text reviews as positive or negative sentiments.
 ///
 /// ## Overview
 /// - **Tokenization**: Convert the input text into individual words (tokens).
-/// - **Bag-of-Words Vectorization**: Represent tokenized words as numerical 
+/// - **Bag-of-Words Vectorization**: Represent tokenized words as numerical
 ///   features for the model.
-/// - **Logistic Regression**: Train a logistic regression model using the 
+/// - **Logistic Regression**: Train a logistic regression model using the
 ///   `linfa_logistic` crate to classify the sentiment of reviews.
 ///
 /// ## Crates Used
@@ -37,7 +37,7 @@ fn tokenize(text: &str) -> Vec<String> {
 }
 
 // Convert tokens into feature vectors (bag-of-words representation)
-fn vectorize(tokens: Vec<Vec<String>>, vocab: &Vec<String>) -> Array2<f64> {
+fn convert_to_features(tokens: Vec<Vec<String>>, vocab: &Vec<String>) -> Array2<f64> {
     let num_samples = tokens.len();
     let vocab_size = vocab.len();
 
@@ -59,7 +59,7 @@ fn predict_review(
     message: &str,
 ) -> bool {
     let tokenized_message = tokenize(message);
-    let data = vectorize(vec![tokenized_message], vocab);
+    let data = convert_to_features(vec![tokenized_message], vocab);
     let prediction = model.predict(&data);
     prediction[0] == 1 // Returns true if positive sentiment (label 1)
 }
@@ -93,7 +93,7 @@ fn main() {
     vocab.dedup();
 
     // Convert the tokenized reviews into a feature matrix
-    let data = vectorize(tokenized_reviews, &vocab);
+    let data = convert_to_features(tokenized_reviews, &vocab);
 
     // Convert labels to ndarray
     let target = ndarray::Array::from_vec(labels);
