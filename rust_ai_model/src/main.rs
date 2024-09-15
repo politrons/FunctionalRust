@@ -48,7 +48,7 @@ fn main() {
         .collect();
 
     let vocab: Vec<String> = create_vocabulary_from_reviews(&tokenized_reviews);
-    
+
     let data = convert_to_features(tokenized_reviews, &vocab);
 
     // Create a dataset and split it into training and test data (using all data for training)
@@ -58,15 +58,10 @@ fn main() {
     let model = train_model(&train_data);
 
     let reviews = vec!["This is an amazing product!", "This was a waste of money.", "Dont  waste time and buy it, is amazing."];
-    reviews.iter().for_each(|new_review | {
+    reviews.iter().for_each(|new_review| {
         let is_positive = predict_review(&model, &vocab, new_review);
-        println!(
-            "Prediction for review: '{}': {}",
-            new_review,
-            if is_positive { "Positive" } else { "Negative" }
-        );
+        println!("Prediction for review: '{}': {}", new_review, if is_positive { "Positive" } else { "Negative" });
     });
-    
 }
 
 // Create a vocabulary from the tokenized reviews
@@ -78,7 +73,6 @@ fn create_vocabulary_from_reviews(tokenized_reviews: &Vec<Vec<String>>) -> Vec<S
     vocab.sort();
     vocab.dedup();
     vocab
-    
 }
 
 // Train a logistic regression model
