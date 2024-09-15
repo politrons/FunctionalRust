@@ -27,6 +27,67 @@ use linfa_logistic::FittedLogisticRegression;
 /// 1. Modify the `reviews` and `labels` arrays to test different text data.
 /// 2. Run the program to train the model and predict sentiment on new reviews.
 
+fn main() {
+    // Example text reviews (positive and negative)
+    let reviews = vec![
+        "I love this product, it's amazing!",
+        "This is the worst purchase I have ever made. A totally waste",
+        "Excellent quality and fast shipping.",
+        "The product broke after just one use.",
+        "I'm very happy with my order.",
+        "Terrible service and rude staff.",
+        "The shipping was fast but the product terrible.",
+    ];
+
+    // Labels: 1 for positive, 0 for negative
+    let labels = vec![1, 0, 1, 0, 1, 0, 0];
+
+    // Tokenize the reviews
+    let tokenized_reviews: Vec<Vec<String>> = reviews.iter()
+        .map(|review| tokenize(review))
+        .collect();
+
+    let vocab: Vec<String> = create_vocabulary_from_reviews(&tokenized_reviews);
+    
+    let data = convert_to_features(tokenized_reviews, &vocab);
+
+    // Create a dataset and split it into training and test data (using all data for training)
+    let dataset = linfa::dataset::DatasetBase::from((data, ndarray::Array::from_vec(labels)));
+    let (train_data, _) = dataset.split_with_ratio(1.0); // Use all data for training
+
+    let model = train_model(&train_data);
+
+    let reviews = vec!["This is an amazing product!", "This was a waste of money.", "Dont  waste time and buy it, is amazing."];
+    reviews.iter().for_each(|new_review | {
+        let is_positive = predict_review(&model, &vocab, new_review);
+        println!(
+            "Prediction for review: '{}': {}",
+            new_review,
+            if is_positive { "Positive" } else { "Negative" }
+        );
+    });
+    
+}
+
+// Create a vocabulary from the tokenized reviews
+fn create_vocabulary_from_reviews(tokenized_reviews: &Vec<Vec<String>>) -> Vec<String> {
+    let mut vocab: Vec<String> = tokenized_reviews
+        .iter()
+        .flat_map(|tokens| tokens.iter().cloned())
+        .collect();
+    vocab.sort();
+    vocab.dedup();
+    vocab
+    
+}
+
+// Train a logistic regression model
+fn train_model(train_data: &Dataset<f64, usize, Ix1>) -> FittedLogisticRegression<f64, usize> {
+    LogisticRegression::default()
+        .max_iterations(100)
+        .fit(&train_data)
+        .expect("Failed to fit model")
+}
 
 // Function to tokenize text using regex
 fn tokenize(text: &str) -> Vec<String> {
@@ -62,65 +123,4 @@ fn predict_review(
     let data = convert_to_features(vec![tokenized_message], vocab);
     let prediction = model.predict(&data);
     prediction[0] == 1 // Returns true if positive sentiment (label 1)
-}
-
-fn main() {
-    // Example text reviews (positive and negative)
-    let reviews = vec![
-        "I love this product, it's amazing!",
-        "This is the worst purchase I have ever made. A totally waste",
-        "Excellent quality and fast shipping.",
-        "The product broke after just one use.",
-        "I'm very happy with my order.",
-        "Terrible service and rude staff.",
-        "The shipping was fast but the product terrible.",
-    ];
-
-    // Labels: 1 for positive, 0 for negative
-    let labels = vec![1, 0, 1, 0, 1, 0, 0];
-
-    // Tokenize the reviews
-    let tokenized_reviews: Vec<Vec<String>> = reviews.iter()
-        .map(|review| tokenize(review))
-        .collect();
-
-    // Create a vocabulary from the tokenized reviews
-    let mut vocab: Vec<String> = tokenized_reviews
-        .iter()
-        .flat_map(|tokens| tokens.iter().cloned())
-        .collect();
-    vocab.sort();
-    vocab.dedup();
-
-    // Convert the tokenized reviews into a feature matrix
-    let data = convert_to_features(tokenized_reviews, &vocab);
-
-    // Convert labels to ndarray
-    let target = ndarray::Array::from_vec(labels);
-
-    // Create a dataset and split it into training and test data (using all data for training)
-    let dataset = linfa::dataset::DatasetBase::from((data, target));
-    let (train_data, _) = dataset.split_with_ratio(1.0); // Use all data for training
-
-    let model = train_model(&train_data);
-
-
-    let reviews = vec!["This is an amazing product!", "This was a waste of money.", "Dont  waste time and buy it, is amazing."];
-    reviews.iter().for_each(|new_review | {
-        let is_positive = predict_review(&model, &vocab, new_review);
-        println!(
-            "Prediction for review: '{}': {}",
-            new_review,
-            if is_positive { "Positive" } else { "Negative" }
-        );
-    });
-    
-}
-
-// Train a logistic regression model
-fn train_model(train_data: &Dataset<f64, usize, Ix1>) -> FittedLogisticRegression<f64, usize> {
-    LogisticRegression::default()
-        .max_iterations(100)
-        .fit(&train_data)
-        .expect("Failed to fit model")
 }
