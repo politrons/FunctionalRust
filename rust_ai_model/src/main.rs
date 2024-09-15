@@ -86,7 +86,7 @@ fn train_model(train_data: &Dataset<f64, usize, Ix1>) -> FittedLogisticRegressio
     LogisticRegression::default()
         .max_iterations(100)
         .fit(&train_data)
-        .expect("Failed to fit model")
+        .expect("Failed training model")
 }
 
 // Function to tokenize text using regex
