@@ -29,7 +29,7 @@ use linfa_logistic::FittedLogisticRegression;
 
 fn main() {
     // Example text reviews (positive and negative)
-    let reviews = vec![
+    let reviews_to_train_model = vec![
         "I love this product, it's amazing!",
         "This is the worst purchase I have ever made. A totally waste",
         "Excellent quality and fast shipping.",
@@ -43,7 +43,7 @@ fn main() {
     let labels = vec![1, 0, 1, 0, 1, 0, 0];
 
     // Tokenize the reviews
-    let tokenized_reviews: Vec<Vec<String>> = reviews.iter()
+    let tokenized_reviews: Vec<Vec<String>> = reviews_to_train_model.iter()
         .map(|review| tokenize(review))
         .collect();
 
