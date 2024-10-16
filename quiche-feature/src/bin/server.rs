@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
-use quiche::{Config, ConnectionId, Header, RecvInfo, PROTOCOL_VERSION};
+use quiche::{Config, ConnectionId, Header, RecvInfo};
+use rand::Rng;
+use log::*;
 
 fn main() {
+    env_logger::init();
+
     println!("Server starting...");
 
     // Bind to UDP port 4433
@@ -10,8 +14,12 @@ fn main() {
 
     // Create QUIC configuration
     let mut config = quiche::Config::new(quiche::PROTOCOL_VERSION).unwrap();
-    config.set_application_protos(&[b"example-proto"])
+    
+    // Correctly set the application protocols
+    config
+        .set_application_protos(&[b"example-proto"])
         .expect("Failed to set application protocols");
+
     config
         .load_cert_chain_from_pem_file("cert.crt")
         .expect("Failed to load certificate");
@@ -23,16 +31,21 @@ fn main() {
     config.set_initial_max_stream_data_bidi_remote(1_000_000);
     config.set_initial_max_streams_bidi(100);
     config.set_disable_active_migration(true);
-    config.verify_peer(false);
+    config.verify_peer(false); // For testing purposes only
 
+    // Use unique identifiers for connections
     let mut connections: HashMap<ConnectionId<'static>, (quiche::Connection, SocketAddr)> =
         HashMap::new();
+
+    // Map from Connection IDs to the server's SCID (unique identifier)
+    let mut connection_ids: HashMap<ConnectionId<'static>, ConnectionId<'static>> = HashMap::new();
+
     let mut buf = [0u8; 65535];
     let mut out = [0u8; 1350];
 
     loop {
         // Receive data from a client
-        let (len, from) = match socket.recv_from(&mut buf) {
+        let (read, from) = match socket.recv_from(&mut buf) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Failed to receive data: {:?}", e);
@@ -40,7 +53,8 @@ fn main() {
             }
         };
 
-        let hdr = match Header::from_slice(&mut buf[..len], quiche::MAX_CONN_ID_LEN) {
+        // Parse packet header
+        let hdr = match Header::from_slice(&mut buf[..read], quiche::MAX_CONN_ID_LEN) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("Failed to parse header: {:?}", e);
@@ -48,14 +62,31 @@ fn main() {
             }
         };
 
-        let conn_id = hdr.dcid.clone();
+        // Get the DCID from the packet
+        let dcid = hdr.dcid.clone();
 
-        // Get or create a connection
-        let (conn, _) = connections.entry(conn_id.clone()).or_insert_with(|| {
-            let scid = quiche::ConnectionId::from_ref(&hdr.dcid);
+        println!("Received packet with DCID: {:?}", dcid);
+
+        // Map the DCID to our internal connection ID (SCID)
+        let conn_id = if let Some(orig_conn_id) = connection_ids.get(&dcid) {
+            orig_conn_id.clone()
+        } else {
+            dcid.clone()
+        };
+
+        // Retrieve the connection
+        let (conn, _) = if let Some(c) = connections.get_mut(&conn_id) {
+            c
+        } else {
+            // New connection, generate a new scid
+            let mut scid_bytes = [0u8; quiche::MAX_CONN_ID_LEN];
+            rand::thread_rng().fill(&mut scid_bytes);
+            let scid = ConnectionId::from_vec(scid_bytes.to_vec());
+
+            // Accept the new connection
             let conn = quiche::accept(
                 &scid,
-                None,
+                Some(&hdr.dcid),
                 socket.local_addr().unwrap(),
                 from,
                 &mut config,
@@ -64,8 +95,15 @@ fn main() {
 
             println!("New connection from {}", from);
 
-            (conn, from)
-        });
+            // Store the connection using the server's SCID
+            connections.insert(scid.clone(), (conn, from));
+
+            // Map the client's initial DCID to our SCID
+            connection_ids.insert(hdr.dcid.clone(), scid.clone());
+
+            // Return the connection
+            connections.get_mut(&scid).unwrap()
+        };
 
         let recv_info = RecvInfo {
             from,
@@ -73,7 +111,7 @@ fn main() {
         };
 
         // Process incoming packet
-        if let Err(e) = conn.recv(&mut buf[..len], recv_info) {
+        if let Err(e) = conn.recv(&mut buf[..read], recv_info) {
             eprintln!("Connection recv failed: {:?}", e);
             continue;
         }
@@ -107,6 +145,8 @@ fn main() {
         // Clean up closed connections
         if conn.is_closed() {
             connections.remove(&conn_id);
+            // Remove all mappings for this connection
+            connection_ids.retain(|_, v| v != &conn_id);
         }
     }
 }

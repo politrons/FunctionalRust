@@ -5,3 +5,9 @@ edition = "2021"
 
 [dependencies]
 quiche ="0.22.0"
+ring = "0.17.8"
+url = "2.5.2"
+mio = { version = "0.8", features = ["net", "os-poll"] }
+log = "0.4.22"
+rand = "0.9.0-alpha.2"
+env_logger = "0.11.5"
