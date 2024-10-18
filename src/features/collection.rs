@@ -9,6 +9,19 @@ pub fn run() {
     immutable_map_collection();
     mutable_map_collection();
     append_vectors();
+    queue_features();
+}
+
+fn queue_features() {
+    let mut queue  = Vec::new();
+    queue.push("hello");
+    queue.push("world");
+    queue.push("!!!");
+
+    println!("{:?}",queue.pop().unwrap());
+    println!("{:?}",queue.pop().unwrap());
+    println!("{:?}",queue.pop().unwrap());
+
 }
 
 /**
