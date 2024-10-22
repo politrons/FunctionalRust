@@ -9,41 +9,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Server starting...");
 
-    // Enlazar al puerto UDP 4433
+    // Bind to UDP port 4433
     let socket = UdpSocket::bind("0.0.0.0:4433")?;
 
-    // Crear configuración QUIC
+    // Create QUIC configuration
     let mut config = Config::new(quiche::PROTOCOL_VERSION)?;
 
-    // Establecer protocolos ALPN
+    // Set ALPN protocols
     config.set_application_protos(&[b"example-proto"]);
 
 
-    // Cargar certificado y clave privada del servidor
+    // Load server's certificate and private key
     config.load_cert_chain_from_pem_file("cert.crt")?;
     config.load_priv_key_from_pem_file("cert.key")?;
 
-    // Configurar parámetros QUIC
-    config.set_max_idle_timeout(30_000); // Incrementar el timeout a 30 segundos
-    config.set_initial_max_data(100_000_000); // Incrementar límites de datos
+    // Configure QUIC parameters
+    config.set_max_idle_timeout(30_000); // Increase the timeout to 30 seconds
+    config.set_initial_max_data(100_000_000); // Increase data limits
     config.set_initial_max_stream_data_bidi_remote(10_000_000);
     config.set_initial_max_streams_bidi(10_000);
     config.set_disable_active_migration(true);
 
-    // Deshabilitar verificación de par (solo para pruebas)
+    // Disable peer verification (for testing purposes only)
     config.verify_peer(false);
 
-    // Mapas para almacenar conexiones y IDs
+    // Maps to store connections and IDs
     let mut connections: HashMap<ConnectionId<'static>, (quiche::Connection, SocketAddr)> =
         HashMap::new();
     let mut connection_ids: HashMap<ConnectionId<'static>, ConnectionId<'static>> = HashMap::new();
 
-    // Buffers para enviar y recibir datos
+    // Buffers for sending and receiving data
     let mut buf = [0u8; 65535];
     let mut out = [0u8; 1350];
 
     loop {
-        // Recibir datos de un cliente
+        // Receive data from a client
         let (read, from) = match socket.recv_from(&mut buf) {
             Ok((len, addr)) => (len, addr),
             Err(e) => {
@@ -52,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        // Parsear el encabezado del paquete QUIC
+        // Parse the QUIC packet header
         let hdr = match Header::from_slice(&mut buf[..read], quiche::MAX_CONN_ID_LEN) {
             Ok(v) => v,
             Err(e) => {
@@ -61,28 +61,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-        // Obtener DCID del encabezado
+        // Get DCID from the header
         let dcid = hdr.dcid.clone();
 
-        // Mapear DCID a SCID interno
+        // Map DCID to internal SCID
         let conn_id = if let Some(scid) = connection_ids.get(&dcid) {
             scid.clone()
         } else {
             dcid.clone()
         };
 
-        // Obtener la conexión asociada
+        // Retrieve the associated connection
         let (conn, _) = if let Some(conn_socket_addr) = connections.get_mut(&conn_id) {
             conn_socket_addr
         } else {
             println!("Received packet pre-handshake with DCID: {:?}", dcid);
 
-            // Generar un nuevo SCID para el servidor
+            // Generate a new SCID for the server
             let mut scid_bytes = [0u8; quiche::MAX_CONN_ID_LEN];
             rand::thread_rng().fill(&mut scid_bytes);
             let scid = ConnectionId::from_vec(scid_bytes.to_vec());
 
-            // Aceptar la nueva conexión
+            // Accept the new connection
             let conn = quiche::accept(
                 &scid,
                 Some(&hdr.dcid),
@@ -93,34 +93,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("New connection from {}", from);
 
-            // Almacenar la conexión
+            // Store the connection
             connections.insert(scid.clone(), (conn, from));
             connection_ids.insert(hdr.dcid.clone(), scid.clone());
 
-            // Obtener la conexión
+            // Retrieve the connection
             connections.get_mut(&scid).unwrap()
         };
 
-        // Información sobre el paquete recibido
+        // Information about the received packet
         let recv_info = RecvInfo {
             from,
             to: socket.local_addr().unwrap(),
         };
 
-        // Procesar el paquete recibido
+        // Process the received packet
         if let Err(e) = conn.recv(&mut buf[..read], recv_info) {
             eprintln!("Connection recv failed: {:?}", e);
             continue;
         }
 
-        // Enviar cualquier paquete pendiente
+        // Send any pending packets
         while let Ok((write, send_info)) = conn.send(&mut out) {
             socket
                 .send_to(&out[..write], send_info.to)
                 .expect("Failed to send data");
         }
 
-        // Leer datos de streams disponibles
+        // Read data from available streams
         let mut stream_buf = [0u8; 65535];
         for stream_id in conn.readable() {
             while let Ok((read, fin)) = conn.stream_recv(stream_id, &mut stream_buf) {
@@ -132,12 +132,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     fin
                 );
 
-                // Enviar respuesta al cliente
+                // Send response to the client
                 let response = b"ack";
                 if let Err(e) = conn.stream_send(stream_id, response, true) {
                     if e == quiche::Error::Done {
                         println!("No more data to send on stream {}", stream_id);
-                        continue
                     } else {
                         eprintln!("Failed to send data on stream {}: {:?}", stream_id, e);
                     }
@@ -147,12 +146,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // Manejar cierre de conexión
+        // Handle connection closure
         if conn.is_closed() {
             println!("Connection closed with {}", from);
             connections.remove(&conn_id);
 
-            // Eliminar mapeos de esta conexión
+            // Remove mappings for this connection
             connection_ids.retain(|_, v| v != &conn_id);
         }
     }
