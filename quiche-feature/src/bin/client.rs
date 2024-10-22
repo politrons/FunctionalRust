@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Variables to track time and counts
     let mut start_time = None;
-    let total_requests = 300;
+    let total_requests = 999;
     let mut requests_sent = 0;
     let mut responses_received = 0;
 
