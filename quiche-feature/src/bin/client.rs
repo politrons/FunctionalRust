@@ -6,6 +6,9 @@ use std::time::{Duration, Instant};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Client starting...");
 
+    // Maximum datagram size
+    const MAX_DATAGRAM_SIZE: usize = 5000;
+
     // Create UDP socket bound to an ephemeral port
     let socket = UdpSocket::bind("0.0.0.0:0")?;
 
@@ -19,11 +22,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Configure QUIC parameters
     config.set_max_idle_timeout(30_000); // Increase the timeout to 30 seconds
-    config.set_max_recv_udp_payload_size(1350);
-    config.set_max_send_udp_payload_size(1350);
+    config.set_max_recv_udp_payload_size(MAX_DATAGRAM_SIZE);
+    config.set_max_send_udp_payload_size(MAX_DATAGRAM_SIZE);
     config.set_initial_max_data(100_000_000); // Increase data limits
     config.set_initial_max_stream_data_bidi_local(10_000_000);
-    config.set_initial_max_streams_bidi(1000); // Adjust as needed
+    config.set_initial_max_streams_bidi(5000); // Adjust as needed
     config.set_disable_active_migration(true);
 
     // Generate a random SCID
@@ -42,8 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &mut config,
     )?;
 
-    // Maximum datagram size
-    const MAX_DATAGRAM_SIZE: usize = 1350;
+
 
     // Buffers for sending and receiving data
     let mut out = [0; MAX_DATAGRAM_SIZE];
@@ -102,23 +104,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let max_streams = conn.peer_streams_left_bidi();
 
                 if max_streams == 0 {
-                    // We can't open more streams at the moment
+                    println!("We can't open more streams at the moment");
                     break;
                 }
 
                 // Obtain the next valid stream_id
                 let stream_id = next_stream_id;
-                next_stream_id += 4; // Increment by 4 for bidirectional streams
+                next_stream_id += 1; // Increment by 4 for bidirectional streams
 
                 // 50 KB of data to send
                 let data = vec![b'a'; 50 * 1024];
 
                 if let Err(e) = conn.stream_send(stream_id, &data, true) {
                     if e == quiche::Error::StreamLimit {
-                        // We have reached the stream limit
+                        //println!("We have reached the stream limit");
                         break;
                     } else {
-                        eprintln!("Failed to send data on stream {}: {:?}", stream_id, e);
+                        //eprintln!("Failed to send data on stream {}: {:?}", stream_id, e);
                         break;
                     }
                 }
