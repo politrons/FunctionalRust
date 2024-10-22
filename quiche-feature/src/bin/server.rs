@@ -143,14 +143,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if e == quiche::Error::Done {
                             println!("No more data to send on stream {}", stream_id);
                         } else {
-                            //eprintln!("Failed to send data on stream {}: {:?}", stream_id, e);
+                            eprintln!("Failed to send data on stream {}: {:?}", stream_id, e);
                         }
-                    } else {
-                        // println!("Sent response on stream {}", stream_id);
                     }
                     // Remove the stream from stream_data as it's complete
                     stream_data.remove(&stream_id);
-                    
+
                 }
             }
         }
