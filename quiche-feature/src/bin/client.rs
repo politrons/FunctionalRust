@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create QUIC configuration
     let mut config = Config::new(quiche::PROTOCOL_VERSION)?;
-    config.set_application_protos(&[b"example-proto"]);
+    config.set_application_protos(&[b"example-proto"])?;
     config.verify_peer(false);
 
     // Configure QUIC parameters
@@ -44,8 +44,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         server_addr,
         &mut config,
     )?;
-
-
 
     // Buffers for sending and receiving data
     let mut out = [0; MAX_DATAGRAM_SIZE];

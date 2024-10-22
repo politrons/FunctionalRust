@@ -17,11 +17,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create QUIC configuration
     let mut config = Config::new(quiche::PROTOCOL_VERSION)?;
-
     // Set ALPN protocols
-    config.set_application_protos(&[b"example-proto"]);
-
-
+    config.set_application_protos(&[b"example-proto"])?;
     // Load server's certificate and private key
     config.load_cert_chain_from_pem_file("cert.crt")?;
     config.load_priv_key_from_pem_file("cert.key")?;
@@ -46,6 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Buffers for sending and receiving data
     let mut buf = [0u8; 65535];
     let mut out = [0u8; MAX_DATAGRAM_SIZE];
+    let mut stream_data = HashMap::new();
 
     loop {
         // Receive data from a client
@@ -125,14 +123,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .expect("Failed to send data");
         }
         // Read data from available streams
-        let mut stream_data = HashMap::new();
         let mut stream_buf = [0u8; 65535];
         for stream_id in conn.readable() {
             while let Ok((read, fin)) = conn.stream_recv(stream_id, &mut stream_buf) {
                 let data = &stream_buf[..read];
-                let old_data = stream_data.get(&stream_id).unwrap();
-                stream_data.insert(stream_id, (old_data + data.len()));
-                println!("After insert {}", stream_data.get(&stream_id).unwrap());
+                let old_data = stream_data.get(&stream_id).or(Some(&0)).unwrap();
+                stream_data.insert(stream_id, old_data + data.len());
                 println!(
                     "Server received all {} bytes on stream {} (fin: {})",
                     stream_data.get(&stream_id).or(Some(&0)).unwrap(),
