@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     config.set_max_send_udp_payload_size(1350);
     config.set_initial_max_data(100_000_000); // Incrementar límites de datos
     config.set_initial_max_stream_data_bidi_local(10_000_000);
-    config.set_initial_max_streams_bidi(100); // Ajustar según necesidad
+    config.set_initial_max_streams_bidi(1000); // Ajustar según necesidad
     config.set_disable_active_migration(true);
 
     // Generar un SCID aleatorio
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Variables para rastrear el tiempo y conteos
     let mut start_time = None;
-    let total_requests = 100;
+    let total_requests = 300;
     let mut requests_sent = 0;
     let mut responses_received = 0;
 
@@ -153,10 +153,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // Enviar paquetes pendientes después de leer respuestas
-        while let Ok((write, send_info)) = conn.send(&mut out) {
-            socket.send_to(&out[..write], send_info.to)?;
-        }
+
 
         // Manejar cierre de conexión
         if conn.is_closed() {

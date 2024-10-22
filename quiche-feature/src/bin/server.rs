@@ -133,10 +133,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
 
                 // Enviar respuesta al cliente
-                let response = b"Response from server";
+                let response = b"ack";
                 if let Err(e) = conn.stream_send(stream_id, response, true) {
                     if e == quiche::Error::Done {
                         println!("No more data to send on stream {}", stream_id);
+                        continue
                     } else {
                         eprintln!("Failed to send data on stream {}: {:?}", stream_id, e);
                     }
@@ -144,13 +145,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Sent response on stream {}", stream_id);
                 }
             }
-        }
-
-        // Enviar paquetes pendientes después de manejar streams
-        while let Ok((write, send_info)) = conn.send(&mut out) {
-            socket
-                .send_to(&out[..write], send_info.to)
-                .expect("Failed to send data");
         }
 
         // Manejar cierre de conexión
