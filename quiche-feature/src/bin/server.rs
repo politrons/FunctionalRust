@@ -129,23 +129,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let data = &stream_buf[..read];
                 let old_data = stream_data.get(&stream_id).or(Some(&0)).unwrap();
                 stream_data.insert(stream_id, old_data + data.len());
-                println!(
-                    "Server received all {} bytes on stream {} (fin: {})",
-                    stream_data.get(&stream_id).or(Some(&0)).unwrap(),
-                    stream_id,
-                    fin
-                );
 
-                // Send response to the client
-                let response = b"ack";
-                if let Err(e) = conn.stream_send(stream_id, response, true) {
-                    if e == quiche::Error::Done {
-                        println!("No more data to send on stream {}", stream_id);
+                if fin {
+                    println!(
+                        "Server received all {} bytes on stream {} (fin: {})",
+                        stream_data.get(&stream_id).or(Some(&0)).unwrap(),
+                        stream_id,
+                        fin
+                    );
+                    // Send response to the client
+                    let response = b"ack";
+                    if let Err(e) = conn.stream_send(stream_id, response, true) {
+                        if e == quiche::Error::Done {
+                            println!("No more data to send on stream {}", stream_id);
+                        } else {
+                            //eprintln!("Failed to send data on stream {}: {:?}", stream_id, e);
+                        }
                     } else {
-                        //eprintln!("Failed to send data on stream {}: {:?}", stream_id, e);
+                        // println!("Sent response on stream {}", stream_id);
                     }
-                } else {
-                    // println!("Sent response on stream {}", stream_id);
+                    // Remove the stream from stream_data as it's complete
+                    stream_data.remove(&stream_id);
+                    
                 }
             }
         }
