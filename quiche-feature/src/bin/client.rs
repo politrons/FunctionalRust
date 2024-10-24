@@ -9,6 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Maximum datagram size
     const MAX_DATAGRAM_SIZE: usize = 5000;
+    const PACKAGE_SIZE: usize = 50;
 
     // Create UDP socket bound to an ephemeral port
     let socket = UdpSocket::bind("0.0.0.0:0")?;
@@ -102,7 +103,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 next_stream_id += 4; // Increment by 4 for bidirectional streams
 
                 // 50 KB of data to send
-                let data = vec![b'a'; 50 * 1024];
+                let data = vec![b'a'; PACKAGE_SIZE * 1024];
 
                 // Keep track of how much data has been sent on this stream
                 streams_data.insert(stream_id, (data.clone(), 0));
