@@ -1,0 +1,24 @@
+[package]
+name = "SQUICD"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+quiche ="0.22.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_cbor = "0.11"      # For CBOR serialization
+flate2 = "1.0"           # For compression
+ring = "0.17.8"
+url = "2.5.2"
+mio = { version = "0.8", features = ["net", "os-poll"] }
+log = "0.4.22"
+rand = "0.9.0-alpha.2"
+env_logger = "0.11.5"
+
+[[bin]]
+name = "client"
+path = "src/bin/client.rs"
+
+[[bin]]
+name = "server"
+path = "src/bin/server.rs"
