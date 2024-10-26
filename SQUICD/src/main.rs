@@ -1,4 +1,4 @@
-use SQUICD::server::{start_server, MessageHandler};
+use SQUICD::dsl::{MessageHandler,  SquidDSL};
 use SQUICD::common::Message;
 use std::sync::Arc;
 
@@ -10,8 +10,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     };
 
+    
     // Start the server
-    start_server("0.0.0.0:4433".to_string(), Arc::new(handler))?;
+    SquidDSL::start_server("0.0.0.0:4433".to_string(), Arc::new(handler));
 
     // Proceed with the rest of your DSL initialization
     // ...
