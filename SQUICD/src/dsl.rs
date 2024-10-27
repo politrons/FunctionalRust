@@ -14,18 +14,32 @@ use ring::rand::*;
 
 pub struct SQUID {
     result: Result<(), Box<dyn Error>>,
+    handler: Arc<MessageHandler>,
 }
 
 // Type alias for the message handler callback
-pub type MessageHandler = dyn Fn(Message) -> Result<(), Box<dyn Error>> + Send + Sync + 'static;
+pub type MessageHandler = dyn Fn(Message) -> () + Send + Sync + 'static;
 
 impl SQUID {
+    pub fn new() -> Self {
+        SQUID {
+            result: Ok(()),
+            handler: Arc::new(|_message: Message| {}),
+        }
+    }
+
+    pub fn with_handler(&mut self, handler: Arc<MessageHandler>) -> &mut Self {
+        self.handler = handler;
+        self
+    }
+
+
     pub fn start_server(
+        &self,
         addr: String,
-        handler: Arc<MessageHandler>,
-    ) -> SQUID {
+    ) -> &Self {
         // Clone handler to move into the thread
-        let handler = handler.clone();
+        let handler = self.handler.clone();
 
         // Spawn a new thread for the server
         thread::spawn(move || {
@@ -135,17 +149,10 @@ impl SQUID {
                         .expect("Failed to send data");
                 }
 
-                // Read data from available streams
                 let mut stream_buf = [0u8; 65535];
                 for stream_id in conn.readable() {
                     while let Ok((read, fin)) = conn.stream_recv(stream_id, &mut stream_buf) {
                         let data = &stream_buf[..read];
-                        // println!(
-                        //     "Server received {} bytes on stream {} (fin: {})",
-                        //     data.len(),
-                        //     stream_id,
-                        //     fin
-                        // );
 
                         if fin {
                             // Decompress and deserialize the message
@@ -156,20 +163,16 @@ impl SQUID {
                                     continue;
                                 }
                             };
-                            // println!("Received message: {:?}", message);
 
                             // Spawn a new thread to handle the message
-                            let handler_clone = handler.clone();
+                            let h = handler.clone();
                             thread::spawn(move || {
-                                if let Err(e) = handler_clone(message) {
-                                    eprintln!("Handler error: {:?}", e);
-                                }
+                                h(message);
                             });
-
-                            // Optionally, send a response or handle as needed
                         }
                     }
                 }
+
 
                 // Handle connection closure
                 if conn.is_closed() {
@@ -181,8 +184,7 @@ impl SQUID {
                 }
             }
         });
-
-        SQUID { result: Ok(()) }
+        self
     }
 
     pub fn send_message(
@@ -342,14 +344,13 @@ impl SQUID {
             Err("No response received".into())
         }
     }
-    
+
     /// Method with [!] as return type which means never ends.
     pub fn run(&self) -> ! {
         loop {
             std::thread::park();
         }
     }
-
 }
 
 
