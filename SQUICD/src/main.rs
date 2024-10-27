@@ -1,26 +1,32 @@
-use SQUICD::dsl::{MessageHandler,  SquidDSL};
-use SQUICD::common::Message;
+use std::error::Error;
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Define the message handler
-    let handler = |message: Message| -> Result<(), Box<dyn std::error::Error>> {
-        println!("DSL received message: {:?}", message);
-        // Process the message within your DSL
-        Ok(())
-    };
+use SQUICD::common::Message;
+use SQUICD::dsl::SQUID;
 
-    
+fn main() -> Result<(), Box<dyn Error>> {
+
     // Start the server
-    SquidDSL::start_server("0.0.0.0:4433".to_string(), Arc::new(handler));
+    SQUID::start_server("0.0.0.0:4433".to_string(),
+                        // Define the message handler
+                        Arc::new(|message: Message| -> Result<(), Box<dyn Error>> {
+                            println!("DSL received message: {:?}", message);
+                            // Process the message within your DSL
+                            thread::sleep(Duration::from_secs(1));
+                            let new_message = Message {
+                                id: message.id + 1,
+                                content: message.content,
+                                timestamp: message.timestamp,
+                            };
+                            match SQUID::send_message("127.0.0.1:4433", new_message) {
+                                Ok(m) => println!("ACK:{:?}", m.content),
+                                Err(e) => println!("Error:{:?}", e.to_string())
+                            }
+                            Ok(())
+                        })).run();
 
-    // Proceed with the rest of your DSL initialization
-    // ...
-
-    // Keep the main thread alive or proceed as appropriate for your application
-    loop {
-        std::thread::park();
-    }
 
     // Ok(())
 }
