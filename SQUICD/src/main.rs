@@ -20,5 +20,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Err(e) = Squicd::send_message("127.0.0.1:4433", new_message) {
             eprintln!("Error sending message: {:?}", e);
         }
-    })).run("0.0.0.0:4433".to_string());
+    })).with_port("4433")
+        .start();
 }

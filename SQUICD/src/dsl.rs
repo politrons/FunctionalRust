@@ -14,6 +14,7 @@ use ring::rand::*;
 
 pub struct Squicd {
     result: Result<(), Box<dyn Error>>,
+    port: String,
     handler: Arc<MessageHandler>,
 }
 
@@ -21,20 +22,22 @@ pub struct Squicd {
 pub type MessageHandler = dyn Fn(Message) -> () + Send + Sync + 'static;
 
 impl Squicd {
- 
-    pub fn with_handler(handler: Arc<MessageHandler>) ->  Self {
+    pub fn with_handler(handler: Arc<MessageHandler>) -> Self {
         Squicd {
             result: Ok(()),
+            port: "".to_string(),
             handler,
         }
     }
 
+    pub fn with_port(&mut self, port: &str) -> &Self {
+        self.port = port.to_string();
+        self
+    }
 
-    pub fn run(
-        &self,
-        addr: String,
-    ) -> ! {
-        // Clone handler to move into the thread
+    pub fn start(&self) -> ! {
+        // Clone to move into the thread
+        let addr = format!("{}:{}", "0.0.0.0", self.port.clone());
         let handler = self.handler.clone();
 
         // Spawn a new thread for the server
@@ -189,8 +192,6 @@ impl Squicd {
         server_addr: &str,
         message: Message,
     ) -> Result<Message, Box<dyn Error>> {
-        println!("Client starting...");
-
         // Maximum datagram size
         const MAX_DATAGRAM_SIZE: usize = 1350; // Standard MTU size
 
@@ -283,7 +284,7 @@ impl Squicd {
                 // Send the compressed data over QUIC
                 match conn.stream_send(stream_id, &compressed_data, true) {
                     Ok(_) => {
-                        println!("Message sent on stream {}", stream_id);
+                        // println!("Message sent on stream {}", stream_id);
                         message_sent = true;
                     }
                     Err(quiche::Error::Done) => {
@@ -342,7 +343,6 @@ impl Squicd {
             Err("No response received".into())
         }
     }
-
 }
 
 
