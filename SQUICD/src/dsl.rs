@@ -12,7 +12,7 @@ use crate::common::{Message, serialize_and_compress, decompress_and_deserialize}
 use ring::rand::*;
 
 
-pub struct SQUID {
+pub struct Squicd {
     result: Result<(), Box<dyn Error>>,
     handler: Arc<MessageHandler>,
 }
@@ -20,24 +20,20 @@ pub struct SQUID {
 // Type alias for the message handler callback
 pub type MessageHandler = dyn Fn(Message) -> () + Send + Sync + 'static;
 
-impl SQUID {
-    pub fn new() -> Self {
-        SQUID {
+impl Squicd {
+ 
+    pub fn with_handler(handler: Arc<MessageHandler>) ->  Self {
+        Squicd {
             result: Ok(()),
-            handler: Arc::new(|_message: Message| {}),
+            handler,
         }
     }
 
-    pub fn with_handler(&mut self, handler: Arc<MessageHandler>) -> &mut Self {
-        self.handler = handler;
-        self
-    }
 
-
-    pub fn start_server(
+    pub fn run(
         &self,
         addr: String,
-    ) -> &Self {
+    ) -> ! {
         // Clone handler to move into the thread
         let handler = self.handler.clone();
 
@@ -184,7 +180,9 @@ impl SQUID {
                 }
             }
         });
-        self
+        loop {
+            std::thread::park();
+        }
     }
 
     pub fn send_message(
@@ -345,12 +343,6 @@ impl SQUID {
         }
     }
 
-    /// Method with [!] as return type which means never ends.
-    pub fn run(&self) -> ! {
-        loop {
-            std::thread::park();
-        }
-    }
 }
 
 
