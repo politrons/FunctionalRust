@@ -24,13 +24,16 @@ pub struct Squicd {
 pub type MessageHandler = dyn Fn(Message) -> () + Send + Sync + 'static;
 
 impl Squicd {
-    pub fn with_handler(handler: Arc<MessageHandler>) -> Self {
+    pub fn with_handler<F>(handler: F) -> Self
+    where
+        F: Fn(Message) + Send + Sync + 'static,
+    {
         Squicd {
             result: Ok(()),
             port: "".to_string(),
             cert: "".to_string(),
             key: "".to_string(),
-            handler,
+            handler: Arc::new(handler),
         }
     }
 

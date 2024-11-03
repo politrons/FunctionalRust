@@ -1,7 +1,13 @@
 [package]
 name = "SQUICD"
 version = "0.1.0"
+authors = ["politrons"]
 edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Squicd is a Domain-Specific Language (DSL) in Rust designed to simplify the creation of QUIC-based servers and clients for message passing."
+repository = "https://github.com/politrons/FunctionalRust/tree/main/SQUICD"
+homepage = "https://github.com/politrons/FunctionalRust/tree/main/SQUICD"
+readme = "README.md"
 
 [dependencies]
 quiche ="0.22.0"
