@@ -4,7 +4,9 @@ use quiche::{Config, ConnectionId, Header, RecvInfo};
 use rand::Rng;
 use std::error::Error;
 use std::sync::{Arc};
-use std::thread;
+use std::{panic, thread};
+use std::any::Any;
+use std::panic::AssertUnwindSafe;
 use std::time::Duration;
 use ring::rand::SystemRandom;
 // Import the common module
@@ -18,10 +20,13 @@ pub struct Squicd {
     cert: String,
     key: String,
     handler: Arc<MessageHandler>,
+    error: Option<Arc<ErrorHandler>>,
 }
 
 // Type alias for the message handler callback
 pub type MessageHandler = dyn Fn(Message) -> () + Send + Sync + 'static;
+
+pub type ErrorHandler = dyn Fn(Box<dyn Any + Send>) -> () + Send + Sync + 'static;
 
 impl Squicd {
     pub fn with_handler<F>(handler: F) -> Self
@@ -34,7 +39,16 @@ impl Squicd {
             cert: "".to_string(),
             key: "".to_string(),
             handler: Arc::new(handler),
+            error: None,
         }
+    }
+
+    pub fn with_error_handler<F>(&mut self, error_handler: F) -> &mut Self
+    where
+        F: Fn(Box<dyn Any + Send>) -> () + Send + Sync + 'static,
+    {
+        self.error = Some(Arc::new(error_handler));
+        self
     }
 
     pub fn with_port(&mut self, port: &str) -> &mut Self {
@@ -57,6 +71,7 @@ impl Squicd {
         // Clone to move into the thread
         let addr = format!("{}:{}", "0.0.0.0", self.port.clone());
         let handler = self.handler.clone();
+        let maybe_error_handler = self.error.clone();
         let cert = self.cert.clone();
         let key = self.key.clone();
         // Spawn a new thread for the server
@@ -184,8 +199,16 @@ impl Squicd {
 
                             // Spawn a new thread to handle the message
                             let h = handler.clone();
+                            let error_handler = maybe_error_handler.clone();
                             thread::spawn(move || {
-                                h(message);
+                                let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                                    h(message);
+                                }));
+
+                                if let Err(err) = result {
+                                    // Handle the panic here
+                                    error_handler.unwrap()(err);
+                                }
                             });
                         }
                     }

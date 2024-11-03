@@ -19,6 +19,10 @@ fn main() {
             println!("Received message: {:?}", message);
             // Additional processing...
         })
+        .with_error_handler(
+            |err| {
+              // Handle side effects
+            })
         .with_cert("cert.crt")
         .with_key("cert.key")
         .with_port("4433")

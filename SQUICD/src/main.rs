@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -8,7 +7,7 @@ use SQUICD::dsl::Squicd;
 
 fn main() -> Result<(), Box<dyn Error>> {
     Squicd::with_handler(
-        |message: Message| {
+        |message| {
             println!("Received message: {:?}", message);
             thread::sleep(Duration::from_secs(1));
             let new_message = Message {
@@ -21,6 +20,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 eprintln!("Error sending message: {:?}", e);
             }
         })
+        .with_error_handler(
+            |err| {
+                println!("Side-effect handle: {:?}", err);
+            })
         .with_cert("cert.crt")
         .with_key("cert.key")
         .with_port("4433")
