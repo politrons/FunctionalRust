@@ -139,6 +139,7 @@ Dynamic loading, also known as dynamic linking or runtime linking, is a techniqu
 ### QUIC
 
 * **[Quiche](quiche-feature/)**
+* **[SquicD](SQUICD/)**
 
 ## Games
 ![My image](img/bevy.png)
