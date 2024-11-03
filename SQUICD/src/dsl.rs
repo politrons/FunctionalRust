@@ -15,6 +15,8 @@ use ring::rand::*;
 pub struct Squicd {
     result: Result<(), Box<dyn Error>>,
     port: String,
+    cert: String,
+    key: String,
     handler: Arc<MessageHandler>,
 }
 
@@ -26,20 +28,34 @@ impl Squicd {
         Squicd {
             result: Ok(()),
             port: "".to_string(),
+            cert: "".to_string(),
+            key: "".to_string(),
             handler,
         }
     }
 
-    pub fn with_port(&mut self, port: &str) -> &Self {
+    pub fn with_port(&mut self, port: &str) -> &mut Self {
         self.port = port.to_string();
         self
     }
+
+    pub fn with_cert(&mut self, cert: &str) -> &mut Self {
+        self.cert = cert.to_string();
+        self
+    }
+
+    pub fn with_key(&mut self, key: &str) -> &mut Self {
+        self.key = key.to_string();
+        self
+    }
+
 
     pub fn start(&self) -> ! {
         // Clone to move into the thread
         let addr = format!("{}:{}", "0.0.0.0", self.port.clone());
         let handler = self.handler.clone();
-
+        let cert = self.cert.clone();
+        let key = self.key.clone();
         // Spawn a new thread for the server
         thread::spawn(move || {
             // Maximum datagram size
@@ -51,8 +67,8 @@ impl Squicd {
             // Create QUIC configuration
             let mut config = Config::new(quiche::PROTOCOL_VERSION).expect("Failed to create config");
             config.set_application_protos(&[b"example-proto"]).expect("Failed to set ALPN");
-            config.load_cert_chain_from_pem_file("cert.crt").expect("Failed to load cert");
-            config.load_priv_key_from_pem_file("cert.key").expect("Failed to load key");
+            config.load_cert_chain_from_pem_file(cert.as_str()).expect("Failed to load cert");
+            config.load_priv_key_from_pem_file(key.as_str()).expect("Failed to load key");
             config.set_max_idle_timeout(30_000);
             config.set_max_recv_udp_payload_size(MAX_DATAGRAM_SIZE);
             config.set_max_send_udp_payload_size(MAX_DATAGRAM_SIZE);
