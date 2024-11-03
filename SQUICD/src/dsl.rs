@@ -207,7 +207,9 @@ impl Squicd {
 
                                 if let Err(err) = result {
                                     // Handle the panic here
-                                    error_handler.unwrap()(err);
+                                    if error_handler.is_some() {
+                                        error_handler.unwrap()(err);
+                                    }
                                 }
                             });
                         }
