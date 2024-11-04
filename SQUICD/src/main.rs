@@ -1,11 +1,20 @@
-use std::error::Error;
 use std::thread;
 use std::time::Duration;
 
 use SQUICD::common::Message;
 use SQUICD::dsl::Squicd;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> ! {
+    thread::spawn(move || {
+        run_server();
+    });
+    run_client();
+    loop {
+        std::thread::park();
+    }
+}
+
+fn run_server() {
     Squicd::with_handler(
         |message| {
             println!("Received message: {:?}", message);
@@ -29,3 +38,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_port("4433")
         .start();
 }
+
+fn run_client() {
+    let message = Message {
+        id: 1,
+        content: "Hello, Squicd!".to_string(),
+        timestamp: 1234567890,
+    };
+
+    if let Err(e) = Squicd::send_message("127.0.0.1:4433", message) {
+        eprintln!("Error sending message: {:?}", e);
+    }
+}
+
