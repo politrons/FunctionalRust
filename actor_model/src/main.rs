@@ -151,7 +151,6 @@ impl Actor for RustActor {
 #[tokio::main]
 async fn main() {
     let local_addr: SocketAddr =  "127.0.0.1:8000".parse().expect("invalid local_addr");
-    let peer_addr: SocketAddr = "127.0.0.1:8001".parse().expect("invalid peer_addr");
 
     // Predefined IDs for Ping and Pong actors
     let ping_id = Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").unwrap();
@@ -159,9 +158,14 @@ async fn main() {
 
     let actor_system = ActorSystem::new(local_addr).await;
     let ping_meta = ActorMeta { id: ping_id, addr: local_addr };
-    let pong_meta = ActorMeta { id: pong_id, addr: peer_addr };
-    let pong_addr = start_actor(RustActor { peer_meta: ping_meta.clone(), self_meta: pong_meta.clone() }).await;
-    let ping_addr = start_actor(RustActor { peer_meta: pong_meta.clone(), self_meta: ping_meta.clone() }).await;
+    let pong_meta = ActorMeta { id: pong_id, addr: local_addr };
+    
+    let pong_actor = RustActor { peer_meta: ping_meta.clone(), self_meta: pong_meta.clone() };
+    let pong_addr = start_actor(pong_actor).await;
+    
+    let ping_actor = RustActor { peer_meta: pong_meta.clone(), self_meta: ping_meta.clone() };
+    let ping_addr = start_actor(ping_actor).await;
+    
     actor_system.register(pong_meta.id, ping_addr.sender());
     actor_system.register(ping_meta.id, pong_addr.sender());
     tokio::spawn(actor_system.start());
