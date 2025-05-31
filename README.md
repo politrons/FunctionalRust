@@ -82,6 +82,12 @@ Actix Web is a powerful, pragmatic, and extremely fast web framework for Rust.
 * **[Server](actix/src/actix_server.rs)**
 * **[Web-Server](actix/src/actix_web_server.rs)**
 
+## Actor system
+
+A minimalist Actor System with Ping/Pong actors
+
+* **[actor-system](actor_model/src/main.rs)**
+
 ## Kafka
 
 ![My image](img/kafka.png)
