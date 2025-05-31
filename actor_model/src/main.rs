@@ -3,6 +3,10 @@ use tokio::{net::{TcpListener, TcpStream}, sync::mpsc::{unbounded_channel, Unbou
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
+// ======== Actor System with TCP Networking (Rust, Tokio) ========
+/// This code implements a basic actor system with message passing over TCP.
+/// Actors are registered with unique IDs, can send/receive messages, and communicate locally or across the network.
+/// PingActor and PongActor demonstrate the message loop between two actors.
 
 // ======== Network Protocol ========
 
@@ -26,21 +30,27 @@ pub struct NetworkMessage {
 
 // ======== Actor System definition/implementation ========
 
+/// Core struct that maintains all registered actors and listens for incoming TCP messages.
+/// Dispatches messages to local actors by their UUID.
 pub struct ActorSystem {
     actors: Arc<Mutex<HashMap<Uuid, UnboundedSender<Message>>>>,
     listener: TcpListener,
 }
 
 impl ActorSystem {
+    /// Creates a new ActorSystem, binding the TCP listener to the provided address.
     pub async fn new(listen_addr: SocketAddr) -> Self {
         let listener = TcpListener::bind(listen_addr).await.expect("bind failed");
         Self { actors: Arc::new(Mutex::new(HashMap::new())), listener }
     }
 
+    /// Registers an actor with its UUID and a sender channel for messages.
     pub fn register(&self, id: Uuid, sender: UnboundedSender<Message>) {
         self.actors.lock().unwrap().insert(id, sender);
     }
 
+    /// Starts accepting TCP connections and dispatching incoming messages
+    /// to the appropriate local actor by UUID.
     pub async fn start(self) {
         loop {
             let (mut socket, _) = self.listener.accept().await.expect("accept failed");
@@ -87,6 +97,8 @@ pub struct Context<A: Actor> {
     pub self_addr: Address<A>,
 }
 
+/// Spawns an async task that processes messages for the actor.
+/// Returns the address to send messages to this actor.
 pub async fn start_actor<A: Actor>(mut actor: A) -> Address<A> {
     let (channel_sender, mut channel_receiver): (UnboundedSender<A::Msg>, UnboundedReceiver<A::Msg>) = unbounded_channel();
     let channel_sender_ctx = channel_sender.clone();
@@ -112,6 +124,7 @@ pub struct PongActor {
 
 impl Actor for PingActor {
     type Msg = Message;
+    /// On receiving Ping, print sender and reply with Pong.
     fn receive(&mut self, msg: Self::Msg, _ctx: &mut Context<Self>) {
         match msg {
             Message::Ping { mut sender } => {
@@ -126,6 +139,7 @@ impl Actor for PingActor {
 
 impl Actor for PongActor {
     type Msg = Message;
+    /// On receiving Pong, print sender and reply with Ping.
     fn receive(&mut self, msg: Self::Msg, _ctx: &mut Context<Self>) {
         match msg {
             Message::Pong { mut sender } => {
@@ -138,6 +152,8 @@ impl Actor for PongActor {
     }
 }
 
+/// Sends a message to another actor via TCP.
+/// Used by both PingActor and PongActor for remote calls.
 fn send_message(actor_meta: &mut ActorMeta, message: Message) {
     let peer = actor_meta.clone();
     tokio::spawn(async move {
@@ -153,6 +169,9 @@ fn send_message(actor_meta: &mut ActorMeta, message: Message) {
 
 // ======== Main Entrypoint ========
 
+/// Bootstraps the actor system, registers Ping and Pong actors,
+/// starts the listener, and triggers the first Ping message.
+/// Keeps the process alive indefinitely.
 #[tokio::main]
 async fn main() {
     let local_addr: SocketAddr = "127.0.0.1:8000".parse().expect("invalid local_addr");
@@ -168,13 +187,13 @@ async fn main() {
     let ping_actor = PingActor { actor_meta: ping_meta.clone()  };
     let ping_addr = start_actor(ping_actor).await;
     actor_system.register(ping_meta.id, ping_addr.sender());
-    
+
     //Pong actor
     let pong_meta = ActorMeta { id: pong_id, addr: local_addr };
     let pong_actor = PongActor { actor_meta: pong_meta.clone() };
     let pong_addr = start_actor(pong_actor).await;
     actor_system.register(pong_meta.id, pong_addr.sender());
-    
+
     tokio::spawn(actor_system.start());
 
     // Trigger start
