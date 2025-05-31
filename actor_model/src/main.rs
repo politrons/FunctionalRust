@@ -1,5 +1,3 @@
-// actor_ping_pong_network.rs
-
 use std::{collections::HashMap, env, net::SocketAddr, sync::{Arc, Mutex}};
 use tokio::{net::{TcpListener, TcpStream}, sync::mpsc::{unbounded_channel, UnboundedSender, UnboundedReceiver}, io::{AsyncReadExt, AsyncWriteExt}};
 use serde::{Serialize, Deserialize};
@@ -16,7 +14,6 @@ pub struct ActorMeta {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
-    Start,
     Ping { sender: ActorMeta },
     Pong { sender: ActorMeta },
 }
@@ -30,24 +27,24 @@ pub struct NetworkMessage {
 // ======== Actor System definition/implementation ========
 
 pub struct ActorSystem {
-    registry: Arc<Mutex<HashMap<Uuid, UnboundedSender<Message>>>>,
+    actors: Arc<Mutex<HashMap<Uuid, UnboundedSender<Message>>>>,
     listener: TcpListener,
 }
 
 impl ActorSystem {
     pub async fn new(listen_addr: SocketAddr) -> Self {
         let listener = TcpListener::bind(listen_addr).await.expect("bind failed");
-        Self { registry: Arc::new(Mutex::new(HashMap::new())), listener }
+        Self { actors: Arc::new(Mutex::new(HashMap::new())), listener }
     }
 
     pub fn register(&self, id: Uuid, sender: UnboundedSender<Message>) {
-        self.registry.lock().unwrap().insert(id, sender);
+        self.actors.lock().unwrap().insert(id, sender);
     }
 
     pub async fn start(self) {
         loop {
             let (mut socket, _) = self.listener.accept().await.expect("accept failed");
-            let registry = self.registry.clone();
+            let registry = self.actors.clone();
             tokio::spawn(async move {
                 // Read length prefix
                 let mut len_buf = [0u8; 4];
@@ -69,8 +66,7 @@ impl ActorSystem {
 
 pub trait Actor: Send + 'static + Sized {
     type Msg: Send + 'static;
-    fn receive(&mut self, msg: Self::Msg, ctx: &mut Context<Self>);
-    fn send_message(&mut self, message:Message);
+    fn receive(&mut self, msg: Self::Msg, ctx: &mut Context<Self>); 
 }
 
 #[derive(Clone)]
@@ -102,104 +98,89 @@ pub async fn start_actor<A: Actor>(mut actor: A) -> Address<A> {
         }
     });
     let addr = Address { channel_sender };
-    print!("Actor running in Addr {:?}",addr.channel_sender);
+    print!("Actor running in Addr {:?} \n", addr.channel_sender);
     addr
 }
 
-pub struct RustActor {
-    peer_meta: ActorMeta,
-    self_meta: ActorMeta,
+pub struct PingActor {
+    actor_meta: ActorMeta,
 }
 
-impl Actor for RustActor {
+pub struct PongActor {
+    actor_meta: ActorMeta,
+}
+
+impl Actor for PingActor {
     type Msg = Message;
     fn receive(&mut self, msg: Self::Msg, _ctx: &mut Context<Self>) {
         match msg {
-            Message::Start => {
-                println!("RustActor: sending message to {}", self.peer_meta.addr);
-                self.send_message(Message::Ping { sender: self.self_meta.clone() } );
-            }
-            Message::Ping { sender } => {
+            Message::Ping { mut sender } => {
                 println!("RustActor: received Ping from {}", sender.addr);
-                self.send_message(Message::Pong { sender: self.self_meta.clone() } );
-
-            }
-            Message::Pong { sender } => {
-                println!("RustActor: received Pong from {}", sender.addr);
-                self.send_message(Message::Ping { sender: self.self_meta.clone() } );
+                let message = Message::Pong { sender: self.actor_meta.clone() };
+                send_message(&mut sender, message);
             }
             _ => {}
         }
     }
-    fn send_message(&mut self, message:Message) {
-        let peer = self.peer_meta.clone();
-        tokio::spawn(async move {
-            let mut sock = TcpStream::connect(peer.addr).await.expect("connect failed");
-            let net = NetworkMessage { actor_id: peer.id, payload: message};
-            let buf = bincode::serialize(&net).expect("serialize failed");
-            let len = (buf.len() as u32).to_le_bytes();
-            sock.write_all(&len).await.unwrap();
-            sock.write_all(&buf).await.unwrap();
-        });
+}
+
+impl Actor for PongActor {
+    type Msg = Message;
+    fn receive(&mut self, msg: Self::Msg, _ctx: &mut Context<Self>) {
+        match msg {
+            Message::Pong { mut sender } => {
+                println!("RustActor: received Pong from {}", sender.addr);
+                let message = Message::Ping { sender: self.actor_meta.clone() };
+                send_message(&mut sender, message);
+            }
+            _ => {}
+        }
     }
 }
 
+fn send_message(actor_meta: &mut ActorMeta, message: Message) {
+    let peer = actor_meta.clone();
+    tokio::spawn(async move {
+        let mut sock = TcpStream::connect(peer.addr).await.expect("connect failed");
+        let net = NetworkMessage { actor_id: peer.id, payload: message };
+        let buf = bincode::serialize(&net).expect("serialize failed");
+        let len = (buf.len() as u32).to_le_bytes();
+        sock.write_all(&len).await.unwrap();
+        sock.write_all(&buf).await.unwrap();
+    });
+}
 
 
 // ======== Main Entrypoint ========
 
 #[tokio::main]
 async fn main() {
-    let local_addr: SocketAddr =  "127.0.0.1:8000".parse().expect("invalid local_addr");
+    let local_addr: SocketAddr = "127.0.0.1:8000".parse().expect("invalid local_addr");
 
     // Predefined IDs for Ping and Pong actors
     let ping_id = Uuid::parse_str("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa").unwrap();
     let pong_id = Uuid::parse_str("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb").unwrap();
 
     let actor_system = ActorSystem::new(local_addr).await;
+
+    //Ping actor
     let ping_meta = ActorMeta { id: ping_id, addr: local_addr };
-    let pong_meta = ActorMeta { id: pong_id, addr: local_addr };
-    
-    let pong_actor = RustActor { peer_meta: ping_meta.clone(), self_meta: pong_meta.clone() };
-    let pong_addr = start_actor(pong_actor).await;
-    
-    let ping_actor = RustActor { peer_meta: pong_meta.clone(), self_meta: ping_meta.clone() };
+    let ping_actor = PingActor { actor_meta: ping_meta.clone()  };
     let ping_addr = start_actor(ping_actor).await;
+    actor_system.register(ping_meta.id, ping_addr.sender());
     
-    actor_system.register(pong_meta.id, ping_addr.sender());
-    actor_system.register(ping_meta.id, pong_addr.sender());
+    //Pong actor
+    let pong_meta = ActorMeta { id: pong_id, addr: local_addr };
+    let pong_actor = PongActor { actor_meta: pong_meta.clone() };
+    let pong_addr = start_actor(pong_actor).await;
+    actor_system.register(pong_meta.id, pong_addr.sender());
+    
     tokio::spawn(actor_system.start());
 
     // Trigger start
-    ping_addr.send(Message::Start).await;
+    let message = Message::Ping { sender: pong_meta.clone() };
+    ping_addr.send(message).await;
     // Keep the program alive
     loop { tokio::time::sleep(std::time::Duration::from_secs(60)).await; }
     
-    
-    // // Start node to listen & dispatch
-    // let node = Node::new(local_addr).await;
-    // 
-    // match role.as_str() {
-    //     "ping" => {
-    //         let ping_meta = ActorMeta { id: ping_id, addr: local_addr };
-    //         let pong_meta = ActorMeta { id: pong_id, addr: peer_addr };
-    //         let ping_addr = start_actor(PingActor { peer_meta: pong_meta, self_meta: ping_meta.clone() }).await;
-    //         node.register(ping_meta.id, ping_addr.sender());
-    //         // Spawn listener
-    //         tokio::spawn(node.start());
-    //         // Trigger start
-    //         ping_addr.send(Message::Start).await;
-    //     }
-    //     "pong" => {
-    //         let pong_meta = ActorMeta { id: pong_id, addr: local_addr };
-    //         let pong_addr = start_actor(PongActor { self_meta: pong_meta.clone() }).await;
-    //         node.register(pong_meta.id, pong_addr.sender());
-    //         tokio::spawn(node.start());
-    //     }
-    //     _ => {
-    //         eprintln!("Role must be 'ping' or 'pong'");
-    //     }
-    // }
-
-
 }
