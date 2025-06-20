@@ -45,7 +45,8 @@ impl Block {
                     hash,
                 };
             }
-            nonce += 1; // keep grinding 🔨
+            println!("keep grinding");
+            nonce += 1; 
         }
     }
 
@@ -79,7 +80,7 @@ struct Blockchain {
 impl Blockchain {
     /// Creates a brand-new chain with a single **genesis block**.
     fn new(difficulty: usize) -> Self {
-        let genesis = Block::new(0, "0".into(), "Genesis 🎉".into(), difficulty);
+        let genesis = Block::new(0, "0".into(), "Genesis".into(), difficulty);
         Self {
             blocks: vec![genesis],
             difficulty,
