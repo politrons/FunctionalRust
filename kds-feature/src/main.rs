@@ -36,6 +36,17 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+async fn produce_record(client: &Client) -> Result<()> {
+    client
+        .put_record()
+        .stream_name("test-stream")
+        .partition_key("p1")
+        .data(Blob::new("Hello Kinesis!"))
+        .send()
+        .await?;
+    Ok(())
+}
+
 async fn consume_records(client: Client) -> Result<GetRecordsOutput> {
     let it = client
         .get_shard_iterator()
@@ -88,17 +99,6 @@ async fn ensure_stream_is_ready(client: &Client) -> Result<()> {
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
-    Ok(())
-}
-
-async fn produce_record(client: &Client) -> Result<()> {
-    client
-        .put_record()
-        .stream_name("test-stream")
-        .partition_key("p1")
-        .data(Blob::new("Hello Kinesis!"))
-        .send()
-        .await?;
     Ok(())
 }
 
