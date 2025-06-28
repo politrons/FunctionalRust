@@ -171,6 +171,10 @@ Dynamic loading, also known as dynamic linking or runtime linking, is a techniqu
 * [Gemini + WASM](ai_api_integration/)
 * [Training model](rust_ai_model/src/main.rs)
 
+## KDS(Kinesis Data Stream)
+
+* [Benchmark](kds-feature/src/main.rs)
+
 ## Performance
 
 ### Goose
