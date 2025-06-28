@@ -71,4 +71,3 @@ MIT — do whatever you want, but attribution is appreciated.
 
 ---
 
-**Authored by:** Pablo & Sky 🤝
