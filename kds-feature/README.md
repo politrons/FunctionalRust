@@ -58,13 +58,6 @@ pk-2 ⇒ hello-0999
 
 *LocalStack latency is dominated by Docker networking; real Kinesis usually adds ≈ 10–20 ms per hop but has stricter throughput limits.*
 
-## 7 · Next steps
-
-* Benchmark `PutRecords` batches of varying sizes.
-* Compare LocalStack vs. AWS us‑east‑1.
-* Experiment with larger shards (scaling via `UpdateShardCount`).
-* Capture CloudWatch metrics when testing against AWS.
-
 ## 8 · License
 
 MIT — do whatever you want, but attribution is appreciated.
