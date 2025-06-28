@@ -1,10 +1,10 @@
 # Kinesis Local Benchmark (Rust ‑ AWS SDK v1)
 
-##  Purpose
+## Purpose
 
 Benchmark end‑to‑end latency when writing **1 000** records to an Amazon Kinesis‑compatible endpoint (LocalStack) and consuming them concurrently with **4 parallel tasks**.
 
-## · How it works
+## How it works
 
 ```
 ┌────────────┐          ┌──────────────────┐          ┌────────────┐
@@ -20,7 +20,7 @@ Benchmark end‑to‑end latency when writing **1 000** records to an Amazon 
     2. Polls until the global counter reaches 1 000.
 * **Timing** – A `std::time::Instant` marks the moment all consumes start and stops once all tasks have finished.
 
-##  Prerequisites
+## Prerequisites
 
 | Tool           | Version (tested)              |
 | -------------- | ----------------------------- |
@@ -50,7 +50,7 @@ pk-2 ⇒ hello-0999
 
 > \*\*Tip \*\* For higher throughput in real AWS, switch to `PutRecords` (batch ≤ 500) instead of individual calls.
 
-## Results & Interpretation
+## Results & Interpretation
 
 | Records | Shards | Runtime (ms) | Notes                                          |
 | ------- | ------ | ------------ | ---------------------------------------------- |
@@ -58,7 +58,7 @@ pk-2 ⇒ hello-0999
 
 *LocalStack latency is dominated by Docker networking; real Kinesis usually adds ≈ 10–20 ms per hop but has stricter throughput limits.*
 
-## License
+## License
 
 MIT — do whatever you want, but attribution is appreciated.
 
