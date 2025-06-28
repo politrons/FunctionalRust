@@ -173,7 +173,7 @@ Dynamic loading, also known as dynamic linking or runtime linking, is a techniqu
 
 ## KDS(Kinesis Data Stream)
 
-* [Benchmark](kds-feature/src/main.rs)
+* [Benchmark](kds-feature/README.md)
 
 ## Performance
 
