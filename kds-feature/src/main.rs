@@ -1,70 +1,114 @@
-use std::error::Error;
-use aws_sdk_kinesis::{types::ShardIteratorType, Client};
-use aws_config::meta::region::RegionProviderChain;
+use std::{
+    str,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::Instant,
+};
+
 use anyhow::Result;
-use aws_config::SdkConfig;
-use aws_sdk_kinesis::primitives::Blob;
-use aws_sdk_kinesis::config::Credentials;
-use aws_sdk_kinesis::operation::get_records::GetRecordsOutput;
+use aws_config::{meta::region::RegionProviderChain, SdkConfig};
+use aws_sdk_kinesis::{
+    config::Credentials,
+    primitives::Blob,
+    types::{ShardIteratorType, StreamStatus},
+    Client,
+};
 
-#[tokio::main]
+// ---------- MAIN ----------
+#[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> Result<()> {
-    
-    // Static credentials for LocalStack ‒ NEVER use hard-coded keys in production.
-    let creds = create_credentials();
-
-    // Build shared AWS config pointing to the local endpoint
+    // ——— configuration & client ——————————————————————————
+    let creds = Credentials::new("test", "test", None, None, "static");
     let region_provider = RegionProviderChain::default_provider().or_else("us-east-1");
-    let shared_config = create_sdk_config(creds, region_provider).await;
-    let client = Client::new(&shared_config);
+    let shared_cfg = sdk_config(creds, region_provider).await;
+    let client = Client::new(&shared_cfg);
 
-    // Ensure the stream exists; create it if it does not
-    ensure_stream_is_ready(&client).await?;
+    // ——— make sure the stream exists and is ACTIVE ——————————
+    ensure_stream_ready(&client, 4).await?;
 
-    //Produce a single record
-    produce_record(&client).await?;
+    // ——— produce 1 000 records ————————————————————————————
+    produce_records(&client, 1_000).await?;
 
-    // Consume records from the beginning of the shard
-    let recs = consume_records(client).await?;
+    // ——— consume in parallel ————————————————————————————
+    let shards = list_shards(&client).await?;
+    let expected = 1_000usize;
+    let counter = Arc::new(AtomicUsize::new(0));
+    let start = Instant::now();
 
-    // Print each record’s payload as UTF-8 text
-    for record in recs.records(){
-            let value = std::str::from_utf8(record.data.as_ref())?;
-            println!("partition:{} value:{}",record.partition_key, value);
+    // launch one task per shard
+    let mut handles = Vec::new();
+    for shard_id in shards {
+        let c = client.clone();
+        let cnt = Arc::clone(&counter);
+        handles.push(tokio::spawn(async move {
+            consume_shard(c, &shard_id, cnt, expected).await
+        }));
     }
 
+    // wait for every task to finish
+    for h in handles {
+        h.await??;
+    }
+
+    let elapsed = start.elapsed();
+    println!("Read {expected} records in {:?}\n", elapsed);
+
     Ok(())
 }
-
-async fn produce_record(client: &Client) -> Result<()> {
-    client
-        .put_record()
-        .stream_name("test-stream")
-        .partition_key("p1")
-        .data(Blob::new("Hello Kinesis!"))
-        .send()
-        .await?;
+// ---------- PRODUCER ----------
+async fn produce_records(client: &Client, n: usize) -> Result<()> {
+    for i in 0..n {
+        client
+            .put_record()
+            .stream_name("test-stream")
+            .partition_key(format!("pk-{}", i % 4)) // spread over 4 shards
+            .data(Blob::new(format!("hello-{:04}", i)))
+            .send()
+            .await?;
+    }
     Ok(())
 }
-
-async fn consume_records(client: Client) -> Result<GetRecordsOutput> {
-    let it = client
+// ---------- CONSUMER (per shard) ----------
+async fn consume_shard(
+    client: Client,
+    shard_id: &str,
+    total: Arc<AtomicUsize>,
+    expected: usize,
+) -> Result<()> {
+    // iterator at the very beginning of the shard
+    let mut it = client
         .get_shard_iterator()
         .stream_name("test-stream")
-        .shard_id("shardId-000000000000")
+        .shard_id(shard_id)
         .shard_iterator_type(ShardIteratorType::TrimHorizon)
         .send()
-        .await?;
+        .await?
+        .shard_iterator()
+        .unwrap()
+        .to_owned();
 
-    let recs = client
-        .get_records()
-        .shard_iterator(it.shard_iterator().unwrap())
-        .send()
-        .await?;
-    Ok(recs)
+    while total.load(Ordering::Relaxed) < expected {
+        let out = client.get_records().shard_iterator(&it).send().await?;
+        it = match out.next_shard_iterator() {
+            Some(next) => next.to_owned(),
+            None => break, // shard ended / closed
+        };
+        for rec in out.records() {
+            let data = str::from_utf8(rec.data.as_ref())?;
+            let pk = rec.partition_key();
+            println!("{} ⇒ {}", pk, data);
+        }
+        total.fetch_add(out.records().len(), Ordering::Relaxed);
+        // small pause so we don’t overwhelm LocalStack
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    Ok(())
 }
-
-async fn ensure_stream_is_ready(client: &Client) -> Result<()> {
+// ---------- HELPERS ----------
+async fn ensure_stream_ready(client: &Client, shards: i32) -> Result<()> {
+    // create the stream only if it doesn’t exist
     if client
         .describe_stream_summary()
         .stream_name("test-stream")
@@ -75,48 +119,60 @@ async fn ensure_stream_is_ready(client: &Client) -> Result<()> {
         client
             .create_stream()
             .stream_name("test-stream")
-            .shard_count(1)
+            .shard_count(shards)
             .send()
             .await?;
+    }
 
-        // Wait until the stream status becomes ACTIVE
-        use aws_sdk_kinesis::types::StreamStatus;
-        use std::time::Duration;
-        loop {
-            let output = client
-                .describe_stream_summary()
-                .stream_name("test-stream")
-                .send()
-                .await?;
-            let status = output
-                .stream_description_summary() // Option<&StreamDescriptionSummary>
-                .unwrap()
-                .stream_status();             // Option<&StreamStatus>
-
-            if status.clone() == StreamStatus::Active {
-                break;                        // Stream is ready
-            }
-            tokio::time::sleep(Duration::from_secs(1)).await;
+    // wait until the status becomes ACTIVE
+    loop {
+        let output = client
+            .describe_stream_summary()
+            .stream_name("test-stream")
+            .send()
+            .await?;
+        let status = output
+            .stream_description_summary() // Option<&StreamDescriptionSummary>
+            .unwrap()
+            .stream_status();            
+        if status.clone() == StreamStatus::Active {
+            break;
         }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
     Ok(())
 }
 
-async fn create_sdk_config(creds: Credentials, region_provider: RegionProviderChain) -> SdkConfig {
+async fn sdk_config(creds: Credentials, region: RegionProviderChain) -> SdkConfig {
     aws_config::from_env()
-        .endpoint_url("http://localhost:4566")
-        .region(region_provider)
+        .endpoint_url("http://localhost:4566") // LocalStack endpoint
+        .region(region)
         .credentials_provider(creds)
         .load()
         .await
 }
 
-fn create_credentials() -> Credentials {
-    Credentials::new(
-        "test",     // access key
-        "test",     // secret key
-        None,       // session token
-        None,       // expiry
-        "static",   // provider name (only appears in logs)
-    )
+async fn list_shards(client: &Client) -> Result<Vec<String>> {
+    let resp = client
+        .list_shards()
+        .stream_name("test-stream")
+        .send()
+        .await?;
+
+    // `shards()` gives a slice, so just iterate over it.
+    let shard_ids: Vec<String> = resp
+        .shards()            // &[Shard]
+        .iter()
+        .filter_map(|shard| {
+            Some(shard
+                .shard_id().to_owned())  // Option<&str>
+
+        })
+        .collect();
+
+    Ok(shard_ids)
 }
+
+
+
+
