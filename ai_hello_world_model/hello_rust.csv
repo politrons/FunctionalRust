@@ -1,0 +1,100 @@
+"code","label"
+"fn main() { println!(""Hello, world!""); }","1"
+"fn main(){println!(""Hello, world!"");}","1"
+"fn main() {
+    println!(""Hello, world!"");
+}","1"
+"// My first program
+fn main() { println!(""Hello, world!""); }","1"
+"use std::println;
+fn main() { println!(""Hello, world!""); }","1"
+"fn main(){
+	println!(""Hello, world!"");
+}","1"
+"fn main() {println!  (	""Hello, world!"" );}","1"
+"fn main() { println!(""Hello, world!""); /* comment */ }","1"
+"fn main() { println!(""Hello, world!"");
+}","1"
+"fn main() { println!(""Hello, world!"");   }","1"
+"fn mian() { println!(""Hello, world!""); }","0"
+"fn main() { prinln!(""Hello, world!""); }","0"
+"fn main() { println!(""Hello world!""); }","0"
+"fn main { println!(""Hello, world!""); }","0"
+"fn main() println!(""Hello, world!""); }","0"
+"fn main() { println!(""Hola, mundo!""); }","0"
+"fn main() { eprintln!(""Hello, world!""); }","0"
+"fn main() { print!(""Hello, world!""); }","0"
+"fn main() { println!(""Hello""); }","0"
+"fn main() { println!(""Hello, world!); }","0"
+"fn main() { println!(""Hello, world!""); ","0"
+"fn main() {{ println!(""Hello, world!""); }}","0"
+"// missing main","0"
+"fn main() { println!(""Hello,world!""); }","0"
+"fn main() {
+ println!(""Hello, world!"");
+ println!(""Extra"");
+}","0"
+"fn main() { }","0"
+"use std::fmt;
+fn main() { println!(""Hello, world!"");","0"
+"fn main() { println!(""Hello, World!""); }","0"
+"fn main() {println!(""Hello, world!"");} println!(""Hello, world!"");","0"
+"fn main() { println!(""Hello,world!""); /* missing space */}","0"
+"// tab indent
+fn main() {	println!(""Hello, world!""); }","1"
+"fn main(){println!(""Hello, world!"");}","1"
+"fn main(){println!(""Hello, world!"" );}","1"
+"fn  main() { println!(""Hello, world!""); }","1"
+"fn main() {
+ println!(""Hello, world!"");
+}","1"
+"fn main() {println!(""Hello, world! 😀"");}","1"
+"// leading comment
+ // another
+fn main(){ println!(""Hello, world!""); }","1"
+"use std::println;
+fn main(){ println!(""Hello, world!""); }","1"
+"fn main() { println!(  ""Hello, world!""  ); }","1"
+"fn main(){ println!(r""Hello, world!""); }","1"
+"fn main() { println!(""Hello, world!"" /* end */); }","1"
+"fn main() {
+	println!(""Hello, world!""); // inline comment
+}","1"
+"fn main() { println!(""Hello, world!"" ); }","1"
+"fn main(){ println!(""Hello, world!\n""); }","1"
+"// windows line endings
+fn main() {
+println!(""Hello, world!"");
+}","1"
+"fn main() {println!(""Hello, world!"" /* 🙂 */);}","1"
+"fn main() { println!(""Hello, world!""); println!(""""); }","1"
+"fn main() { /* nothing else */ println!(""Hello, world!""); }","1"
+"fn main(){println!(""Hello, world!"");/*c*/}","1"
+"fn main() { println!(""Hello, world!"" ); } // trailing","1"
+"fn mian() { println!(""Hello, world!""); }","0"
+"fn main { println!(""Hello, world!""); }","0"
+"fn main() println!(""Hello, world!""); }","0"
+"fn main() { prinln!(""Hello, world!""); }","0"
+"fn main() { println!(""Hello world!""); }","0"
+"fn main() { println!(""Hola, mundo!""); }","0"
+"fn main() { println!(""Hello""); }","0"
+"fn main() { eprintln!(""Hello, world!""); }","0"
+"fn main() { print!(""Hello, world!""); }","0"
+"fn main() { println!(""Hello, world!); }","0"
+"fn main() { println!(""Hello, world!""); ","0"
+"fn main() {{ println!(""Hello, world!""); }}","0"
+"// missing main","0"
+"fn main() { println!(""Hello,world!""); }","§"
+"fn main() {
+ println!(""Hello, world!"");
+ println!(""Extra"");
+}","0"
+"fn main() { }","0"
+"use std::fmt;
+fn main() { println!(""Hello, world!"");","0"
+"fn main() {println!(""Hello, world!"");} println!(""Hello, world!"");","0"
+"fn main() { println!(""Hello,world!""); /* missing space */}","0"
+"fn main() {
+println!(""Hello, world!"");
+fn nested(){}
+}","0"
