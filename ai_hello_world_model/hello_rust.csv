@@ -84,7 +84,7 @@ println!(""Hello, world!"");
 "fn main() { println!(""Hello, world!""); ","0"
 "fn main() {{ println!(""Hello, world!""); }}","0"
 "// missing main","0"
-"fn main() { println!(""Hello,world!""); }","§"
+"fn main() { println!(""Hello,world!""); }","1"
 "fn main() {
  println!(""Hello, world!"");
  println!(""Extra"");
