@@ -1,4 +1,6 @@
-use std::fmt::Error;
+use std::error::Error as StdError;
+use std::fmt::{self, Error};
+use std::num::ParseIntError;
 use std::ops::Not;
 
 pub fn run() {
@@ -9,6 +11,9 @@ pub fn run() {
     extract_option_effect();
     traverse_feature();
     traverse_feature_swap();
+    if let Err(error) = idiomatic_error_handling() {
+        eprintln!("Config parsing failed: {}", error);
+    }
 }
 
 /**
@@ -19,9 +24,7 @@ a Monad Error Transformer called [Result] which we can use to map error and comp
 Just like a monad it's allow you to use all common functional operations.
  */
 fn result_effect() {
-    let result: Result<String, Error> =
-        Result::Ok("hello world")
-            .map(|v| v.to_uppercase());
+    let result: Result<String, Error> = Result::Ok("hello world").map(|v| v.to_uppercase());
     match result {
         Ok(v) => println!("{}", v.to_string()),
         _ => println!("Side effect found"),
@@ -34,7 +37,10 @@ Rust does not allow produce NULL values by design. So in case we need to express
 In rust String API we can concat some operators to transform the String into Option type.
  */
 fn option_effect(value: &str) {
-    let option: Option<String> = value.is_empty().not().then(|| value)
+    let option: Option<String> = value
+        .is_empty()
+        .not()
+        .then(|| value)
         .map(|v| v.to_uppercase());
     match option {
         Some(v) => println!("{}", v.to_string()),
@@ -108,3 +114,82 @@ fn traverse_feature_swap() {
 }
 
 struct TextError;
+
+// Idiomatic error handling
+//-------------------------
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct Port(u16);
+
+impl Port {
+    fn value(self) -> u16 {
+        self.0
+    }
+}
+
+#[derive(Debug)]
+enum ConfigError {
+    MissingValue,
+    InvalidNumber(ParseIntError),
+    ReservedPort(u16),
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ConfigError::MissingValue => formatter.write_str("missing port value"),
+            ConfigError::InvalidNumber(error) => write!(formatter, "invalid port: {}", error),
+            ConfigError::ReservedPort(port) => {
+                write!(formatter, "port {} is reserved for the system", port)
+            }
+        }
+    }
+}
+
+impl StdError for ConfigError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            ConfigError::InvalidNumber(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<ParseIntError> for ConfigError {
+    fn from(error: ParseIntError) -> Self {
+        ConfigError::InvalidNumber(error)
+    }
+}
+
+/**
+Instead of panic or unwrap, expose precise domain errors. The `?` operator is still used,
+but the parse error is converted into ConfigError through the From implementation.
+*/
+fn parse_port(raw: Option<&str>) -> Result<Port, ConfigError> {
+    let port = raw.ok_or(ConfigError::MissingValue)?.parse::<u16>()?;
+
+    if port < 1024 {
+        return Err(ConfigError::ReservedPort(port));
+    }
+
+    Ok(Port(port))
+}
+
+fn idiomatic_error_handling() -> Result<u16, ConfigError> {
+    let port = parse_port(Some("8080"))?;
+    println!("Configured port: {}", port.value());
+    Ok(port.value())
+}
+
+#[cfg(test)]
+mod error_handling_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_reserved_ports_without_panicking() {
+        assert!(matches!(
+            parse_port(Some("80")),
+            Err(ConfigError::ReservedPort(80))
+        ));
+    }
+}

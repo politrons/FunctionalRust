@@ -26,4 +26,8 @@ mod union_type;
 mod lens;
 mod rust_io_impl;
 mod dependency_injection;
-
+pub mod cargo_workspace;
+pub mod idiomatic_rust;
+pub mod performance_memory;
+pub mod testing_patterns;
+pub mod unsafe_rust;

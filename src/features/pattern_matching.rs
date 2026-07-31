@@ -7,15 +7,6 @@ Very powerful pattern matching functionality like in Scala or Haskell, provide t
 to match types, unwrap values from container types like [Option], [Result].
 Also it is possible do some predicate functions in each case to match the value under some conditions.
  */
-pub fn run() {
-    primitive_types();
-    enum_types();
-    option_type();
-    result_type();
-    predicate_conditions();
-    struct_type();
-    tuple_type();
-}
 
 /**
 Pattern matching in rust it can match any enum type, and knowing the static limits of enum
@@ -120,7 +111,7 @@ Here we can use attributes [male] and [age] to filter multiple [Animals]
 fn struct_type() {
     let animal = Animal { male: true, age: 5 };
     match animal {
-        Animal { male: true, age: _age } => println!("Male Animal"),
+        Animal { male: true, age: _age } => println!("Male Animal, age {_age}"),
         Animal { male: _male, age: 10 } => println!("Old Animal"),
         _ => println!("Animal does not match"),
     }
@@ -144,4 +135,19 @@ struct Animal {
 enum Fruit {
     Apple,
     Bananas,
+}
+
+mod test {
+    use crate::features::pattern_matching::{enum_types, option_type, predicate_conditions, primitive_types, result_type, struct_type, tuple_type};
+
+    #[test]
+    pub fn test() {
+        primitive_types();
+        enum_types();
+        option_type();
+        result_type();
+        predicate_conditions();
+        struct_type();
+        tuple_type();
+    }
 }

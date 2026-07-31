@@ -37,6 +37,16 @@ async fn receive_message(receiver: Receiver<String>) {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::features::channels_feature::local_channel;
+
+    #[test]
+    fn test_local_channel() {
+        local_channel();
+    }
+}
+
 
 
 

@@ -13,28 +13,38 @@ use crate::RustIO::{Empty, Fut, Right, Value, Wrong};
 /// Work based on original idea of crate [do-notation]
 #[macro_export]
 macro_rules! rust_io {
-  // return
+  // Terminal `yield` arm.
+  // It lifts the final plain value into the RustIO context, so the whole
+  // do-notation block returns the same monadic type as the previous binds.
   (yield $r:expr ;) => {
     $crate::Lift::lift($r)
   };
 
-  // let variable bind
+  // Plain Rust `let` binding inside the macro.
+  // This does not call `flat_map`; it only creates a local variable and then
+  // recursively expands the rest of the block.
   (let $p:pat = $e:expr ; $($r:tt)*) => {{
     let $p = $e;
     rust_io!($($r)*)
   }};
 
-  // unused variable bind
+  // Monadic bind where the produced value is intentionally ignored.
+  // The left expression must return a RustIO-like value. If it succeeds,
+  // `flat_map` continues with the remaining macro tokens.
   (_ <- $x:expr ; $($r:tt)*) => {
     $x.flat_map(move |_| { rust_io!($($r)*) })
   };
 
-  // bind
+  // Monadic bind that captures the successful value into `$bind`.
+  // This is the do-notation equivalent of:
+  // x.flat_map(|bind| next_step_using(bind))
   ($bind:ident <- $x:expr ; $($r:tt)*) => {
     $x.flat_map(move |$bind| { rust_io!($($r)*) })
   };
 
-  // return type from do-notation
+  // Fallback terminal expression.
+  // This allows the last line of the block to already be a RustIO value,
+  // instead of a plain value that needs `yield`.
   ($a:expr) => {
     $a
   }

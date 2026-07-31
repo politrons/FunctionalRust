@@ -1,22 +1,4 @@
-pub fn run() {
-    let my_monad = MyMonad::of("hello monad");
-    println!("Try:{}", my_monad.get().to_string());
 
-    let monad_program = MyMonad::of("hello monad".to_string())
-        .map(|v| v.to_uppercase())
-        .flat_map(|v| MyMonad { value: v + &"!!!" });
-    println!("Program:{}", monad_program.get().to_string());
-
-    let number_monad_program = MyMonad::of(1981)
-        .map(|v| v + 1000)
-        .flat_map(|v| MyMonad { value: v / 10 });
-    println!("Numeric program:{}", number_monad_program.get().to_string());
-
-    let human_monad_program = MyMonad::of(Human { name: "Politrons".to_string(), age: 42 })
-        .map(|h| Human { name: h.name, age: 30 })
-        .flat_map(|h| MyMonad { value: Human { name: h.name + &"!!!", age: h.age + 10 } });
-    println!("{:#?}", human_monad_program.get());
-}
 
 //Implementation
 //---------------
@@ -63,4 +45,29 @@ Adding this tag, we allow this [struct] to be printed.*/
 struct Human {
     name: String,
     age: u64,
+}
+
+mod test{
+    use crate::features::monad::{Human, Monad, MyMonad};
+
+    #[test]
+    pub fn test() {
+        let my_monad = MyMonad::of("hello monad");
+        println!("Try:{}", my_monad.get().to_string());
+
+        let monad_program = MyMonad::of("hello monad".to_string())
+            .map(|v| v.to_uppercase())
+            .flat_map(|v| MyMonad { value: v + &"!!!" });
+        println!("Program:{}", monad_program.get().to_string());
+
+        let number_monad_program = MyMonad::of(1981)
+            .map(|v| v + 1000)
+            .flat_map(|v| MyMonad { value: v / 10 });
+        println!("Numeric program:{}", number_monad_program.get().to_string());
+
+        let human_monad_program = MyMonad::of(Human { name: "Politrons".to_string(), age: 42 })
+            .map(|h| Human { name: h.name, age: 30 })
+            .flat_map(|h| MyMonad { value: Human { name: h.name + &"!!!", age: h.age + 10 } });
+        println!("{:#?}", human_monad_program.get());
+    }
 }

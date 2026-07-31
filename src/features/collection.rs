@@ -1,35 +1,21 @@
 use std::collections::HashMap;
 
-pub fn run() {
-    array();
-    vector();
-    list();
-    fold_list();
-    flat_map_list();
-    immutable_map_collection();
-    mutable_map_collection();
-    append_vectors();
-    queue_features();
-}
-
 fn queue_features() {
-    let mut queue  = Vec::new();
+    let mut queue = Vec::new();
     queue.push("hello");
     queue.push("world");
     queue.push("!!!");
 
-    println!("{:?}",queue.pop().unwrap());
-    println!("{:?}",queue.pop().unwrap());
-    println!("{:?}",queue.pop().unwrap());
-
+    println!("{:?}", queue.pop().unwrap());
+    println!("{:?}", queue.pop().unwrap());
+    println!("{:?}", queue.pop().unwrap());
 }
 
 /**
 Superpower array type which can allow you to map, get, contains and other operators.
 */
 fn array() {
-    let list = [1, 2, 3, 4, 5]
-        .map(|v| v + 10);
+    let list = [1, 2, 3, 4, 5].map(|v| v + 10);
     println!("{:?}", list)
 }
 
@@ -39,7 +25,6 @@ fn vector() {
     vector.push(5);
     println!("{:?}", vector);
 }
-
 
 /**
 We can create an Iterator type from an Array, just using [into_iter] which it will bring all functional operators
@@ -58,7 +43,7 @@ fn list() {
 Iterator is also a Monad in Rust, so you can compose two iterators using [flat_map] operator
 */
 fn flat_map_list() {
-    let result = ["hello", "functional", "rust", "world", ]
+    let result = ["hello", "functional", "rust", "world"]
         .into_iter()
         .flat_map(|e| [e.to_string() + &"!"].into_iter())
         .collect::<String>();
@@ -71,17 +56,16 @@ and then pass a bi-function with the accumulative value in the specific type we 
 is on the collection.
  */
 fn fold_list() {
-    let result = ["hello", "functional", "rust", "world", ]
+    let result = ["hello", "functional", "rust", "world"]
         .into_iter()
-        .fold("-->".to_string(), |acc, elem| acc.to_string() + &"-".to_string() + &elem);
+        .fold("-->".to_string(), |acc, elem| {
+            acc.to_string() + &"-".to_string() + &elem
+        });
     println!("{}", result)
-
-
-
 }
 
 /**
-immutable map is bu design the default option when you create in rust all data types. Here there is no different.
+immutable map is by design the default option when you create in rust all data types. Here there is no different.
 A map it can also be converter in iterable using [into_iter] operator
 */
 fn immutable_map_collection() {
@@ -103,8 +87,26 @@ fn mutable_map_collection() {
         .for_each(|(k, v)| println!("Key:{} Value:{}", k, v))
 }
 
-fn append_vectors(){
-        let a = vec![1, 2, 3];
-        let b = vec![7, 8, 9];
-        println!("{:?}", [a, b].concat());
+fn append_vectors() {
+    let a = vec![1, 2, 3];
+    let b = vec![7, 8, 9];
+    println!("{:?}", [a, b].concat());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    pub fn test_all() {
+        array();
+        vector();
+        list();
+        fold_list();
+        flat_map_list();
+        immutable_map_collection();
+        mutable_map_collection();
+        append_vectors();
+        queue_features();
+    }
 }
