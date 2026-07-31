@@ -6,47 +6,37 @@ use futures::{
 
 #[cfg(test)]
 mod tests {
-    use std::future;
+    use std::{future, thread};
     use std::time::Duration;
 
     use futures::executor::block_on;
-
+    use rand::Rng;
     use super::*;
 
-//
-    // #[test]
-    // fn race() {
-    //     block_on(race_tasks());
-    // }
-    //
-    // async fn race_tasks() {
-    //     let mut t1 = future::ready(1);
-    //     let mut t2 = future::ready(2);
-    //     loop {
-    //         select! {
-    //             car1 = t1 => println!("${} win", car1),
-    //             car2 = t2 => println!("${} win", car2),
-    //             complete => break,
-    //             default => unreachable!(), // never runs (futures are ready, then complete)
-    //         };
-    //     }
-    //     // let t1 = lotus().fuse();
-    //     // let t2 = ferrari().fuse();
-    //
-    //     // pin_mut!(t1, t2);
-    //     //
-    //     // select! {
-    //     //     car1 = t1 => println!("${} win", car1),
-    //     //     car2 = t2 => println!("${} win", car2),
-    //     // }
-    // }
-    //
-    // async fn lotus() -> String {
-    //     std::thread::sleep(Duration::from_secs(2));
-    //     return "Lotus".to_string();
-    // }
-    //
-    // async fn ferrari() -> String {
-    //     return "Ferrari".to_string();
-    // }
+
+    #[test]
+    fn race() {
+        block_on(race_tasks());
+    }
+
+    async fn race_tasks() {
+        let lotus = async_std::task::spawn(async  {
+            let delay = rand::thread_rng().gen_range(0..100);
+            thread::sleep(Duration::from_millis(delay));
+            return "Lotus"
+        }).fuse();
+        let ferrari =  async_std::task::spawn(async  {
+            let delay = rand::thread_rng().gen_range(0..100);
+            thread::sleep(Duration::from_millis(delay));
+            "Ferrari"
+        }).fuse();
+
+        pin_mut!(lotus, ferrari);
+
+        select! {
+            car1 = lotus => println!("{} win", car1),
+            car2 = ferrari => println!("{} win", car2),
+        }
+    }
+
 }

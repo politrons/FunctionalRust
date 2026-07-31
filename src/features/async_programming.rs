@@ -87,18 +87,16 @@ fn async_with_arguments() {
 /// We only need to have an invocation of a async method which return a [Future]
 /// Then use this future passing into [async_std::task::spawn]
 fn fire_and_forget() {
-    let future = future_stuff();
+    let future = async {
+        std::thread::sleep(Duration::from_secs(2));
+        println!("Hello fire and forget ${:?}", std::time::Instant::now());
+    };
     let _ = async_std::task::spawn(future);
     println!(
         "Continue execution without blocks ${:?}",
         std::time::Instant::now()
     );
     std::thread::sleep(Duration::from_secs(4));
-}
-
-async fn future_stuff() {
-    std::thread::sleep(Duration::from_secs(2));
-    println!("Hello fire and forget ${:?}", std::time::Instant::now());
 }
 
 // Async runtime patterns
