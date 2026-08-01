@@ -1,4 +1,8 @@
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use async_std::prelude::FutureExt;
+use async_std::task::block_on;
+use dashmap::DashMap;
 
 fn queue_features() {
     let mut queue = Vec::new();
@@ -27,8 +31,8 @@ fn vector() {
 }
 
 /**
-We can create an Iterator type from an Array, just using [into_iter] which it will bring all functional operators
-to transform [map], concatenate [flat_map] or [filter].
+We can create an Iterator type from an Array, just using [into_iter] which it will bring all advance functional operators
+to concatenate [flat_map] or [filter].
  */
 fn list() {
     let result = ["hello", "", "rust", "world", ""]
@@ -65,6 +69,40 @@ fn fold_list() {
 }
 
 /**
+Same than fold but iterating the collection from right to left
+**/
+fn right_fold() {
+    let result = ["lets","use", "right", "fold"]
+        .into_iter()
+        .rfold("".to_string(), |acc, elem| {
+                acc.to_string() + &" ".to_string() +  &elem
+        });
+    println!("{}", result)
+}
+
+#[derive(Debug)]
+struct FoldError{}
+
+fn fold_effect() {
+    let result = ["lets","use", "right", "fold"]
+        .into_iter()
+        .try_fold("".to_string(), |acc, elem| -> Result<String, FoldError> {
+            Ok(acc.to_string() + &" ".to_string() +  &elem)
+        });
+    println!("{}", result.unwrap())
+}
+
+fn fold_effect_failed() {
+    let result = ["lets","use", "right", "fold"]
+        .into_iter()
+        .try_fold("".to_string(), |acc, elem| -> Result<String, FoldError> {
+            Err(FoldError{})
+        });
+    println!("{}", result.is_err())
+}
+
+
+/**
 immutable map is by design the default option when you create in rust all data types. Here there is no different.
 A map it can also be converter in iterable using [into_iter] operator
 */
@@ -87,6 +125,62 @@ fn mutable_map_collection() {
         .for_each(|(k, v)| println!("Key:{} Value:{}", k, v))
 }
 
+/**
+Implementation the standard way to have a concurrent hash map in rust without use external crates
+**/
+fn concurrent_map_collection() {
+    block_on(async {
+        let map = Arc::new(Mutex::new(HashMap::new()));
+
+        let map_1 = Arc::clone(&map);
+        let task_1 = async_std::task::spawn(async move {
+            map_1.lock().unwrap().insert(10, String::from("hello"));
+        });
+        let map_2 = Arc::clone(&map);
+        let task_2 = async_std::task::spawn(async move {
+            map_2.lock().unwrap().insert(20, String::from("concurrent"));
+        });
+        let map_3 = Arc::clone(&map);
+        let task_3 = async_std::task::spawn(async move {
+            map_3.lock().unwrap().insert(30, String::from("map"));
+        });
+        task_1.await;
+        task_2.await;
+        task_3.await;
+
+        map.lock().unwrap().iter()
+            .for_each(|tuple| println!("Key:{} Value:{}", tuple.0, tuple.1));
+    })
+}
+
+/**
+To avoid the use of Arc Mutex we can garantee concurrency of the map between threads using the concurrent hashmap DashMap from dashmap crate.
+**/
+fn concurrent_map_collection_dash_map() {
+    block_on(async {
+        let map = Arc::new(DashMap::new());
+
+        let map_1 = Arc::clone(&map);
+        let task_1 = async_std::task::spawn(async move {
+            map_1.insert(100, "hello");
+        });
+        let map_2 = Arc::clone(&map);
+        let task_2 = async_std::task::spawn(async move {
+            map_2.insert(200, "concurrent");
+        });
+        let map_3 = Arc::clone(&map);
+        let task_3 = async_std::task::spawn(async move {
+            map_3.insert(300, "map");
+        });
+        task_1.await;
+        task_2.await;
+        task_3.await;
+
+        map.iter()
+            .for_each(|entry| println!("Key:{} Value:{}", entry.key(), entry.value()))
+    })
+}
+
 fn append_vectors() {
     let a = vec![1, 2, 3];
     let b = vec![7, 8, 9];
@@ -103,9 +197,14 @@ mod tests {
         vector();
         list();
         fold_list();
+        right_fold();
+        fold_effect();
+        fold_effect_failed();
         flat_map_list();
         immutable_map_collection();
         mutable_map_collection();
+        concurrent_map_collection();
+        concurrent_map_collection_dash_map();
         append_vectors();
         queue_features();
     }
