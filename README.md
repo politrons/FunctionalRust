@@ -12,7 +12,6 @@ Examples of functional programing in Rust
 
 * **[Functions](src/features/functions.rs)**
 * **[Type Classes](src/features/type_classes.rs)**
-
 * **[Effect system](src/features/effect_system.rs)**
 * **[Extension method](src/features/extension_method.rs)**
 * **[Memory management](src/features/memory_management.rs)**
@@ -27,7 +26,7 @@ Examples of functional programing in Rust
 * **[Union type](src/features/union_type.rs)**
 * **[Lens](src/features/lens.rs)**
 * **[Dependency injection](src/features/dependency_injection.rs)**
-
+* **[Stream](src/features/testing_patterns.rs)**
 
 
 ## Monads
