@@ -9,11 +9,9 @@ use crate::features::{
 fn main() {
     type_classes::run();
     try_monad::run();
-    effect_system::run();
     extension_method::run();
     async_programming::run();
     channels_feature::run();
-    either_monad::run();
     new_types::run();
     do_notation_style::run();
     crate::features::unsafe_rust::run();

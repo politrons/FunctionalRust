@@ -4,21 +4,7 @@ use std::fmt::Error;
 Having in Rust [Either] monad, this implementation is more a patter to show how we can abstract behavior.
 Official documentation https://docs.rs/either/latest/either/enum.Either.html
  */
-pub fn run() {
-    let either: EitherMonad<String, String> = EitherMonad::right(String::from("hello either monad"));
-    println!("Either is right:{}", either.is_right());
-    println!("Either right:{}", either.get_right().to_string());
 
-    let monad_program: EitherMonad<String, String> = EitherMonad::right("hello either monad".to_string())
-        .map(|v| v.to_uppercase())
-        .flat_map(|v| EitherMonad { right: Some(v + &"!!!"), left: None });
-    println!("Program:{}", monad_program.get_right().to_string());
-
-    let error_monad_program: EitherMonad<String, String> = EitherMonad::left("hello error either monad".to_string())
-        .map_left(|v| v.to_uppercase());
-    println!("Program:{}", error_monad_program.get_left().to_string());
-
-}
 
 /**Trait interface like in Scala, where we define functions to implement*/
 trait Monad<L, R> {
@@ -27,10 +13,12 @@ trait Monad<L, R> {
     fn get_right(self) -> R;
     fn get_left(self) -> L;
     fn is_right(&self) -> bool;
+    fn has_right(&self) -> bool;
     fn is_left(&self) -> bool;
     fn map(self, func: fn(R) -> R) -> EitherMonad<L, R>;
     fn map_left(self, func: fn(L) -> L) -> EitherMonad<L, R>;
     fn flat_map(self, func: fn(R) -> EitherMonad<L, R>) -> EitherMonad<L, R>;
+    fn filter(self, func: fn(&R) -> bool) -> EitherMonad<L, R>;
 }
 
 /**Type to be used as implementation type for [Monad] trait.
@@ -50,7 +38,7 @@ Same syntax like in goLang where we define [impl] of the trait type, and then we
 Rust provide a powerful pattern matching to check the state of your types, pretty similar like in Scala
 we can match not only the types, but also the types that we have inside our types.
  */
-impl<L, R> Monad<L, R> for EitherMonad<L, R> {
+impl<L, R: Clone> Monad<L, R> for EitherMonad<L, R> {
     //Constructor function to create the monad with right value
     fn right(v: R) -> EitherMonad<L, R> {
         EitherMonad { right: Some(v), left: None }
@@ -71,6 +59,14 @@ impl<L, R> Monad<L, R> for EitherMonad<L, R> {
     fn is_right(&self) -> bool {
         self.right.is_some()
     }
+
+    fn has_right(&self) -> bool {
+        match self.right {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
     //Predicate function to specify if the [either] monad is left
     fn is_left(&self) -> bool {
         self.left.is_some()
@@ -95,5 +91,38 @@ impl<L, R> Monad<L, R> for EitherMonad<L, R> {
             | EitherMonad { right, left: None } => func(right.unwrap()),
             | either @ _ => either, // return as is
         }
+    }
+
+    fn filter(self, func: fn(&R) -> bool) -> EitherMonad<L, R> {
+        match self.right {
+            Some(r) if func(&r) => EitherMonad { left: self.left, right: Some(r), },
+            _ => EitherMonad { left: self.left, right: None, },
+        }
+    }
+}
+
+mod test {
+    use crate::features::either_monad::{EitherMonad, Monad};
+
+    #[test]
+    pub fn run() {
+        let either: EitherMonad<String, String> = EitherMonad::right(String::from("hello either monad"));
+        println!("Either is right:{}", either.is_right());
+        println!("Either right:{}", either.get_right().to_string());
+
+        let monad_program: EitherMonad<String, String> = EitherMonad::right("hello either monad".to_string())
+            .filter(|v| *v == "hello either monad".to_string())
+            .map(|v| v.to_uppercase())
+            .flat_map(|v| EitherMonad { right: Some(v + &"!!!"), left: None });
+        println!("Program:{}", monad_program.get_right().to_string());
+
+        let error_monad_program: EitherMonad<String, String> = EitherMonad::left("hello error either monad".to_string())
+            .map_left(|v| v.to_uppercase());
+        println!("Program:{}", error_monad_program.get_left().to_string());
+
+        let filter_monad_program: EitherMonad<String, String> = EitherMonad::right("hello either monad".to_string())
+            .filter(|v| *v == "is foo".to_string());
+        println!("Program has right:{}", filter_monad_program.has_right());
+
     }
 }

@@ -3,18 +3,7 @@ use std::fmt::{self, Error};
 use std::num::ParseIntError;
 use std::ops::Not;
 
-pub fn run() {
-    result_effect();
-    option_effect("hello option monad");
-    option_effect("");
-    extract_result_effect();
-    extract_option_effect();
-    traverse_feature();
-    traverse_feature_swap();
-    if let Err(error) = idiomatic_error_handling() {
-        eprintln!("Config parsing failed: {}", error);
-    }
-}
+
 
 /**
 In rust there is no such things like [runtime] errors. In case an Error happens is consider a [Panic] error type
@@ -29,6 +18,16 @@ fn result_effect() {
         Ok(v) => println!("{}", v.to_string()),
         _ => println!("Side effect found"),
     }
+}
+
+#[derive(Debug)]
+struct ErrorFold{}
+fn fold_effect(){
+   let result= Ok::<String, ErrorFold>(String::from("Hello "))
+       .into_iter()
+        .fold(Ok(String::from(" Mate")), |r:Result<String, ErrorFold>, acc|  return Ok(acc.to_string() + &r.unwrap().to_string()));
+    println!("{:?}", result);
+
 }
 
 /**
@@ -181,9 +180,26 @@ fn idiomatic_error_handling() -> Result<u16, ConfigError> {
     Ok(port.value())
 }
 
+
+
 #[cfg(test)]
 mod error_handling_tests {
     use super::*;
+
+    #[test]
+    pub fn run() {
+        fold_effect();
+        result_effect();
+        option_effect("hello option monad");
+        option_effect("");
+        extract_result_effect();
+        extract_option_effect();
+        traverse_feature();
+        traverse_feature_swap();
+        if let Err(error) = idiomatic_error_handling() {
+            eprintln!("Config parsing failed: {}", error);
+        }
+    }
 
     #[test]
     fn rejects_reserved_ports_without_panicking() {
