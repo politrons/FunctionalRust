@@ -1,3 +1,23 @@
+struct Dependency1 {
+    dependency2: Dependency2,
+    value:String
+}
+
+struct Dependency2 {
+    value:String
+}
+
+impl Dependency1 {
+
+    pub fn new(value:String, dependency2: Dependency2) -> Self {
+        Dependency1{value,dependency2, }
+    }
+
+    pub fn print_value(&self){
+        println!("{} {}",self.value,self.dependency2.value );
+    }
+}
+
 /// Contract of the dependency that I will receive
 pub trait LangDependency {
     fn say_hello(&self);
@@ -43,6 +63,13 @@ mod tests {
         fn say_hello(&self) {
             println!("Hola amigo");
         }
+    }
+
+    #[test]
+    fn dependency_injection_basic() {
+        let dependency2 = Dependency2{value:String::from("World")};
+        let dependency1 = Dependency1::new(String::from("Hello"), dependency2);
+        dependency1.print_value();
     }
 
     #[test]
