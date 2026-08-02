@@ -1,5 +1,6 @@
 use std::cell::{RefCell, RefMut};
 use std::ops::Add;
+use std::os::unix::raw::nlink_t;
 use std::rc::Rc;
 
 /**
@@ -107,7 +108,7 @@ In this example we create [mutable] [borrows] of the original [owner] type, that
 the original owner type have the change.
  */
 #[test]
-fn mutable_pointer() {
+fn rc_mutable_pointer() {
     let shared_pointer = Rc::new(RefCell::new("Hello".to_string()));
     //Another scope
     {
@@ -145,6 +146,21 @@ fn rc_refcell_allows_shared_mutation_in_one_thread() {
     assert_eq!(*third_owner.borrow(), 111);
 }
 
+#[test]
+fn rc_keeps_value_alive_after_original_scope() {
+    let second_owner: Rc<String>;
+
+    {
+        let temporary_owner =Rc::new(String::from("temp"));
+        second_owner = Rc::clone(&temporary_owner);
+        assert_eq!(Rc::strong_count(&second_owner), 2);
+    }
+
+    assert_eq!(Rc::strong_count(&second_owner), 1);
+    assert_eq!(*second_owner, "temp");
+
+}
+
 /**
 This is the smart-pointer version of the example that does not compile with `&mut String`.
 
@@ -156,21 +172,21 @@ heap value stays alive because `shared_text` is still an owner.
 */
 #[test]
 fn rc_refcell_keeps_value_alive_after_original_scope() {
-    let shared_text: Rc<RefCell<String>>;
+    let second_owner: Rc<RefCell<String>>;
 
     {
         let temporary_owner = Rc::new(RefCell::new(String::from("hello")));
-        shared_text = Rc::clone(&temporary_owner);
+        second_owner = Rc::clone(&temporary_owner);
 
-        shared_text.borrow_mut().push_str(" rust");
+        second_owner.borrow_mut().push_str(" rust");
 
-        assert_eq!(Rc::strong_count(&shared_text), 2);
+        assert_eq!(Rc::strong_count(&second_owner), 2);
     }
 
-    shared_text.borrow_mut().push_str(" after scope");
+    second_owner.borrow_mut().push_str(" after scope");
 
-    assert_eq!(Rc::strong_count(&shared_text), 1);
-    assert_eq!(*shared_text.borrow(), "hello rust after scope");
+    assert_eq!(Rc::strong_count(&second_owner), 1);
+    assert_eq!(*second_owner.borrow(), "hello rust after scope");
 }
 
 /**

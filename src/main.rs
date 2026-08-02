@@ -7,7 +7,6 @@ use crate::features::{
 };
 
 fn main() {
-    functions::run();
     type_classes::run();
     try_monad::run();
     effect_system::run();

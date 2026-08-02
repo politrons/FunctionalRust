@@ -1,50 +1,4 @@
-pub fn run() {
-    let f = |x: i32, y: i32| x + y;
-    let result = f(10, 20);
-    println!("{}", result);
 
-    let sentence = hello_world_fun()(String::from("Paul"));
-    println!("{}", sentence);
-
-    let sentence = apply_hello_world(hello_world_fun());
-    println!("{}", sentence);
-
-    let number = multiply_by_1000()(1981);
-    println!("{}", number);
-
-    let in_upper_case = map(String::from("hello world in upper case"), |s| s.to_uppercase());
-    println!("{}", in_upper_case);
-
-    let append_char = map(String::from("!!!"), |s| "hello world".to_string() + &s);
-    println!("{}", append_char);
-
-    let concat_result = concat_func("hello ".to_string(), |t| t + "world", |t| t.to_uppercase());
-    println!("{}", concat_result.to_string());
-
-    let is_higher_than_2000 = predicate_func(1981, |n| n > 2000);
-    println!("{}", is_higher_than_2000.to_string());
-
-    let contains_hello = predicate_func("hello world", |n| n.contains("hello"));
-    println!("{}", contains_hello.to_string());
-
-    consumer_func("hello consumer function", |s| println!("{}", s));
-
-    let zip_result = zip_func("hello".to_string(), "WORLD".to_string(), |t1| t1.to_uppercase(), |t2| t2.to_lowercase());
-    println!("{}", zip_result);
-
-    let response = where_func(String::from("hello world"), |v| v.to_uppercase());
-    println!("{}", response);
-
-    let response = function_2("hello", "world", |s, s1| s.to_string() + s1);
-    println!("{}", response);
-
-    let response = function_3("hello", "world", "!!!", |s, s1, s2| s.to_string() + s1 + s2);
-    println!("{}", response);
-
-    let func = currying_func(1.0);
-    println!("{}", func(1.2));
-
-}
 
 // Functions
 //-----------
@@ -109,3 +63,73 @@ fn currying_func(x: f64) -> impl Fn(f64) -> f64 {
     move |y| x + y
 }
 
+mod test {
+
+    use crate::features::functions::{apply_hello_world, concat_func, consumer_func, currying_func, function_2, function_3, hello_world_fun, map, multiply_by_1000, predicate_func, where_func, zip_func};
+
+    #[derive(Debug)]
+    struct HigherOrderError {}
+    #[test]
+    pub fn run() {
+
+        let hello_world_func:fn(String) -> String = |s:String| s + " world";
+        println!("{}",hello_world_func(String::from("hello")));
+
+        let higher_order_func: fn(String) -> fn(String) -> fn(Result<String,HigherOrderError>)= |s| {
+            print!("{}", s);
+            return |d| {
+                print!(" {}", d);
+                return |f| println!(" {}", f.unwrap());
+            }
+        };
+        higher_order_func(String::from("hello"))("functional".to_string())(Ok("world".to_string()));
+
+        let f = |x: i32, y: i32| x + y;
+        let result = f(10, 20);
+        println!("{}", result);
+
+        let sentence = hello_world_fun()(String::from("Paul"));
+        println!("{}", sentence);
+
+        let sentence = apply_hello_world(hello_world_fun());
+        println!("{}", sentence);
+
+        let number = multiply_by_1000()(1981);
+        println!("{}", number);
+
+        let in_upper_case = map(String::from("hello world in upper case"), |s| s.to_uppercase());
+        println!("{}", in_upper_case);
+
+        let append_char = map(String::from("!!!"), |s| "hello world".to_string() + &s);
+        println!("{}", append_char);
+
+        let concat_result = concat_func("hello ".to_string(), |t| t + "world", |t| t.to_uppercase());
+        println!("{}", concat_result.to_string());
+
+        let is_higher_than_2000 = predicate_func(1981, |n| n > 2000);
+        println!("{}", is_higher_than_2000.to_string());
+
+        let contains_hello = predicate_func("hello world", |n| n.contains("hello"));
+        println!("{}", contains_hello.to_string());
+
+        consumer_func("hello consumer function", |s| println!("{}", s));
+
+        let zip_result = zip_func("hello".to_string(), "WORLD".to_string(), |t1| t1.to_uppercase(), |t2| t2.to_lowercase());
+        println!("{}", zip_result);
+
+        let response = where_func(String::from("hello world"), |v| v.to_uppercase());
+        println!("{}", response);
+
+        let response = function_2("hello", "world", |s, s1| s.to_string() + s1);
+        println!("{}", response);
+
+        let response = function_3("hello", "world", "!!!", |s, s1, s2| s.to_string() + s1 + s2);
+        println!("{}", response);
+
+        let func = currying_func(1.0);
+        println!("{}", func(1.2));
+
+
+
+    }
+}
