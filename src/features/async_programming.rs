@@ -1,11 +1,14 @@
+use futures::executor::block_on;
+use futures::{pin_mut, select, FutureExt};
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::future::Future;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{thread, time};
-
-use futures::executor::block_on;
-use futures::{pin_mut, select, FutureExt};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 pub fn run() {
     async_block();
@@ -219,16 +222,18 @@ async fn api_call_with_timeout_using_pin(
 }
 
 async fn async_pipeline() -> Result<Vec<String>, WorkError> {
-    let api_response = api_call_with_timeout_using_pin(
-        Duration::from_millis(10),
-        Duration::from_millis(100),
-    )
-    .await?;
+    let api_response =
+        api_call_with_timeout_using_pin(Duration::from_millis(10), Duration::from_millis(100))
+            .await?;
 
     println!("Pinned select response: {}", api_response);
 
     let report = process_with_backpressure_and_timeout(
-        vec!["rust".to_string(), "async".to_string(), "backpressure".to_string()],
+        vec![
+            "rust".to_string(),
+            "async".to_string(),
+            "backpressure".to_string(),
+        ],
         Duration::from_secs(1),
     )
     .await?;
@@ -237,9 +242,141 @@ async fn async_pipeline() -> Result<Vec<String>, WorkError> {
     Ok(report.output)
 }
 
+// User repo use case
+// ------------------
+
+trait UserService {
+    async fn get_user_name(&self) -> &str;
+    async fn get_user_income(&self) -> f32;
+
+    async fn increase_income(&mut self, id: String, amount: f32);
+}
+
+struct User {
+    id: String,
+    name: String,
+    income_repo: Arc<Mutex<IncomeRepo>>,
+}
+
+impl User {
+    fn new(id: String, name: String, income_repo: Arc<Mutex<IncomeRepo>>) -> Self {
+        User {
+            id,
+            name,
+            income_repo,
+        }
+    }
+}
+
+struct IncomeRepo {
+    incomes: HashMap<String, f32>,
+}
+impl IncomeRepo {
+    fn new() -> Self {
+        IncomeRepo {
+            incomes: HashMap::from([
+                (String::from("1000"), 100.1),
+                (String::from("1001"), 1001.1),
+                (String::from("2000"), 2999.4),
+            ]),
+        }
+    }
+
+    fn find_income_by_id(self, id: String) -> Option<f32> {
+        self.incomes.get(&id).cloned()
+    }
+}
+
+use rand::{thread_rng, Rng};
+
+impl UserService for User {
+    async fn get_user_name(&self) -> &str {
+        let delay_time = rand::thread_rng().gen_range(500..=1000);
+        async_std::task::sleep(Duration::from_millis(delay_time)).await;
+        &self.name
+    }
+
+    async fn get_user_income(&self) -> f32 {
+        self.income_repo
+            .lock()
+            .unwrap()
+            .incomes
+            .get(&self.id)
+            .cloned()
+            .unwrap_or(0.0)
+    }
+
+    async fn increase_income(&mut self, id: String, amount: f32) {
+        let current_income = self.get_user_income().await;
+        self.income_repo
+            .lock()
+            .unwrap()
+            .incomes
+            .insert(id, current_income + amount);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use futures::future::join;
+    use std::sync::Arc;
+
+    #[test]
+    fn user_service_test() {
+        let income_repo = Arc::new(Mutex::new(IncomeRepo::new()));
+        let mut user_1 = User::new(
+            String::from("1000"),
+            String::from("politrons"),
+            Arc::clone(&income_repo),
+        );
+        let mut user_2 = User::new(
+            String::from("1001"),
+            String::from("John"),
+            Arc::clone(&income_repo),
+        );
+        block_on(async  {
+            let username_1_fut = user_1.get_user_name()
+                .map(|username| username.to_uppercase())
+                .fuse();
+            let username_2_fut = user_2.get_user_name()
+                .fuse();
+
+            pin_mut!(username_1_fut, username_2_fut);
+
+            select! {
+            username_1 = username_1_fut => {
+                println!("Username 1: {}", username_1);
+            }
+            username_2 = username_2_fut => {
+                println!("Username 2: {}", username_2);
+            }
+        }
+        });
+
+        let income_user_1_fut = user_1.get_user_income();
+        let income_user_2_fut = user_2.get_user_income();
+
+        //Check income
+        let join_income = join(income_user_1_fut, income_user_2_fut);
+        let tuple = block_on(join_income);
+        println!("User 1 income: {}", tuple.0);
+        println!("User 2 income: {}", tuple.1);
+
+        //Increase income
+        let increase_income_user1_fut = user_1.increase_income(String::from("1000"), 1500.0);
+        let increase_income_user2_fut = user_2.increase_income(String::from("1001"), 1000.0);
+        let join_increase = join(increase_income_user1_fut, increase_income_user2_fut);
+        block_on(join_increase);
+
+        let income_user_1_fut = user_1.get_user_income();
+        let income_user_2_fut = user_2.get_user_income();
+        //
+        let join_income = join(income_user_1_fut, income_user_2_fut);
+        let tuple = block_on(join_income);
+        println!("User 1 income after update: {}", tuple.0);
+        println!("User 2 income after update: {}", tuple.1);
+    }
 
     #[test]
     fn fire_and_forget_test() {

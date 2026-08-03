@@ -1,17 +1,4 @@
-pub fn run() {
-    let int_result = TypeClassImpl::sum(10,20);
-    println!("Integer:{}", int_result.to_string());
 
-    let str_result = TypeClassImpl::sum("Hello".to_string(),"world".to_string());
-    println!("String:{}", str_result.to_string());
-
-    let bool_result = TypeClassImpl::sum(true,true);
-    println!("Boolean:{}", bool_result.to_string());
-
-    let float_result = TypeClassImpl::sum(30.5,10.1);
-    println!("Float:{}", float_result.to_string());
-
-}
 
 /**Trait interface like in Scala, where we define the function to implement by type classes*/
 trait TypeClass<T> {
@@ -62,5 +49,25 @@ Type class of [bool] type class
 impl TypeClass<bool> for TypeClassImpl<bool>{
     fn sum(t1: bool, t2: bool) -> bool {
         t1 && t2
+    }
+}
+
+mod test{
+    use super::*;
+    
+    #[test]
+    pub fn run() {
+        let int_result = TypeClassImpl::sum(10,20);
+        println!("Integer:{}", int_result.to_string());
+
+        let str_result = TypeClassImpl::sum("Hello".to_string(),"world".to_string());
+        println!("String:{}", str_result.to_string());
+
+        let bool_result = TypeClassImpl::sum(true,true);
+        println!("Boolean:{}", bool_result.to_string());
+
+        let float_result = TypeClassImpl::sum(30.5,10.1);
+        println!("Float:{}", float_result.to_string());
+
     }
 }
