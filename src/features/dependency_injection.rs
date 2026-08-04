@@ -41,8 +41,32 @@ impl LangService {
     }
 }
 
+// Dyn traits
+// -----------
+trait DependencyContract {
+
+    fn say_hello(&self);
+}
+
+struct DependencyDyn1 {}
+struct DependencyDyn2 {}
 
 
+impl DependencyContract for DependencyDyn1 {
+    fn say_hello(&self) {
+       println!("hello dependency 1");
+    }
+}
+
+impl DependencyContract for DependencyDyn2 {
+    fn say_hello(&self) {
+        println!("hello dependency 2");
+    }
+}
+
+struct DependencyWithDyn {
+    dependency: Box<dyn DependencyContract>
+}
 
 #[cfg(test)]
 mod tests {
@@ -81,5 +105,17 @@ mod tests {
         let spanish = Box::new(Spanish);
         let hola_service = LangService::new(spanish);
         hola_service.run()
+    }
+
+    #[test]
+    fn dependency_injection_dyn() {
+        let dependency_dyn_1 = Box::new(DependencyDyn1 {});
+        let dep = DependencyWithDyn{dependency: dependency_dyn_1 };
+        dep.dependency.say_hello();
+
+        let dependency_dyn_2 = Box::new(DependencyDyn2 {});
+        let dep = DependencyWithDyn{dependency: dependency_dyn_2 };
+        dep.dependency.say_hello();
+
     }
 }

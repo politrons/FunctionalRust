@@ -16,7 +16,6 @@ pub mod pattern_matching;
 pub mod either_monad;
 pub mod enum_type;
 pub mod smart_pointer;
-pub mod currying_function;
 pub mod new_types;
 pub mod do_notation_style;
 pub mod rust_io;

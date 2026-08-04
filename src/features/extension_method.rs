@@ -2,11 +2,7 @@
 Once we implement an extension trait over a specific type [String,Integer,Bool...] we can start using
 this new method like part of this API.
 */
-pub fn run() {
-    println!("Contains hello:{}","Hello world".contains_hello());
-    println!("Number:{}",1981.multiply_by(10));
-    println!("Animal info:{}",Animal{ species:"Dog".to_string(), age:5}.animal_description());
-}
+
 
 /**
 Make extension methods in Rust is quite simple and clean.
@@ -50,4 +46,15 @@ impl AnimalExt for Animal{
 struct Animal {
     species:String,
     age:i32,
+}
+
+mod test {
+    use crate::features::extension_method::{Animal, AnimalExt, NumberExt, StringExt};
+
+    #[test]
+    pub fn run() {
+        println!("Contains hello:{}","Hello world".contains_hello());
+        println!("Number:{}",1981.multiply_by(10));
+        println!("Animal info:{}",Animal{ species:"Dog".to_string(), age:5}.animal_description());
+    }
 }
