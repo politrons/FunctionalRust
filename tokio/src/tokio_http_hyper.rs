@@ -1,19 +1,23 @@
 //Server
-use std::convert::Infallible;
-use std::net::SocketAddr;
-use hyper::{Body, Request, Response, Server};
 use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response, Server};
 use hyper::{Method, StatusCode};
+use std::convert::Infallible;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::net::SocketAddr;
 
 //Client
+use futures::executor::block_on;
+use hyper::body::HttpBody as _;
+use hyper::client::HttpConnector;
+use hyper::Client;
 use std::error::Error;
 use std::thread;
 use std::time::Duration;
-use hyper::Client;
-use hyper::body::HttpBody as _;
-use hyper::client::HttpConnector;
 use tokio::io;
 use tokio::io::{stdout, AsyncWriteExt as _};
+use tonic::transport::Uri;
 
 //Alias type
 type ResultSolo<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -37,7 +41,7 @@ Http client running in [Http2]
 pub async fn run_client() -> ResultSolo<()> {
     let uri = "http://localhost:1981/hello".parse()?;
 
-    let client:Client<HttpConnector, Body> = Client::builder()
+    let client: Client<HttpConnector, Body> = Client::builder()
         .pool_idle_timeout(Duration::from_secs(30))
         .http2_only(true)
         .retry_canceled_requests(true)
@@ -47,12 +51,11 @@ pub async fn run_client() -> ResultSolo<()> {
     println!("Response: {}", res.status());
     println!("Headers: {:#?}\n", res.headers());
 
-    let bytes  = res.data().await.unwrap()?;
+    let bytes = res.data().await.unwrap()?;
     let result = String::from_utf8(bytes.into_iter().collect()).expect("");
     println!("\n\nnResponse:{}", result);
     Ok(())
 }
-
 
 // Server
 //-------
@@ -95,12 +98,95 @@ async fn create_service(req: Request<Body>) -> Result<Response<Body>, Infallible
         (&Method::GET, "/hello") => {
             *response.body_mut() = Body::from("In the near future, we will implement /world");
         }
-        (&Method::POST, "/world") => {
-            *response.status_mut() = StatusCode::NOT_IMPLEMENTED
-        }
+        (&Method::POST, "/world") => *response.status_mut() = StatusCode::NOT_IMPLEMENTED,
         _ => {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
     };
     Ok(response)
+}
+
+// DSL use case Rest Connector
+// ----------------------------
+trait RestClient {}
+
+struct RestConnector {
+    uri: Uri,
+    client: Client<HttpConnector, Body>,
+}
+
+#[derive(Debug)]
+struct RestError(String);
+
+impl Display for RestError {
+    fn fmt(&self, _: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        Err(std::fmt::Error)
+    }
+}
+
+impl Error for RestError {}
+
+impl From<hyper::Error> for RestError {
+    fn from(_: hyper::Error) -> Self {
+        self::RestError("hyper::Error".to_string())
+    }
+}
+
+impl RestConnector {
+
+    fn connect(uri_path: String) -> RestConnector {
+        let uri = uri_path.parse::<Uri>().unwrap();
+        let client: Client<HttpConnector, Body> = Client::builder()
+            .pool_idle_timeout(Duration::from_secs(30))
+            .http2_only(true)
+            .retry_canceled_requests(true)
+            .build_http();
+        RestConnector {
+            client: client,
+            uri: uri,
+        }
+    }
+
+    async fn get(&mut self) -> Result<String, RestError> {
+        let mut res = self.client.get(self.uri.clone()).await?;
+        println!("Response: {}", res.status());
+        println!("Headers: {:#?}\n", res.headers());
+
+        let bytes = res.data().await.unwrap()?;
+        let result = String::from_utf8(bytes.into_iter().collect()).expect("");
+        println!("\n\nnResponse:{}", result);
+        Ok(result)
+    }
+}
+
+mod test {
+    use crate::tokio_http_hyper::RestConnector;
+
+    #[tokio::test]
+    async fn server_client_test() {
+        let server = tokio::spawn(async {
+            super::run_server().await;
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        super::run_client().await.unwrap();
+
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn server_client_dsl() {
+        let server = tokio::spawn(async {
+            super::run_server().await;
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let uri = String::from("http://localhost:1981/hello");
+        let mut connector = RestConnector::connect(uri);
+
+        let result = connector.get().await.unwrap();
+        println!("Client response {}", result);
+    }
 }

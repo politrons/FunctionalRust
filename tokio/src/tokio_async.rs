@@ -12,3 +12,11 @@ pub async fn run() {
 async fn say_world() {
     println!("world");
 }
+
+mod test {
+    #[tokio::main]
+    #[test]
+    async fn main() {
+        super::run().await;
+    }
+}

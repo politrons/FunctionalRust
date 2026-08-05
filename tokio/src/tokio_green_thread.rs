@@ -12,3 +12,11 @@ pub async fn run() {
     let out = handle.await.unwrap();
     println!("GOT {}", out);
 }
+
+mod test {
+    #[tokio::main]
+    #[test]
+    async fn main() {
+        super::run().await;
+    }
+}
