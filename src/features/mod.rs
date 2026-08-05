@@ -31,3 +31,4 @@ pub mod performance_memory;
 pub mod testing_patterns;
 pub mod unsafe_rust;
 mod stream_feature;
+mod mocks;

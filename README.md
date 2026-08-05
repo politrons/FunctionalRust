@@ -27,6 +27,7 @@ Examples of functional programing in Rust
 * **[Lens](src/features/lens.rs)**
 * **[Dependency injection](src/features/dependency_injection.rs)**
 * **[Stream](src/features/testing_patterns.rs)**
+* **[Mocks](src/features/mocks.rs)**
 
 
 ## Monads
