@@ -1,4 +1,4 @@
-use std::sync::{Mutex, Once};
+use std::sync::{Mutex, Once, OnceLock};
 
 /// RThis represent the Singleton object
 pub struct Human {
@@ -9,25 +9,16 @@ pub struct Human {
 
 /// Implementation of [instance] to retrieve always same instance created [ONCE]
 /// Using static [Once] from rust, we ensure we have only one instance created during the life of the program.
-/// We use [*const Human] to have a [lazy_static] creation of the type. This it will require we create an instance wrapped in
-/// [Box::into_raw] of a [Box::new] of [Human]
-/// Inside [call_once] we do the construction of the Singleton Box type.
+/// Inside [get_or_init] guarantee the creation of just one instance.
 impl Human {
     pub fn instance() -> &'static Self {
-        static mut INSTANCE: *const Human = 0 as *const Human;
-        static ONCE: Once = Once::new();
+        static ONCE: OnceLock<Human> = OnceLock::new();
 
-        unsafe {
-            ONCE.call_once(|| {
-                println!("Instantiating Singleton...");
-                INSTANCE = Box::into_raw(Box::new(Human {
-                    age: 42,
-                    name: "Politrons".to_string(),
-                    sex: "Male".to_string(),
-                }));
-            });
-            &*INSTANCE
-        }
+        ONCE.get_or_init(|| Human {
+            age: 42,
+            name: "Politrons".to_string(),
+            sex: "Male".to_string(),
+        })
     }
 }
 
