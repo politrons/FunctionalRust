@@ -30,5 +30,8 @@ mod tests {
     fn singleton_pattern() {
         let human = Human::instance();
         let same_human = Human::instance();
+        println!("name is {}", human.name);
+        println!("age is {}", human.age);
+        println!(" {}", std::ptr::eq(human, same_human));
     }
 }
