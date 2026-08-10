@@ -1,0 +1,11 @@
+[package]
+name = "kafence"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+kafka = "0.9"
+rdkafka = { version = "0.39", features = ["cmake-build"] }
+rocksdb = "0.24"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }

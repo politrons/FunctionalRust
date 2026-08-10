@@ -1,17 +1,14 @@
+use async_std::channel::{Receiver, Sender};
 use futures::executor::block_on;
 use std::future::Future;
-use std::sync::mpsc;
-use std::sync::mpsc::Receiver;
-use std::sync::mpsc::Sender;
 use std::time::Duration;
-use std::{thread, time};
 
 pub fn run() {
     local_channel();
 }
 
 fn local_channel() {
-    let (sender, receiver): (Sender<String>, Receiver<String>) = mpsc::channel();
+    let (sender, receiver): (Sender<String>, Receiver<String>) = async_std::channel::bounded(10);
     let sender_future = send_message(sender);
     let receive_future = receive_message(receiver);
     block_on(sender_future);
@@ -20,7 +17,7 @@ fn local_channel() {
 
 async fn send_message(sender: Sender<String>) {
     async_std::task::sleep(Duration::from_secs(2)).await;
-    let ack = sender.send(String::from("Hello channel"));
+    let ack = sender.send(String::from("Hello channel")).await;
     match ack {
         Ok(()) => println!("Message sent successful"),
         Err(error) => println!("{}", error.to_string()),
@@ -28,7 +25,7 @@ async fn send_message(sender: Sender<String>) {
 }
 
 async fn receive_message(receiver: Receiver<String>) {
-    let result = receiver.recv();
+    let result = receiver.recv().await;
     match result {
         Ok(v) => println!("Received: {}", v),
         Err(error) => println!("{}", error.to_string()),
@@ -51,14 +48,14 @@ struct Channel<T> {
 
 impl<T> Channel<T> {
     fn new() -> Channel<T> {
-        let (sender, receiver): (Sender<T>, Receiver<T>) = mpsc::channel();
+        let (sender, receiver): (Sender<T>, Receiver<T>) = async_std::channel::bounded(10);
         Channel { sender, receiver }
     }
 }
 
 impl<T> ChannelConnector<T> for Channel<T> {
     async fn send_message(&self, message: T) {
-        self.sender.send(message).unwrap()
+        self.sender.send(message).await.unwrap()
     }
 
     fn subscribe_channel(&self) -> Vec<T> {

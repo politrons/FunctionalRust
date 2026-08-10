@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::borrow::Borrow;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use async_std::prelude::FutureExt;
 use async_std::task::block_on;
@@ -101,6 +102,19 @@ fn fold_effect_failed() {
     println!("{}", result.is_err())
 }
 
+fn find_element(){
+    let element = ["hello", "functional", "rust", "world"]
+        .iter()
+        .find(|e|e.to_string() == "hello");
+    println!("{:?}", element);
+}
+
+fn hash_set(){
+    let mut set = HashSet::new();
+    set.insert("hello");
+    set.insert("world");
+    println!("{:?}", set.contains("hello"));
+}
 
 /**
 immutable map is by design the default option when you create in rust all data types. Here there is no different.
@@ -181,6 +195,16 @@ fn concurrent_map_collection_dash_map() {
     })
 }
 
+fn map_with_capacity(){
+    let mut map:HashMap<i32, String> = HashMap::with_capacity(2);
+    map.insert(1, String::from("hello"));
+    map.insert(2, String::from("world"));
+    map.insert(3, String::from("fff"));
+    map.insert(4, String::from("ddd"));
+
+    println!("{:?}", map.capacity());
+}
+
 fn append_vectors() {
     let a = vec![1, 2, 3];
     let b = vec![7, 8, 9];
@@ -201,10 +225,13 @@ mod tests {
         fold_effect();
         fold_effect_failed();
         flat_map_list();
+        find_element();
+        hash_set();
         immutable_map_collection();
         mutable_map_collection();
         concurrent_map_collection();
         concurrent_map_collection_dash_map();
+        map_with_capacity();
         append_vectors();
         queue_features();
     }

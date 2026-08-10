@@ -264,7 +264,8 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         }
     }
 
-    fn flat_map<F: FnOnce(A) -> Self>(self, op: F) -> Self {
+    fn flat_map<F>(self, op: F) -> Self
+        where F: FnOnce(A) -> Self, {
         match self {
             Value(a) | Right(a) => op(a),
             Empty() => Empty(),
@@ -320,19 +321,17 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
     }
 
     fn when_rio<P: FnOnce(&A) -> bool, F: FnOnce(A) -> Self>(self, predicate: P, op: F) -> Self {
-        return match self {
+        match self {
             Value(t) => {
-                let x = t;
-                return if predicate(&x) { op(x) } else { Empty() };
+                if predicate(&t) { op(t) } else { Empty() }
             }
             Empty() => Empty(),
             Right(a) => {
-                let x = a;
-                return if predicate(&x) { op(x) } else { Empty() };
+                if predicate(&a) { op(a) } else { Empty() }
             }
             Wrong(e) => Wrong(e),
             _ => self
-        };
+        }
     }
 
     fn zip<Z1: FnOnce() -> Self, Z2: FnOnce() -> Self, F: FnOnce(A, A) -> Self>(a: Z1, b: Z2, op: F) -> Self {
@@ -341,11 +340,11 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
         if (zip_1.is_ok() || !zip_1.is_empty()) && (zip_2.is_ok() || !zip_2.is_empty()) {
             return op(zip_1.get(), zip_2.get());
         }
-        return empty;
+        empty
     }
 
     fn filter<F: FnOnce(&A) -> bool>(self, op: F) -> Self {
-        return match self {
+         match self {
             Value(t) => {
                 let x = t;
                 return if op(&x) { Value(x) } else { Empty() };
@@ -357,7 +356,7 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
             }
             Wrong(e) => Wrong(e),
             _ => self
-        };
+        }
     }
 
     fn fold<F: FnOnce(A) -> A>(self, default: A, op: F) -> Self {
@@ -434,23 +433,21 @@ impl<A, T> Lift<A, T> for RustIO<A, T> {
 
     /// async consumer function that does not affect the current value of the monad.
     fn daemon<F: FnOnce(&A) -> ()>(self, op: F) -> Self {
-        return block_on(self.run_daemon(op));
+         block_on(self.run_daemon(op))
     }
 
     fn peek<F: FnOnce(&A) -> ()>(self, op: F) -> Self {
-        return match self {
+         match self {
             Value(v) => {
-                let x = v;
-                op(&x);
-                Value(x)
+                op(&v);
+                Value(v)
             }
             Right(v) => {
-                let x = v;
-                op(&x);
-                Right(x)
+                op(&v);
+                Right(v)
             }
             _ => self
-        };
+        }
     }
 
     fn on_error<F: FnOnce(&T) -> ()>(self, op: F) -> Self {

@@ -94,7 +94,7 @@ fn fire_and_forget() {
         std::thread::sleep(Duration::from_secs(2));
         println!("Hello fire and forget ${:?}", std::time::Instant::now());
     };
-    let _ = async_std::task::spawn(future);
+    async_std::task::spawn(future);
     println!(
         "Continue execution without blocks ${:?}",
         std::time::Instant::now()

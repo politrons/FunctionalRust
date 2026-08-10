@@ -49,6 +49,53 @@ fn where_func<F, T>(value: T, handler: F) -> T where F: Fn(T) -> T,
     handler(value)
 }
 
+//A closure can capture values from the outer scope when the function receives the Fn trait.
+fn fn_trait_with_capture<F>(value: i32, handler: F) -> i32
+where
+    F: Fn(i32) -> i32,
+{
+    handler(value)
+}
+
+//FnMut allows the closure to mutate captured values while it is executed.
+fn fn_mut_trait_with_capture<F>(mut handler: F) -> i32
+where
+    F: FnMut() -> i32,
+{
+    handler();
+    handler()
+}
+
+/**
+This example does not compile because Fn only allows read access to captured values.
+The closure mutates [counter], so the closure implements FnMut instead of Fn.
+
+fn fn_trait_cannot_mutate_capture() {
+    let mut counter = 0;
+    let response = fn_trait_with_capture(5, |value| {
+        counter += 1;
+        value + counter
+    });
+    println!("{}", response);
+}
+*/
+
+//A plain function pointer works only when the function does not capture outer values.
+fn fn_pointer_without_capture(value: i32, handler: fn(i32) -> i32) -> i32 {
+    handler(value)
+}
+
+/**
+This example does not compile because fn(i32) -> i32 is a plain function pointer.
+A plain function pointer cannot store captured state like [amount], even if the call shape
+is exactly the same as the Fn example.
+*/
+// fn fun_pointer_cannot_capture() {
+//     let amount = 10;
+//     let response = fn_pointer_without_capture(5, |value| value + amount);
+//     println!("{}", response);
+// }
+
 //Function 2 it just a function that expect to receive two arguments in the function
 fn function_2<F, T, X>(f: F, t: T, func_2: fn(s: F, s1: T) -> X) -> X {
     return func_2(f, t);
@@ -65,7 +112,7 @@ fn currying_func(x: f64) -> impl Fn(f64) -> f64 {
 
 mod test {
 
-    use crate::features::functions::{apply_hello_world, concat_func, consumer_func, currying_func, function_2, function_3, hello_world_fun, map, multiply_by_1000, predicate_func, where_func, zip_func};
+    use crate::features::functions::{apply_hello_world, concat_func, consumer_func, currying_func, fn_mut_trait_with_capture, fn_trait_with_capture, function_2, function_3, fn_pointer_without_capture, hello_world_fun, map, multiply_by_1000, predicate_func, where_func, zip_func};
 
     #[derive(Debug)]
     struct HigherOrderError {}
@@ -118,6 +165,20 @@ mod test {
         println!("{}", zip_result);
 
         let response = where_func(String::from("hello world"), |v| v.to_uppercase());
+        println!("{}", response);
+
+        let amount = 10;
+        let response = fn_trait_with_capture(5, |value| value + amount);
+        println!("{}", response);
+
+        let mut counter = 0;
+        let response = fn_mut_trait_with_capture(|| {
+            counter += 1;
+            counter
+        });
+        println!("{}", response);
+
+        let response = fn_pointer_without_capture(5, |value| value + 10);
         println!("{}", response);
 
         let response = function_2("hello", "world", |s, s1| s.to_string() + s1);

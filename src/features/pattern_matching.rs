@@ -58,7 +58,7 @@ fn primitive_types() {
 
     match 5 {
         1..=5 => println!("The number is  between 1 and 5"),
-        6 => println!("The number is 3"),
+        6 => println!("The number is 6"),
         _ => println!("The number is not in the list"),
     }
 }
@@ -109,9 +109,13 @@ we want to match.
 Here we can use attributes [male] and [age] to filter multiple [Animals]
 */
 fn struct_type() {
-    let animal = Animal { male: true, age: 5 };
-    match animal {
+    match (Animal { male: true, age: 5 }) {
         Animal { male: true, age: _age } => println!("Male Animal, age {_age}"),
+        Animal { male: _male, age: 10 } => println!("Old Animal"),
+        _ => println!("Animal does not match"),
+    }
+    match (Animal { male: true, age: 10 }) {
+        Animal { male: false, age: _age } => println!("Male Animal, age {_age}"),
         Animal { male: _male, age: 10 } => println!("Old Animal"),
         _ => println!("Animal does not match"),
     }
