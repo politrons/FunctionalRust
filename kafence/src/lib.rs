@@ -1,20 +1,19 @@
 use anyhow::Result;
-use kafka::producer::{Producer, Record};
-use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication, TopicResult};
+use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::client::DefaultClientContext;
 use rdkafka::config::ClientConfig;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
 use rdkafka::error::KafkaError;
 use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::message::{BorrowedMessage, Message};
+use rdkafka::producer::FutureProducer;
 use rocksdb::{DB, Options};
-use std::error::Error;
 use std::time::Duration;
 
 const ROCKSDB_PATH: &str = "./state/orders-store";
 
 struct KafenceProducer {
-    producer: Producer,
+    producer: FutureProducer,
 }
 
 #[derive(Debug)]
@@ -27,14 +26,16 @@ struct KafenceStreamError {
     message: String,
 }
 
+#[derive(Clone)]
 struct KafenceStream {}
+
+#[derive(Clone)]
 struct Kafence {
     brokers: String,
     topic: String,
     consumer_group: String,
     partitions: u32,
-    producer: Option<KafenceProducer>,
-    stream: Option<KafenceStream>,
+    rocksdb_path: String,
 }
 
 trait KafenceContract {
@@ -42,8 +43,9 @@ trait KafenceContract {
     fn with_topic(self, topic: &str) -> Kafence;
     fn with_consumer_group(self, consumer_group: &str) -> Kafence;
     fn with_partitions(self, partitions: u32) -> Kafence;
-    fn producer(self) -> Result<KafenceProducer, KafenceProducerError>;
-    async fn stream(self) -> Result<()>;
+    fn with_rocksdb_path(self, rocksdb_path: &str) -> Kafence;
+    fn producer(&self) -> Result<KafenceProducer, KafenceProducerError>;
+    async fn stream(&self) -> Result<()>;
 }
 
 impl Kafence {
@@ -53,8 +55,7 @@ impl Kafence {
             consumer_group: "".to_string(),
             partitions: 1,
             topic: "".to_string(),
-            producer: None,
-            stream: None,
+            rocksdb_path: ROCKSDB_PATH.to_string(),
         }
     }
 }
@@ -66,8 +67,7 @@ impl KafenceContract for Kafence {
             topic: self.topic,
             consumer_group: self.consumer_group,
             partitions: self.partitions,
-            producer: self.producer,
-            stream: self.stream,
+            rocksdb_path: self.rocksdb_path,
         }
     }
 
@@ -77,8 +77,7 @@ impl KafenceContract for Kafence {
             topic: topic.to_string(),
             consumer_group: self.consumer_group,
             partitions: self.partitions,
-            producer: self.producer,
-            stream: self.stream,
+            rocksdb_path: self.rocksdb_path,
         }
     }
     fn with_consumer_group(self, consumer_group: &str) -> Kafence {
@@ -87,8 +86,7 @@ impl KafenceContract for Kafence {
             topic: self.topic,
             consumer_group: consumer_group.to_string(),
             partitions: self.partitions,
-            producer: self.producer,
-            stream: self.stream,
+            rocksdb_path: self.rocksdb_path,
         }
     }
 
@@ -97,25 +95,36 @@ impl KafenceContract for Kafence {
             brokers: self.brokers,
             topic: self.topic,
             consumer_group: self.consumer_group,
-            partitions: partitions,
-            producer: self.producer,
-            stream: self.stream,
+            partitions,
+            rocksdb_path: self.rocksdb_path,
         }
     }
-    async fn stream(self) -> Result<()> {
-        create_topic_if_not_exists(&self.brokers, &self.topic).await?;
-        let rocks_db = open_rocksdb(ROCKSDB_PATH)?;
-        let consumer = create_consumer(&self.brokers, &self.consumer_group)?;
-        materialize_loop(&consumer, &rocks_db).await
+
+    fn with_rocksdb_path(self, rocksdb_path: &str) -> Kafence {
+        Kafence {
+            brokers: self.brokers,
+            topic: self.topic,
+            consumer_group: self.consumer_group,
+            partitions: self.partitions,
+            rocksdb_path: rocksdb_path.to_string(),
+        }
     }
 
-    fn producer(self) -> Result<KafenceProducer, KafenceProducerError> {
-        match Producer::from_hosts(Vec::from([self.brokers]))
-            .with_connection_idle_timeout(Duration::from_secs(10))
-            .with_ack_timeout(Duration::from_secs(10))
+    async fn stream(&self) -> Result<()> {
+        create_topic_if_not_exists(&self.brokers, &self.topic, self.partitions).await?;
+        let rocks_db = open_rocksdb(&self.rocksdb_path)?;
+        let stream_consumer = create_consumer(&self.brokers, &self.consumer_group)?;
+        stream_consumer.subscribe(&[self.topic.as_str()])?;
+        materialize_loop(&stream_consumer, &rocks_db).await
+    }
+
+    fn producer(&self) -> Result<KafenceProducer, KafenceProducerError> {
+        match ClientConfig::new()
+            .set("bootstrap.servers", &self.brokers)
+            .set("message.timeout.ms", "5000")
             .create()
         {
-            Ok(producer) => Ok(KafenceProducer { producer: producer }),
+            Ok(producer) => Ok(KafenceProducer { producer }),
             Err(e) => {
                 println!("Error creating Kafka producer. Caused by {}", e);
                 Err(KafenceProducerError {
@@ -125,26 +134,29 @@ impl KafenceContract for Kafence {
         }
     }
 }
-async fn create_topic_if_not_exists(brokers: &str, topic: &str) -> Result<()> {
+async fn create_topic_if_not_exists(brokers: &str, topic: &str, partitions: u32) -> Result<()> {
+    if partitions == 0 {
+        anyhow::bail!("topic partitions must be greater than zero");
+    }
+
+    let partitions = i32::try_from(partitions)?;
     let admin: AdminClient<DefaultClientContext> = ClientConfig::new()
         .set("bootstrap.servers", brokers)
-        .set("enable.auto.commit", "false")
         .set("session.timeout.ms", "6000")
         .create()?;
 
     //TODO:Make replication factor configurable
-    let new_topic = NewTopic::new(topic, 1, TopicReplication::Fixed(1));
+    let new_topic = NewTopic::new(topic, partitions, TopicReplication::Fixed(1));
+    let admin_options = AdminOptions::new().operation_timeout(Some(Duration::from_secs(10)));
 
-    for result in admin
-        .create_topics(&[new_topic], &AdminOptions::new())
-        .await?
-    {
+    for result in admin.create_topics(&[new_topic], &admin_options).await? {
         match result {
             Ok(name) => {
                 println!("Created topic name {}", name)
             }
+            Err((_, RDKafkaErrorCode::TopicAlreadyExists)) => {}
             Err((name, code)) => {
-                println!("Error creating topic {} with error {}", name, code)
+                anyhow::bail!("error creating topic {} with error {}", name, code)
             }
         }
     }
@@ -154,6 +166,8 @@ async fn create_topic_if_not_exists(brokers: &str, topic: &str) -> Result<()> {
 fn create_consumer(brokers: &str, group_id: &str) -> Result<StreamConsumer, KafkaError> {
     ClientConfig::new()
         .set("bootstrap.servers", brokers)
+        .set("group.id", group_id)
+        .set("enable.auto.commit", "false")
         .set("auto.offset.reset", "earliest")
         .set("session.timeout.ms", "6000")
         .create()
@@ -166,24 +180,114 @@ fn open_rocksdb(path: &str) -> Result<DB, rocksdb::Error> {
     Ok(DB::open(&options, path)?)
 }
 
-async fn materialize_loop(consumer: &StreamConsumer, rocks_db: &DB) -> Result<()> {
+async fn materialize_loop(stream_consumer: &StreamConsumer, rocks_db: &DB) -> Result<()> {
     loop {
-        let message = consumer.recv().await?;
-        materialize(&message, &rocks_db).await?;
+        let message = stream_consumer.recv().await?;
+        materialize(&message, rocks_db)?;
+        stream_consumer.commit_message(&message, CommitMode::Async)?;
     }
 }
 
-async fn materialize(message: &BorrowedMessage<'_>, rocks_db: &DB) -> Result<()> {
-    //TODO:Handle side-effects
-    rocks_db.put(message.key().unwrap(), message.payload().unwrap())?;
+fn materialize(message: &BorrowedMessage<'_>, rocks_db: &DB) -> Result<()> {
+    let key = materialized_key(message);
+
+    match message.payload() {
+        Some(value) => {
+            println!(
+                "Materialized message topic={} partition={} offset={} key={:?} value={:?}",
+                message.topic(),
+                message.partition(),
+                message.offset(),
+                String::from_utf8_lossy(&key),
+                String::from_utf8_lossy(value)
+            );
+            rocks_db.put(&key, value)?
+        }
+        None => {
+            println!(
+                "Deleted tombstone topic={} partition={} offset={} key={:?}",
+                message.topic(),
+                message.partition(),
+                message.offset(),
+                String::from_utf8_lossy(&key)
+            );
+            rocks_db.delete(&key)?
+        }
+    }
+
     Ok(())
 }
 
-mod test {
-    use crate::{Kafence, KafenceContract};
+fn materialized_key(message: &BorrowedMessage<'_>) -> Vec<u8> {
+    match message.key() {
+        Some(key) => key.to_vec(),
+        None => format!(
+            "{}:{}:{}",
+            message.topic(),
+            message.partition(),
+            message.offset()
+        )
+        .into_bytes(),
+    }
+}
 
-    #[test]
-    fn producer_test() {
-        Kafence::new().with_topic("kafka").with_partitions(1);
+#[cfg(test)]
+mod test {
+    use std::sync::Arc;
+use rdkafka::producer::FutureRecord;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use tokio::task;
+
+    use crate::{Kafence, KafenceContract, create_topic_if_not_exists};
+
+    #[tokio::test]
+    async fn producer_test() {
+        let broker = "localhost:9092";
+        let run_id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let topic = format!("kafka_topic_{run_id}");
+        let consumer_group = format!("kafka_group_{run_id}");
+        let rocksdb_path = std::env::temp_dir()
+            .join(format!("kafence-{run_id}"))
+            .to_string_lossy()
+            .into_owned();
+
+        create_topic_if_not_exists(broker, &topic, 1).await.unwrap();
+
+        let kaference = Arc::new(Kafence::new()
+            .with_brokers(broker.to_string())
+            .with_topic(&topic)
+            .with_consumer_group(&consumer_group)
+            .with_partitions(1)
+            .with_rocksdb_path(&rocksdb_path));
+
+        let kaference_stream = Arc::clone(&kaference);
+
+        let stream_task = task::spawn(async move {
+            kaference_stream.stream().await
+        });
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        assert!(!stream_task.is_finished(), "stream task stopped before producing");
+
+        let producer = kaference.producer().unwrap().producer;
+        let producer_topic = topic.clone();
+        let producer_task = task::spawn(async move {
+            let payload = format!("kafka stream works");
+            let record = FutureRecord::to(&producer_topic)
+                .key("my-key")
+                .payload(&payload);
+
+            producer
+                .send(record, Duration::from_secs(5))
+                .await
+                .expect("record must be delivered");
+        });
+
+        producer_task.await.unwrap();
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        assert!(!stream_task.is_finished(), "stream task stopped after producing");
+        stream_task.abort();
     }
 }
