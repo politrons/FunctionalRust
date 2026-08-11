@@ -288,10 +288,12 @@ fn materialized_key(message: &BorrowedMessage<'_>) -> Vec<u8> {
 #[cfg(test)]
 mod test {
     use crate::{Kafence, KafenceContract, KafenceProducerContract, create_topic_if_not_exists};
-    use rdkafka::producer::FutureRecord;
+    use hyper::service::{make_service_fn, service_fn};
+    use hyper::{Body, Client, Method, Request, Response, Server, StatusCode};
+    use std::convert::Infallible;
+    use std::net::TcpListener;
     use std::sync::Arc;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
-    use tokio::task;
     use uuid::Uuid;
 
     #[tokio::test]
@@ -336,26 +338,108 @@ mod test {
             .with_rocksdb_path(&rocksdb_path_2)
             .build();
 
-        //Stream
-        let kaference_stream_1 = Arc::clone(&kaference_1);
-        kaference_stream_1.stream().await.unwrap();
+        // Services
+        let service_1_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let service_1_addr = service_1_listener.local_addr().unwrap();
+        let service_1 = tokio::spawn(run_server(service_1_listener, Arc::clone(&kaference_1)));
 
-        let kaference_stream_2 = Arc::clone(&kaference_2);
-        kaference_stream_2.stream().await.unwrap();
+        let service_2_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let service_2_addr = service_2_listener.local_addr().unwrap();
+        let service_2 = tokio::spawn(run_server(service_2_listener, Arc::clone(&kaference_2)));
 
-        //Strong consistency
-        let kaference_producer = Arc::clone(&kaference_1);
-        let producer = kaference_producer.producer().unwrap();
+        tokio::time::sleep(Duration::from_secs(5)).await;
+
+        let client = Client::new();
+
         for i in 1..=10 {
-            producer
-                .strong_consistency(
-                    &topic,
-                    format!("record_key_{i}").to_string(),
-                    format!("hello world {i}").to_string(),
-                )
-                .await;
+            let addr = if i % 2 == 0 {
+                service_1_addr
+            } else {
+                service_2_addr
+            };
+            let request = Request::builder()
+                .method(Method::POST)
+                .uri(format!("http://{addr}/"))
+                .header("record-key", format!("record_key_{i}"))
+                .body(Body::from(format!("hello world {i}")))
+                .unwrap();
+
+            let response = client.request(request).await.unwrap();
+            assert_eq!(StatusCode::ACCEPTED, response.status());
         }
 
         tokio::time::sleep(Duration::from_secs(5)).await;
+
+        service_1.abort();
+        service_2.abort();
+    }
+
+    struct TestServiceState {
+        topic: String,
+        producer: crate::KafenceProducer,
+    }
+
+    pub async fn run_server(listener: TcpListener, kafence: Arc<Kafence>) {
+        println!("Preparing Service...");
+        kafence.stream().await.unwrap();
+        let state = Arc::new(TestServiceState {
+            topic: kafence.topic.clone(),
+            producer: kafence.producer().unwrap(),
+        });
+
+        let server = Server::from_tcp(listener)
+            .unwrap()
+            .serve(make_service_fn(move |_conn| {
+                let state = Arc::clone(&state);
+                async move {
+                    let state = Arc::clone(&state);
+                    Ok::<_, Infallible>(service_fn(move |request| {
+                        create_service(request, Arc::clone(&state))
+                    }))
+                }
+            }));
+        if let Err(e) = server.await {
+            println!("server error: {}", e);
+        }
+    }
+
+    async fn create_service(
+        req: Request<Body>,
+        state: Arc<TestServiceState>,
+    ) -> Result<Response<Body>, Infallible> {
+        let mut response = Response::new(Body::empty());
+        match (req.method(), req.uri().path()) {
+            (&Method::GET, "/") => {
+                *response.body_mut() = Body::from("Service is running");
+            }
+            (&Method::POST, "/") => {
+                let key = req
+                    .headers()
+                    .get("record-key")
+                    .and_then(|value| value.to_str().ok())
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| format!("record_key_{}", Uuid::new_v4()));
+
+                match hyper::body::to_bytes(req.into_body()).await {
+                    Ok(body) => {
+                        let value = String::from_utf8_lossy(&body).into_owned();
+                        state
+                            .producer
+                            .strong_consistency(&state.topic, key.clone(), value)
+                            .await;
+                        *response.status_mut() = StatusCode::ACCEPTED;
+                        *response.body_mut() = Body::from(format!("published {key}"));
+                    }
+                    Err(e) => {
+                        *response.status_mut() = StatusCode::BAD_REQUEST;
+                        *response.body_mut() = Body::from(format!("invalid body: {e}"));
+                    }
+                }
+            }
+            _ => {
+                *response.status_mut() = StatusCode::NOT_FOUND;
+            }
+        };
+        Ok(response)
     }
 }
