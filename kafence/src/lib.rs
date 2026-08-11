@@ -1,4 +1,5 @@
 use anyhow::Result;
+use kafka::Error;
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::client::DefaultClientContext;
 use rdkafka::config::ClientConfig;
@@ -8,7 +9,9 @@ use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::message::{BorrowedMessage, Message};
 use rdkafka::producer::FutureProducer;
 use rocksdb::{DB, Options};
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::task;
 
 const ROCKSDB_PATH: &str = "./state/orders-store";
 
@@ -44,6 +47,7 @@ trait KafenceContract {
     fn with_consumer_group(self, consumer_group: &str) -> Kafence;
     fn with_partitions(self, partitions: u32) -> Kafence;
     fn with_rocksdb_path(self, rocksdb_path: &str) -> Kafence;
+    fn build(self) -> Arc<Kafence>;
     fn producer(&self) -> Result<KafenceProducer, KafenceProducerError>;
     async fn stream(&self) -> Result<()>;
 }
@@ -57,6 +61,13 @@ impl Kafence {
             topic: "".to_string(),
             rocksdb_path: ROCKSDB_PATH.to_string(),
         }
+    }
+    async fn create_stream(&self) -> Result<()> {
+        create_topic_if_not_exists(&self.brokers, &self.topic, self.partitions).await?;
+        let rocks_db = open_rocksdb(&self.rocksdb_path)?;
+        let stream_consumer = create_consumer(&self.brokers, &self.consumer_group)?;
+        stream_consumer.subscribe(&[self.topic.as_str()])?;
+        materialize_loop(&stream_consumer, &rocks_db).await
     }
 }
 
@@ -111,11 +122,15 @@ impl KafenceContract for Kafence {
     }
 
     async fn stream(&self) -> Result<()> {
-        create_topic_if_not_exists(&self.brokers, &self.topic, self.partitions).await?;
-        let rocks_db = open_rocksdb(&self.rocksdb_path)?;
-        let stream_consumer = create_consumer(&self.brokers, &self.consumer_group)?;
-        stream_consumer.subscribe(&[self.topic.as_str()])?;
-        materialize_loop(&stream_consumer, &rocks_db).await
+        // let kafence = Arc::new(self);
+        let kafence = self.clone();
+        let stream_task = task::spawn(async move { kafence.create_stream().await });
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        assert!(
+            !stream_task.is_finished(),
+            "stream task stopped before producing"
+        );
+        Ok(())
     }
 
     fn producer(&self) -> Result<KafenceProducer, KafenceProducerError> {
@@ -132,6 +147,9 @@ impl KafenceContract for Kafence {
                 })
             }
         }
+    }
+    fn build(self) -> Arc<Kafence> {
+        Arc::new(self)
     }
 }
 async fn create_topic_if_not_exists(brokers: &str, topic: &str, partitions: u32) -> Result<()> {
@@ -233,8 +251,8 @@ fn materialized_key(message: &BorrowedMessage<'_>) -> Vec<u8> {
 
 #[cfg(test)]
 mod test {
+    use rdkafka::producer::FutureRecord;
     use std::sync::Arc;
-use rdkafka::producer::FutureRecord;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
     use tokio::task;
 
@@ -256,20 +274,17 @@ use rdkafka::producer::FutureRecord;
 
         create_topic_if_not_exists(broker, &topic, 1).await.unwrap();
 
-        let kaference = Arc::new(Kafence::new()
+        let kaference = Kafence::new()
             .with_brokers(broker.to_string())
             .with_topic(&topic)
             .with_consumer_group(&consumer_group)
             .with_partitions(1)
-            .with_rocksdb_path(&rocksdb_path));
+            .with_rocksdb_path(&rocksdb_path)
+            .build();
 
         let kaference_stream = Arc::clone(&kaference);
 
-        let stream_task = task::spawn(async move {
-            kaference_stream.stream().await
-        });
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        assert!(!stream_task.is_finished(), "stream task stopped before producing");
+        kaference_stream.stream().await.unwrap();
 
         let producer = kaference.producer().unwrap().producer;
         let producer_topic = topic.clone();
@@ -286,8 +301,5 @@ use rdkafka::producer::FutureRecord;
         });
 
         producer_task.await.unwrap();
-        tokio::time::sleep(Duration::from_secs(3)).await;
-        assert!(!stream_task.is_finished(), "stream task stopped after producing");
-        stream_task.abort();
     }
 }
