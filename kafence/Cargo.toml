@@ -9,3 +9,4 @@ kafka = "0.9"
 rdkafka = { version = "0.39", features = ["cmake-build"] }
 rocksdb = "0.24"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+uuid = { version = "1.24.0", features = ["v4"] }
