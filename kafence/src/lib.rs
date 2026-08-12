@@ -2,16 +2,20 @@ use anyhow::Result;
 use kafka::Error;
 use kafka::producer::Record;
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
-use rdkafka::client::DefaultClientContext;
+use rdkafka::client::{ClientContext, DefaultClientContext};
 use rdkafka::config::ClientConfig;
-use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
+use rdkafka::consumer::{
+    BaseConsumer, CommitMode, Consumer, ConsumerContext, Rebalance, StreamConsumer,
+};
 use rdkafka::error::KafkaError;
 use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::message::{BorrowedMessage, Message, ToBytes};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rocksdb::{DB, Options};
-use std::sync::Arc;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use rdkafka::util::Timeout;
 use tokio::task;
 
 const ROCKSDB_PATH: &str = "./state/orders-store";
@@ -43,15 +47,39 @@ struct Kafence {
     rocksdb_path: String,
 }
 
-trait KafenceContract {
-    fn with_brokers(self, brokers: String) -> Kafence;
-    fn with_topic(self, topic: &str) -> Kafence;
-    fn with_consumer_group(self, consumer_group: &str) -> Kafence;
-    fn with_partitions(self, partitions: u32) -> Kafence;
-    fn with_rocksdb_path(self, rocksdb_path: &str) -> Kafence;
-    fn build(self) -> Arc<Kafence>;
-    fn producer(&self) -> Result<KafenceProducer, KafenceProducerError>;
-    async fn stream(&self) -> Result<()>;
+struct KafenceConsumerContext {
+    topic: String,
+    partitions:Arc<RwLock<HashSet<i32>>>
+}
+
+impl ClientContext for KafenceConsumerContext {}
+
+impl ConsumerContext for KafenceConsumerContext {
+    fn post_rebalance(&self, consumer: &BaseConsumer<Self>, rebalance: &Rebalance<'_>) {
+        println!("Pre rebalance {:?}", rebalance);
+        match rebalance {
+            Rebalance::Assign(_) | Rebalance::Revoke(_) => {
+                let partitions = consumer
+                    .assignment()
+                    .map(|tp_list| {
+                        tp_list
+                            .elements()
+                            .iter()
+                            .filter(|tp| tp.topic() == self.topic)
+                            .map(|tp| {
+                                println!("Topic: {} new partition assigned {}", tp.topic(), tp.partition());
+                                tp.partition()
+                            })
+                            .collect::<HashSet<_>>()
+                    })
+                    .unwrap_or_default();
+                *self.partitions.write().unwrap() = partitions;
+            }
+            Rebalance::Error(e) => {
+                println!("rebalance error: {e}");
+            }
+        }
+    }
 }
 
 impl Kafence {
@@ -65,17 +93,7 @@ impl Kafence {
             rocksdb_path: ROCKSDB_PATH.to_string(),
         }
     }
-    async fn create_stream(&self) -> Result<()> {
-        create_topic_if_not_exists(&self.brokers, &self.topic, self.partitions).await?;
-        let rocks_db = open_rocksdb(&self.rocksdb_path)?;
-        let stream_consumer =
-            create_consumer(&self.client_id, &self.brokers, &self.consumer_group)?;
-        stream_consumer.subscribe(&[self.topic.as_str()])?;
-        materialize_loop(&self.client_id, &stream_consumer, &rocks_db).await
-    }
-}
 
-impl KafenceContract for Kafence {
     fn with_brokers(self, brokers: String) -> Kafence {
         Kafence {
             client_id: self.client_id,
@@ -160,7 +178,16 @@ impl KafenceContract for Kafence {
     fn build(self) -> Arc<Kafence> {
         Arc::new(self)
     }
+
+    async fn create_stream(&self) -> Result<()> {
+        let rocks_db = open_rocksdb(&self.rocksdb_path)?;
+        let stream_consumer =
+            create_consumer(&self.client_id,&self.topic,  &self.brokers, &self.consumer_group)?;
+        stream_consumer.subscribe(&[self.topic.as_str()])?;
+        materialize_loop(&self.client_id, &stream_consumer, &rocks_db).await
+    }
 }
+
 
 trait KafenceProducerContract<K, V> {
     async fn strong_consistency(&self, topic: &str, key: K, value: V);
@@ -178,40 +205,19 @@ impl<K: ToBytes + Send + Sync + Clone + 'static, V: ToBytes + Send> KafenceProdu
             .expect("record must be delivered");
     }
 }
-async fn create_topic_if_not_exists(brokers: &str, topic: &str, partitions: u32) -> Result<()> {
-    if partitions == 0 {
-        anyhow::bail!("topic partitions must be greater than zero");
-    }
 
-    let partitions = i32::try_from(partitions)?;
-    let admin: AdminClient<DefaultClientContext> = ClientConfig::new()
-        .set("bootstrap.servers", brokers)
-        .set("session.timeout.ms", "6000")
-        .create()?;
-
-    //TODO:Make replication factor configurable
-    let new_topic = NewTopic::new(topic, partitions, TopicReplication::Fixed(1));
-    let admin_options = AdminOptions::new().operation_timeout(Some(Duration::from_secs(10)));
-
-    for result in admin.create_topics(&[new_topic], &admin_options).await? {
-        match result {
-            Ok(name) => {
-                println!("Created topic name {}", name)
-            }
-            Err((_, RDKafkaErrorCode::TopicAlreadyExists)) => {}
-            Err((name, code)) => {
-                anyhow::bail!("error creating topic {} with error {}", name, code)
-            }
-        }
-    }
-    Ok(())
-}
+type KafenceStreamConsumer = StreamConsumer<KafenceConsumerContext>;
 
 fn create_consumer(
     client_id: &str,
+    topic: &str,
     brokers: &str,
     group_id: &str,
-) -> Result<StreamConsumer, KafkaError> {
+) -> Result<KafenceStreamConsumer, KafkaError> {
+    let context = KafenceConsumerContext {
+        topic:topic.to_string(),
+        partitions:Arc::new(RwLock::new(HashSet::new())),
+    };
     ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("group.id", group_id)
@@ -219,7 +225,7 @@ fn create_consumer(
         .set("enable.auto.commit", "false")
         .set("auto.offset.reset", "earliest")
         .set("session.timeout.ms", "6000")
-        .create()
+        .create_with_context(context)
         .map_err(Into::into)
 }
 
@@ -231,7 +237,7 @@ fn open_rocksdb(path: &str) -> Result<DB, rocksdb::Error> {
 
 async fn materialize_loop(
     client_id: &str,
-    stream_consumer: &StreamConsumer,
+    stream_consumer: &KafenceStreamConsumer,
     rocks_db: &DB,
 ) -> Result<()> {
     loop {
@@ -287,13 +293,17 @@ fn materialized_key(message: &BorrowedMessage<'_>) -> Vec<u8> {
 
 #[cfg(test)]
 mod test {
-    use crate::{Kafence, KafenceContract, KafenceProducerContract, create_topic_if_not_exists};
+    use crate::{Kafence, KafenceProducerContract};
     use hyper::service::{make_service_fn, service_fn};
     use hyper::{Body, Client, Method, Request, Response, Server, StatusCode};
     use std::convert::Infallible;
     use std::net::TcpListener;
     use std::sync::Arc;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
+    use rdkafka::client::DefaultClientContext;
+    use rdkafka::ClientConfig;
+    use rdkafka::error::RDKafkaErrorCode;
     use uuid::Uuid;
 
     #[tokio::test]
@@ -441,5 +451,34 @@ mod test {
             }
         };
         Ok(response)
+    }
+
+    async fn create_topic_if_not_exists(brokers: &str, topic: &str, partitions: u32) -> anyhow::Result<()> {
+        if partitions == 0 {
+            anyhow::bail!("topic partitions must be greater than zero");
+        }
+
+        let partitions = i32::try_from(partitions)?;
+        let admin: AdminClient<DefaultClientContext> = ClientConfig::new()
+            .set("bootstrap.servers", brokers)
+            .set("session.timeout.ms", "6000")
+            .create()?;
+
+        //TODO:Make replication factor configurable
+        let new_topic = NewTopic::new(topic, partitions, TopicReplication::Fixed(1));
+        let admin_options = AdminOptions::new().operation_timeout(Some(Duration::from_secs(10)));
+
+        for result in admin.create_topics(&[new_topic], &admin_options).await? {
+            match result {
+                Ok(name) => {
+                    println!("Created topic name {}", name)
+                }
+                Err((_, RDKafkaErrorCode::TopicAlreadyExists)) => {}
+                Err((name, code)) => {
+                    anyhow::bail!("error creating topic {} with error {}", name, code)
+                }
+            }
+        }
+        Ok(())
     }
 }
