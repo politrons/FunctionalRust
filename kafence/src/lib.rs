@@ -51,7 +51,6 @@ struct Kafence {
     rocksdb_path: String,
 }
 
-
 struct KafenceConsumerContext {
     topic: String,
     partitions: Arc<RwLock<HashSet<i32>>>,
@@ -121,12 +120,15 @@ impl Kafence {
     }
 
     fn with_topic(self, topic: &str) -> Kafence {
+        let topic_router = format!("{topic}_router");
+        let routed_consumer_group = format!("{topic}_routed_consumer_group_{}", self.client_id);
+
         Kafence {
             client_id: self.client_id,
             brokers: self.brokers,
             topic: topic.to_string(),
-            topic_router: topic.to_string() + "_router",
-            routed_consumer_group: topic.to_string() + "routed_consumer_group",
+            topic_router,
+            routed_consumer_group,
             route_table: self.route_table,
             consumer_group: self.consumer_group,
             partitions: self.partitions,
@@ -179,9 +181,9 @@ impl Kafence {
         let kafence_stream = self.clone();
         let stream_task = task::spawn(async move { kafence_stream.create_stream().await });
         tokio::time::sleep(Duration::from_secs(2)).await;
-        let kafence_owner_partition = self.clone();
+        let kafence_route_table = self.clone();
         let stream_partition_owner_task =
-            task::spawn(async move { kafence_owner_partition.create_stream().await });
+            task::spawn(async move { kafence_route_table.create_routed_stream().await });
         assert!(
             !stream_task.is_finished(),
             "stream task stopped before producing"
@@ -208,6 +210,7 @@ impl Kafence {
             }
         }
     }
+
     fn build(self) -> Arc<Kafence> {
         Arc::new(self)
     }
@@ -220,7 +223,6 @@ impl Kafence {
         };
         let stream_consumer = create_consumer(
             &self.client_id,
-            &self.topic,
             &self.brokers,
             &self.consumer_group,
             context,
@@ -230,16 +232,15 @@ impl Kafence {
     }
 
     async fn create_routed_stream(&self) -> Result<()> {
-        create_route_topic_if_not_exists(&self.brokers, &self.topic_router, self.partitions)
-            .await?;
+        create_route_topic_if_not_exists(&self.brokers, &self.topic_router).await?;
+
         let stream_consumer = create_consumer(
             &self.client_id,
-            &self.topic_router,
             &self.brokers,
             &self.routed_consumer_group,
             DefaultConsumerContext,
         )?;
-        stream_consumer.subscribe(&[self.topic.as_str()])?;
+        stream_consumer.subscribe(&[self.topic_router.as_str()])?;
         loop {
             let message = stream_consumer.recv().await?;
             materialize_route_table(&self.client_id, &message, &self.route_table)?;
@@ -248,24 +249,15 @@ impl Kafence {
     }
 }
 
-async fn create_route_topic_if_not_exists(
-    brokers: &str,
-    topic: &str,
-    partitions: u32,
-) -> anyhow::Result<()> {
-    if partitions == 0 {
-        anyhow::bail!("routed topic partitions must be greater than zero");
-    }
-
-    let partitions = i32::try_from(partitions)?;
+async fn create_route_topic_if_not_exists(brokers: &str, topic: &str) -> anyhow::Result<()> {
     let admin: AdminClient<DefaultClientContext> = ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("session.timeout.ms", "6000")
-        .set("cleanup.policy", "compact")
         .create()?;
 
     //TODO:Make replication factor configurable
-    let new_topic = NewTopic::new(topic, partitions, TopicReplication::Fixed(1));
+    let new_topic =
+        NewTopic::new(topic, 1, TopicReplication::Fixed(1)).set("cleanup.policy", "compact");
     let admin_options = AdminOptions::new().operation_timeout(Some(Duration::from_secs(10)));
 
     for result in admin.create_topics(&[new_topic], &admin_options).await? {
@@ -306,7 +298,6 @@ type KafenceStreamConsumer = StreamConsumer<KafenceConsumerContext>;
 
 fn create_consumer<C>(
     client_id: &str,
-    topic: &str,
     brokers: &str,
     group_id: &str,
     context: C,
@@ -396,10 +387,9 @@ fn materialize_route_table(
                 String::from_utf8_lossy(value)
             );
             let mut route_table = route_table.write().unwrap();
-            let key = String::from_utf8_lossy(message.key().unwrap()).to_string();
-            let value = String::from_utf8_lossy(message.payload().unwrap()).to_string();
-            route_table.insert(key, value).unwrap();
-            // rocks_db.put(&key, value)?
+            let key = String::from_utf8_lossy(&key).to_string();
+            let value = String::from_utf8_lossy(value).to_string();
+            route_table.insert(key, value);
         }
         None => {
             println!(
@@ -409,7 +399,8 @@ fn materialize_route_table(
                 message.offset(),
                 String::from_utf8_lossy(&key)
             );
-            // rocks_db.delete(&key)?
+            let key = String::from_utf8_lossy(&key).to_string();
+            route_table.write().unwrap().remove(&key);
         }
     }
     Ok(())
