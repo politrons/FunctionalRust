@@ -273,7 +273,7 @@ impl Kafence {
         materialize_loop(&self.client_id, &stream_consumer, &rocks_db).await
     }
 
-    async fn create_routed_stream(&self, mut recv: UnboundedReceiver<RouteInfo>) -> Result<()> {
+    async fn create_routed_stream(&self, recv: UnboundedReceiver<RouteInfo>) -> Result<()> {
         create_route_topic_if_not_exists(&self.brokers, &self.topic_router).await?;
         let stream_consumer = create_consumer(
             &self.client_id,
@@ -315,59 +315,6 @@ async fn create_route_topic_if_not_exists(brokers: &str, topic: &str) -> anyhow:
         }
     }
     Ok(())
-}
-
-// Kafka Producer
-// --------------
-
-trait KafenceProducerContract<K, V> {
-    async fn strong_consistency(&self, topic: &str, key: K, value: V);
-}
-
-impl<K: ToBytes + Send + Sync + Clone + 'static, V: ToBytes + Send> KafenceProducerContract<K, V>
-    for KafenceProducer
-{
-    async fn strong_consistency(&self, topic: &str, key: K, value: V) {
-        let record = FutureRecord::to(topic).key(&key).payload(&value);
-
-        self.producer
-            .send(record, Duration::from_secs(5))
-            .await
-            .expect("record must be delivered");
-    }
-}
-
-async fn publish_route_info(
-    brokers: &str,
-    topic_router: &str,
-    mut recv: UnboundedReceiver<RouteInfo>,
-) {
-    while let Some(route_info) = recv.recv().await {
-        let partitions = route_info.paritions.read().unwrap().iter().copied().collect::<Vec<_>>();
-        println!("New Route info {:?}", route_info);
-        match ClientConfig::new()
-            .set("bootstrap.servers", brokers)
-            .set("message.timeout.ms", "5000")
-            .create::<FutureProducer>()
-        {
-            Ok(producer) => {
-                for partition in partitions {
-                    let key = format!("{}:{}", topic_router, partition);
-                    let record = FutureRecord::to(topic_router)
-                        .key(&key)
-                        .payload(&route_info.service_host);
-
-                    producer
-                        .send(record, Duration::from_secs(5))
-                        .await
-                        .expect("record must be delivered");
-                }
-            }
-            Err(e) => {
-                println!("Error creating Kafka producer. Caused by {}", e);
-            }
-        }
-    }
 }
 
 type KafenceStreamConsumer = StreamConsumer<KafenceConsumerContext>;
@@ -504,6 +451,60 @@ fn materialized_key(message: &BorrowedMessage<'_>) -> Vec<u8> {
             message.offset()
         )
         .into_bytes(),
+    }
+}
+
+
+// Kafka Producer
+// --------------
+
+trait KafenceProducerContract<K, V> {
+    async fn strong_consistency(&self, topic: &str, key: K, value: V);
+}
+
+impl<K: ToBytes + Send + Sync + Clone + 'static, V: ToBytes + Send> KafenceProducerContract<K, V>
+for KafenceProducer
+{
+    async fn strong_consistency(&self, topic: &str, key: K, value: V) {
+
+        let record = FutureRecord::to(topic).key(&key).payload(&value);
+
+        self.producer
+            .send(record, Duration::from_secs(5))
+            .await
+            .expect("record must be delivered");
+    }
+}
+async fn publish_route_info(
+    brokers: &str,
+    topic_router: &str,
+    mut recv: UnboundedReceiver<RouteInfo>,
+) {
+    while let Some(route_info) = recv.recv().await {
+        let partitions = route_info.paritions.read().unwrap().iter().copied().collect::<Vec<_>>();
+        println!("New Route info {:?}", route_info);
+        match ClientConfig::new()
+            .set("bootstrap.servers", brokers)
+            .set("message.timeout.ms", "5000")
+            .create::<FutureProducer>()
+        {
+            Ok(producer) => {
+                for partition in partitions {
+                    let key = format!("{}:{}", topic_router, partition);
+                    let record = FutureRecord::to(topic_router)
+                        .key(&key)
+                        .payload(&route_info.service_host);
+
+                    producer
+                        .send(record, Duration::from_secs(5))
+                        .await
+                        .expect("record must be delivered");
+                }
+            }
+            Err(e) => {
+                println!("Error creating Kafka producer. Caused by {}", e);
+            }
+        }
     }
 }
 
