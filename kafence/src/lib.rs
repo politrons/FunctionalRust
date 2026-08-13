@@ -17,6 +17,7 @@ use rocksdb::{DB, Options};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::task;
 
 const ROCKSDB_PATH: &str = "./state/orders-store";
@@ -53,7 +54,14 @@ struct Kafence {
 
 struct KafenceConsumerContext {
     topic: String,
-    partitions: Arc<RwLock<HashSet<i32>>>,
+    service_host: String,
+    router_channel_sender: UnboundedSender<RouteInfo>,
+}
+
+#[derive(Clone, Debug)]
+struct RouteInfo{
+    paritions: Arc<RwLock<HashSet<i32>>>,
+    service_host: String,
 }
 
 impl ClientContext for KafenceConsumerContext {}
@@ -81,7 +89,16 @@ impl ConsumerContext for KafenceConsumerContext {
                             .collect::<HashSet<_>>()
                     })
                     .unwrap_or_default();
-                *self.partitions.write().unwrap() = partitions;
+                let route_info = RouteInfo {
+                    paritions: Arc::new(RwLock::new(partitions)),
+                    service_host: self.service_host.clone(),
+                };
+                if !self.router_channel_sender.is_closed() {
+                    match self.router_channel_sender.send(route_info) {
+                        Ok(_) => println!("Router channel sent"),
+                        Err(e) => println!("Router channel send failed {}", e),
+                    }
+                }
             }
             Rebalance::Error(e) => {
                 println!("rebalance error: {e}");
@@ -178,12 +195,15 @@ impl Kafence {
     }
 
     async fn stream(&self) -> Result<()> {
+        let (sender, recv):(UnboundedSender<RouteInfo>, UnboundedReceiver<RouteInfo>) = tokio::sync::mpsc::unbounded_channel();
         let kafence_stream = self.clone();
-        let stream_task = task::spawn(async move { kafence_stream.create_stream().await });
+        let stream_task = task::spawn(async move {
+            kafence_stream.create_stream(sender).await
+        });
         tokio::time::sleep(Duration::from_secs(2)).await;
         let kafence_route_table = self.clone();
         let stream_partition_owner_task =
-            task::spawn(async move { kafence_route_table.create_routed_stream().await });
+            task::spawn(async move { kafence_route_table.create_routed_stream(recv).await });
         assert!(
             !stream_task.is_finished(),
             "stream task stopped before producing"
@@ -215,11 +235,12 @@ impl Kafence {
         Arc::new(self)
     }
 
-    async fn create_stream(&self) -> Result<()> {
+    async fn create_stream(&self, sender:UnboundedSender<RouteInfo>) -> Result<()> {
         let rocks_db = open_rocksdb(&self.rocksdb_path)?;
         let context = KafenceConsumerContext {
             topic: self.topic.to_string(),
-            partitions: Arc::new(RwLock::new(HashSet::new())),
+            service_host: "add_my_service_host".to_string(),
+            router_channel_sender:sender
         };
         let stream_consumer = create_consumer(
             &self.client_id,
@@ -231,9 +252,8 @@ impl Kafence {
         materialize_loop(&self.client_id, &stream_consumer, &rocks_db).await
     }
 
-    async fn create_routed_stream(&self) -> Result<()> {
+    async fn create_routed_stream(&self, mut recv:UnboundedReceiver<RouteInfo>) -> Result<()> {
         create_route_topic_if_not_exists(&self.brokers, &self.topic_router).await?;
-
         let stream_consumer = create_consumer(
             &self.client_id,
             &self.brokers,
@@ -241,12 +261,13 @@ impl Kafence {
             DefaultConsumerContext,
         )?;
         stream_consumer.subscribe(&[self.topic_router.as_str()])?;
-        loop {
-            let message = stream_consumer.recv().await?;
-            materialize_route_table(&self.client_id, &message, &self.route_table)?;
-            stream_consumer.commit_message(&message, CommitMode::Async)?;
-        }
+        tokio::task::spawn(async move {
+           let route_info =  recv.recv().await;
+            println!("New Route info {:?}", route_info)
+        });
+        materialize_route_loop(&self.client_id, &self.route_table, stream_consumer).await
     }
+
 }
 
 async fn create_route_topic_if_not_exists(brokers: &str, topic: &str) -> anyhow::Result<()> {
@@ -330,6 +351,15 @@ async fn materialize_loop(
     loop {
         let message = stream_consumer.recv().await?;
         materialize_rocksdb(client_id, &message, rocks_db)?;
+        stream_consumer.commit_message(&message, CommitMode::Async)?;
+    }
+}
+
+async fn materialize_route_loop(client_id:&str, route_table:&Arc<RwLock<HashMap<String, String>>>,
+                                stream_consumer: StreamConsumer) -> Result<()> {
+    loop {
+        let message = stream_consumer.recv().await?;
+        materialize_route_table(client_id, &message, route_table)?;
         stream_consumer.commit_message(&message, CommitMode::Async)?;
     }
 }
