@@ -60,7 +60,7 @@ struct KafenceConsumerContext {
 }
 
 #[derive(Clone, Debug)]
-struct RouteInfo{
+struct RouteInfo {
     paritions: Arc<RwLock<HashSet<i32>>>,
     service_host: String,
 }
@@ -217,11 +217,10 @@ impl Kafence {
     }
 
     async fn stream(&self) -> Result<()> {
-        let (sender, recv):(UnboundedSender<RouteInfo>, UnboundedReceiver<RouteInfo>) = tokio::sync::mpsc::unbounded_channel();
+        let (sender, recv): (UnboundedSender<RouteInfo>, UnboundedReceiver<RouteInfo>) =
+            tokio::sync::mpsc::unbounded_channel();
         let kafence_stream = self.clone();
-        let stream_task = task::spawn(async move {
-            kafence_stream.create_stream(sender).await
-        });
+        let stream_task = task::spawn(async move { kafence_stream.create_stream(sender).await });
         tokio::time::sleep(Duration::from_secs(2)).await;
         let kafence_route_table = self.clone();
         let stream_partition_owner_task =
@@ -257,12 +256,12 @@ impl Kafence {
         Arc::new(self)
     }
 
-    async fn create_stream(&self, sender:UnboundedSender<RouteInfo>) -> Result<()> {
+    async fn create_stream(&self, sender: UnboundedSender<RouteInfo>) -> Result<()> {
         let rocks_db = open_rocksdb(&self.rocksdb_path)?;
         let context = KafenceConsumerContext {
             topic: self.topic.to_string(),
             service_host: self.serviice_url.to_string(),
-            router_channel_sender:sender
+            router_channel_sender: sender,
         };
         let stream_consumer = create_consumer(
             &self.client_id,
@@ -274,7 +273,7 @@ impl Kafence {
         materialize_loop(&self.client_id, &stream_consumer, &rocks_db).await
     }
 
-    async fn create_routed_stream(&self, mut recv:UnboundedReceiver<RouteInfo>) -> Result<()> {
+    async fn create_routed_stream(&self, mut recv: UnboundedReceiver<RouteInfo>) -> Result<()> {
         create_route_topic_if_not_exists(&self.brokers, &self.topic_router).await?;
         let stream_consumer = create_consumer(
             &self.client_id,
@@ -283,13 +282,14 @@ impl Kafence {
             DefaultConsumerContext,
         )?;
         stream_consumer.subscribe(&[self.topic_router.as_str()])?;
+
+        let brokers = self.brokers.clone();
+        let topic_router = self.topic_router.clone();
         tokio::task::spawn(async move {
-           let route_info =  recv.recv().await;
-            println!("New Route info {:?}", route_info)
+            publish_route_info(&brokers, &topic_router, recv).await;
         });
         materialize_route_loop(&self.client_id, &self.route_table, stream_consumer).await
     }
-
 }
 
 async fn create_route_topic_if_not_exists(brokers: &str, topic: &str) -> anyhow::Result<()> {
@@ -337,6 +337,39 @@ impl<K: ToBytes + Send + Sync + Clone + 'static, V: ToBytes + Send> KafenceProdu
     }
 }
 
+async fn publish_route_info(
+    brokers: &str,
+    topic_router: &str,
+    mut recv: UnboundedReceiver<RouteInfo>,
+) {
+    while let Some(route_info) = recv.recv().await {
+        let partitions = route_info.paritions.read().unwrap().iter().copied().collect::<Vec<_>>();
+        println!("New Route info {:?}", route_info);
+        match ClientConfig::new()
+            .set("bootstrap.servers", brokers)
+            .set("message.timeout.ms", "5000")
+            .create::<FutureProducer>()
+        {
+            Ok(producer) => {
+                for partition in partitions {
+                    let key = format!("{}:{}", topic_router, partition);
+                    let record = FutureRecord::to(topic_router)
+                        .key(&key)
+                        .payload(&route_info.service_host);
+
+                    producer
+                        .send(record, Duration::from_secs(5))
+                        .await
+                        .expect("record must be delivered");
+                }
+            }
+            Err(e) => {
+                println!("Error creating Kafka producer. Caused by {}", e);
+            }
+        }
+    }
+}
+
 type KafenceStreamConsumer = StreamConsumer<KafenceConsumerContext>;
 
 fn create_consumer<C>(
@@ -377,8 +410,11 @@ async fn materialize_loop(
     }
 }
 
-async fn materialize_route_loop(client_id:&str, route_table:&Arc<RwLock<HashMap<String, String>>>,
-                                stream_consumer: StreamConsumer) -> Result<()> {
+async fn materialize_route_loop(
+    client_id: &str,
+    route_table: &Arc<RwLock<HashMap<String, String>>>,
+    stream_consumer: StreamConsumer,
+) -> Result<()> {
     loop {
         let message = stream_consumer.recv().await?;
         materialize_route_table(client_id, &message, route_table)?;
