@@ -50,6 +50,7 @@ struct Kafence {
     route_table: Arc<RwLock<HashMap<String, String>>>,
     partitions: u32,
     rocksdb_path: String,
+    serviice_url: String,
 }
 
 struct KafenceConsumerContext {
@@ -119,6 +120,7 @@ impl Kafence {
             topic_router: "".to_string(),
             route_table: Arc::new(RwLock::new(HashMap::new())),
             rocksdb_path: ROCKSDB_PATH.to_string(),
+            serviice_url: "".to_string(),
         }
     }
 
@@ -133,6 +135,7 @@ impl Kafence {
             route_table: self.route_table,
             partitions: self.partitions,
             rocksdb_path: self.rocksdb_path,
+            serviice_url: self.serviice_url,
         }
     }
 
@@ -150,6 +153,7 @@ impl Kafence {
             consumer_group: self.consumer_group,
             partitions: self.partitions,
             rocksdb_path: self.rocksdb_path,
+            serviice_url: self.serviice_url,
         }
     }
     fn with_consumer_group(self, consumer_group: &str) -> Kafence {
@@ -163,6 +167,7 @@ impl Kafence {
             route_table: self.route_table,
             partitions: self.partitions,
             rocksdb_path: self.rocksdb_path,
+            serviice_url: self.serviice_url,
         }
     }
 
@@ -177,6 +182,7 @@ impl Kafence {
             route_table: self.route_table,
             partitions,
             rocksdb_path: self.rocksdb_path,
+            serviice_url: self.serviice_url,
         }
     }
 
@@ -191,6 +197,22 @@ impl Kafence {
             route_table: self.route_table,
             partitions: self.partitions,
             rocksdb_path: rocksdb_path.to_string(),
+            serviice_url: self.serviice_url,
+        }
+    }
+
+    fn with_service_url(self, service_url: &str) -> Kafence {
+        Kafence {
+            client_id: self.client_id,
+            brokers: self.brokers,
+            topic: self.topic,
+            topic_router: self.topic_router,
+            consumer_group: self.consumer_group,
+            routed_consumer_group: self.routed_consumer_group,
+            route_table: self.route_table,
+            partitions: self.partitions,
+            rocksdb_path: self.rocksdb_path,
+            serviice_url: service_url.to_string(),
         }
     }
 
@@ -239,7 +261,7 @@ impl Kafence {
         let rocks_db = open_rocksdb(&self.rocksdb_path)?;
         let context = KafenceConsumerContext {
             topic: self.topic.to_string(),
-            service_host: "add_my_service_host".to_string(),
+            service_host: self.serviice_url.to_string(),
             router_channel_sender:sender
         };
         let stream_consumer = create_consumer(
@@ -478,6 +500,13 @@ mod test {
 
         // DSL
         // -----
+
+        // Services
+        // Service 1
+        // ---------
+        let service_1_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let service_1_addr = service_1_listener.local_addr().unwrap();
+        let service_1_url = format!("http://{}", service_1_addr);
         let uuid = uuid::Uuid::new_v4();
         let rocksdb_path_1 = std::env::temp_dir()
             .join(format!("kafence-{run_id}-{uuid}"))
@@ -490,7 +519,15 @@ mod test {
             .with_consumer_group(&consumer_group)
             .with_partitions(2)
             .with_rocksdb_path(&rocksdb_path_1)
+            .with_service_url(&service_1_url)
             .build();
+        let service_1 = tokio::spawn(run_server(service_1_listener, Arc::clone(&kaference_1)));
+
+        // Service 2
+        // ---------
+        let service_2_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let service_2_addr = service_2_listener.local_addr().unwrap();
+        let service_2_url = format!("http://{}", service_2_addr);
 
         let uuid = uuid::Uuid::new_v4();
         let rocksdb_path_2 = std::env::temp_dir()
@@ -504,15 +541,8 @@ mod test {
             .with_consumer_group(&consumer_group)
             .with_partitions(2)
             .with_rocksdb_path(&rocksdb_path_2)
+            .with_service_url(&service_2_url)
             .build();
-
-        // Services
-        let service_1_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let service_1_addr = service_1_listener.local_addr().unwrap();
-        let service_1 = tokio::spawn(run_server(service_1_listener, Arc::clone(&kaference_1)));
-
-        let service_2_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let service_2_addr = service_2_listener.local_addr().unwrap();
         let service_2 = tokio::spawn(run_server(service_2_listener, Arc::clone(&kaference_2)));
 
         tokio::time::sleep(Duration::from_secs(5)).await;
