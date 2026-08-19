@@ -1,6 +1,4 @@
 use anyhow::Result;
-use kafka::Error;
-use kafka::producer::Record;
 use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
 use rdkafka::client::{ClientContext, DefaultClientContext};
 use rdkafka::config::ClientConfig;
@@ -12,18 +10,25 @@ use rdkafka::error::KafkaError;
 use rdkafka::error::RDKafkaErrorCode;
 use rdkafka::message::{BorrowedMessage, Message, ToBytes};
 use rdkafka::producer::{FutureProducer, FutureRecord};
-use rdkafka::util::Timeout;
 use rocksdb::{DB, Options};
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, RwLock};
+use std::collections::{HashMap, HashSet, hash_map::Entry};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::oneshot;
 use tokio::task;
 
 const ROCKSDB_PATH: &str = "./state/orders-store";
 
+type MaterializerAck = Arc<RwLock<HashMap<String, Vec<oneshot::Sender<()>>>>>;
+
 struct KafenceProducer {
     producer: FutureProducer,
+    service_url: String,
+    topic_router: String,
+    partitions: i32,
+    route_table: Arc<RwLock<HashMap<String, String>>>,
+    materializer_ack: MaterializerAck,
 }
 
 #[derive(Debug)]
@@ -48,7 +53,8 @@ struct Kafence {
     topic_router: String,
     routed_consumer_group: String,
     route_table: Arc<RwLock<HashMap<String, String>>>,
-    partitions: u32,
+    materializer_ack: MaterializerAck,
+    partitions: i32,
     rocksdb_path: String,
     serviice_url: String,
 }
@@ -119,6 +125,7 @@ impl Kafence {
             topic: "".to_string(),
             topic_router: "".to_string(),
             route_table: Arc::new(RwLock::new(HashMap::new())),
+            materializer_ack: Arc::new(RwLock::new(HashMap::new())),
             rocksdb_path: ROCKSDB_PATH.to_string(),
             serviice_url: "".to_string(),
         }
@@ -133,6 +140,7 @@ impl Kafence {
             consumer_group: self.consumer_group,
             routed_consumer_group: self.routed_consumer_group,
             route_table: self.route_table,
+            materializer_ack: self.materializer_ack,
             partitions: self.partitions,
             rocksdb_path: self.rocksdb_path,
             serviice_url: self.serviice_url,
@@ -150,6 +158,7 @@ impl Kafence {
             topic_router,
             routed_consumer_group,
             route_table: self.route_table,
+            materializer_ack: self.materializer_ack,
             consumer_group: self.consumer_group,
             partitions: self.partitions,
             rocksdb_path: self.rocksdb_path,
@@ -165,13 +174,14 @@ impl Kafence {
             consumer_group: consumer_group.to_string(),
             routed_consumer_group: self.routed_consumer_group,
             route_table: self.route_table,
+            materializer_ack: self.materializer_ack,
             partitions: self.partitions,
             rocksdb_path: self.rocksdb_path,
             serviice_url: self.serviice_url,
         }
     }
 
-    fn with_partitions(self, partitions: u32) -> Kafence {
+    fn with_partitions(self, partitions: i32) -> Kafence {
         Kafence {
             client_id: self.client_id,
             brokers: self.brokers,
@@ -180,6 +190,7 @@ impl Kafence {
             consumer_group: self.consumer_group,
             routed_consumer_group: self.routed_consumer_group,
             route_table: self.route_table,
+            materializer_ack: self.materializer_ack,
             partitions,
             rocksdb_path: self.rocksdb_path,
             serviice_url: self.serviice_url,
@@ -195,6 +206,7 @@ impl Kafence {
             consumer_group: self.consumer_group,
             routed_consumer_group: self.routed_consumer_group,
             route_table: self.route_table,
+            materializer_ack: self.materializer_ack,
             partitions: self.partitions,
             rocksdb_path: rocksdb_path.to_string(),
             serviice_url: self.serviice_url,
@@ -210,6 +222,7 @@ impl Kafence {
             consumer_group: self.consumer_group,
             routed_consumer_group: self.routed_consumer_group,
             route_table: self.route_table,
+            materializer_ack: self.materializer_ack,
             partitions: self.partitions,
             rocksdb_path: self.rocksdb_path,
             serviice_url: service_url.to_string(),
@@ -242,7 +255,14 @@ impl Kafence {
             .set("message.timeout.ms", "5000")
             .create()
         {
-            Ok(producer) => Ok(KafenceProducer { producer }),
+            Ok(producer) => Ok(KafenceProducer {
+                producer: producer,
+                service_url: self.serviice_url.clone(),
+                topic_router: self.topic_router.clone(),
+                partitions: self.partitions,
+                route_table: self.route_table.clone(),
+                materializer_ack: self.materializer_ack.clone(),
+            }),
             Err(e) => {
                 println!("Error creating Kafka producer. Caused by {}", e);
                 Err(KafenceProducerError {
@@ -270,7 +290,13 @@ impl Kafence {
             context,
         )?;
         stream_consumer.subscribe(&[self.topic.as_str()])?;
-        materialize_loop(&self.client_id, &stream_consumer, &rocks_db).await
+        materialize_loop(
+            &self.client_id,
+            &stream_consumer,
+            &rocks_db,
+            &self.materializer_ack,
+        )
+        .await
     }
 
     async fn create_routed_stream(&self, recv: UnboundedReceiver<RouteInfo>) -> Result<()> {
@@ -349,10 +375,11 @@ async fn materialize_loop(
     client_id: &str,
     stream_consumer: &KafenceStreamConsumer,
     rocks_db: &DB,
+    materializer_ack: &MaterializerAck,
 ) -> Result<()> {
     loop {
         let message = stream_consumer.recv().await?;
-        materialize_rocksdb(client_id, &message, rocks_db)?;
+        materialize_rocksdb(client_id, &message, rocks_db, materializer_ack)?;
         stream_consumer.commit_message(&message, CommitMode::Async)?;
     }
 }
@@ -373,8 +400,10 @@ fn materialize_rocksdb(
     client_id: &str,
     message: &BorrowedMessage<'_>,
     rocks_db: &DB,
+    materializer_ack: &MaterializerAck,
 ) -> Result<()> {
     let key = materialized_key(message);
+    let materializer_key = String::from_utf8_lossy(&key).into_owned();
 
     match message.payload() {
         Some(value) => {
@@ -400,6 +429,7 @@ fn materialize_rocksdb(
             rocks_db.delete(&key)?
         }
     }
+    acknowledge_materialized_key(materializer_ack, &materializer_key);
     Ok(())
 }
 
@@ -454,34 +484,168 @@ fn materialized_key(message: &BorrowedMessage<'_>) -> Vec<u8> {
     }
 }
 
+fn acknowledge_materialized_key(acknowledge: &MaterializerAck, key: &str) {
+    if let Some(waiters) = acknowledge.write().unwrap().remove(key) {
+        for waiter in waiters {
+            let _ = waiter.send(());
+        }
+    }
+}
 
 // Kafka Producer
 // --------------
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum StrongConsistencyPath {
+    Local,
+    Proxied(String),
+}
+
 trait KafenceProducerContract<K, V> {
-    async fn strong_consistency(&self, topic: &str, key: K, value: V);
+    async fn strong_consistency(
+        &self,
+        topic: &str,
+        key: K,
+        value: V,
+    ) -> Result<StrongConsistencyPath>;
+
+    async fn local_persistance(
+        &self,
+        topic: &str,
+        partition: i32,
+        key: &K,
+        value: &V,
+    ) -> Result<()>;
 }
 
 impl<K: ToBytes + Send + Sync + Clone + 'static, V: ToBytes + Send> KafenceProducerContract<K, V>
-for KafenceProducer
+    for KafenceProducer
 {
-    async fn strong_consistency(&self, topic: &str, key: K, value: V) {
+    async fn strong_consistency(
+        &self,
+        topic: &str,
+        key: K,
+        value: V,
+    ) -> Result<StrongConsistencyPath> {
+        let partition = partition_for_key(key.to_bytes(), self.partitions);
+        let route_key = format!("{}:{}", self.topic_router, partition);
 
-        let record = FutureRecord::to(topic).key(&key).payload(&value);
+        let key_string = String::from_utf8_lossy(key.to_bytes()).into_owned();
+        let value_string = String::from_utf8_lossy(value.to_bytes()).into_owned();
 
-        self.producer
-            .send(record, Duration::from_secs(5))
-            .await
-            .expect("record must be delivered");
+        let target_host = self.route_table.read().unwrap().get(&route_key).cloned();
+
+        match target_host {
+            Some(target_host) if target_host == self.service_url => {
+                self.local_persistance(topic, partition, &key, &value)
+                    .await?;
+                Ok(StrongConsistencyPath::Local)
+            }
+            Some(target_host) => {
+                proxy_strong_consistency(&target_host, key_string, value_string).await?;
+                Ok(StrongConsistencyPath::Proxied(target_host))
+            }
+            None => {
+                anyhow::bail!("route not ready for {route_key}");
+            }
+        }
+    }
+
+    async fn local_persistance(
+        &self,
+        topic: &str,
+        partition: i32,
+        key: &K,
+        value: &V,
+    ) -> Result<()> {
+        let materializer_key = String::from_utf8_lossy(key.to_bytes()).into_owned();
+        let materialized =
+            lock_materialization_key(&self.materializer_ack, materializer_key.clone()).await;
+
+        println!(
+            "Instance for key={:?} owner of partition={:?} persitance locally.",
+            String::from_utf8_lossy(key.to_bytes()),
+            partition
+        );
+        let record = FutureRecord::to(topic)
+            .partition(partition)
+            .key(key)
+            .payload(value);
+
+        match self.producer.send(record, Duration::from_secs(5)).await {
+            Ok(_) => {}
+            Err((e, _)) => {
+                acknowledge_materialized_key(&self.materializer_ack, &materializer_key);
+                anyhow::bail!("record delivery failed: {e}");
+            }
+        }
+
+        materialized.await.map_err(|_| {
+            anyhow::anyhow!("materializer acknowledge dropped for key {materializer_key}")
+        })?;
+
+        Ok(())
     }
 }
+async fn proxy_strong_consistency(target_host: &str, key: String, value: String) -> Result<()> {
+    println!(
+        "Instance for key={:?} is not owner of partition. Proxy request to {} .",
+        String::from_utf8_lossy(key.to_bytes()),
+        target_host
+    );
+    let request = hyper::Request::builder()
+        .method(hyper::Method::POST)
+        .uri(format!("{}/", target_host.trim_end_matches('/')))
+        .header("record-key", key)
+        .header("x-kafence-proxied", "true")
+        .body(hyper::Body::from(value))?;
+
+    let response = hyper::Client::new().request(request).await?;
+
+    if !response.status().is_success() {
+        anyhow::bail!("proxy failed with status {}", response.status());
+    }
+
+    Ok(())
+}
+
+async fn lock_materialization_key(
+    acknowledge: &MaterializerAck,
+    key: String,
+) -> oneshot::Receiver<()> {
+    loop {
+        let wait_previous = {
+            match acknowledge.write().unwrap().entry(key.clone()) {
+                Entry::Vacant(entry) => {
+                    let (sender, receiver) = oneshot::channel();
+                    entry.insert(vec![sender]);
+                    return receiver;
+                }
+                Entry::Occupied(mut entry) => {
+                    let (sender, receiver) = oneshot::channel();
+                    entry.get_mut().push(sender);
+                    receiver
+                }
+            }
+        };
+
+        let _ = wait_previous.await;
+    }
+}
+
 async fn publish_route_info(
     brokers: &str,
     topic_router: &str,
     mut recv: UnboundedReceiver<RouteInfo>,
 ) {
     while let Some(route_info) = recv.recv().await {
-        let partitions = route_info.paritions.read().unwrap().iter().copied().collect::<Vec<_>>();
+        let partitions = route_info
+            .paritions
+            .read()
+            .unwrap()
+            .iter()
+            .copied()
+            .collect::<Vec<_>>();
         println!("New Route info {:?}", route_info);
         match ClientConfig::new()
             .set("bootstrap.servers", brokers)
@@ -508,206 +672,22 @@ async fn publish_route_info(
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::{Kafence, KafenceProducerContract};
-    use hyper::service::{make_service_fn, service_fn};
-    use hyper::{Body, Client, Method, Request, Response, Server, StatusCode};
-    use rdkafka::ClientConfig;
-    use rdkafka::admin::{AdminClient, AdminOptions, NewTopic, TopicReplication};
-    use rdkafka::client::DefaultClientContext;
-    use rdkafka::error::RDKafkaErrorCode;
-    use std::convert::Infallible;
-    use std::net::TcpListener;
-    use std::sync::Arc;
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
-    use uuid::Uuid;
+use rdkafka::bindings::rd_kafka_msg_partitioner_murmur2;
+use std::ffi::c_void;
+use std::ptr;
 
-    #[tokio::test]
-    async fn producer_test() {
-        let broker = "localhost:9092";
-        let run_id = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let topic = format!("kafka_topic_{run_id}");
-        let consumer_group = format!("kafka_group_{run_id}");
-
-        create_topic_if_not_exists(broker, &topic, 2).await.unwrap();
-
-        // DSL
-        // -----
-
-        // Services
-        // Service 1
-        // ---------
-        let service_1_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let service_1_addr = service_1_listener.local_addr().unwrap();
-        let service_1_url = format!("http://{}", service_1_addr);
-        let uuid = uuid::Uuid::new_v4();
-        let rocksdb_path_1 = std::env::temp_dir()
-            .join(format!("kafence-{run_id}-{uuid}"))
-            .to_string_lossy()
-            .into_owned();
-
-        let kaference_1 = Kafence::new()
-            .with_brokers(broker.to_string())
-            .with_topic(&topic)
-            .with_consumer_group(&consumer_group)
-            .with_partitions(2)
-            .with_rocksdb_path(&rocksdb_path_1)
-            .with_service_url(&service_1_url)
-            .build();
-        let service_1 = tokio::spawn(run_server(service_1_listener, Arc::clone(&kaference_1)));
-
-        // Service 2
-        // ---------
-        let service_2_listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let service_2_addr = service_2_listener.local_addr().unwrap();
-        let service_2_url = format!("http://{}", service_2_addr);
-
-        let uuid = uuid::Uuid::new_v4();
-        let rocksdb_path_2 = std::env::temp_dir()
-            .join(format!("kafence-{run_id}-{uuid}"))
-            .to_string_lossy()
-            .into_owned();
-
-        let kaference_2 = Kafence::new()
-            .with_brokers(broker.to_string())
-            .with_topic(&topic)
-            .with_consumer_group(&consumer_group)
-            .with_partitions(2)
-            .with_rocksdb_path(&rocksdb_path_2)
-            .with_service_url(&service_2_url)
-            .build();
-        let service_2 = tokio::spawn(run_server(service_2_listener, Arc::clone(&kaference_2)));
-
-        tokio::time::sleep(Duration::from_secs(5)).await;
-
-        let client = Client::new();
-
-        for i in 1..=10 {
-            let addr = if i % 2 == 0 {
-                service_1_addr
-            } else {
-                service_2_addr
-            };
-            let request = Request::builder()
-                .method(Method::POST)
-                .uri(format!("http://{addr}/"))
-                .header("record-key", format!("record_key_{i}"))
-                .body(Body::from(format!("hello world {i}")))
-                .unwrap();
-
-            let response = client.request(request).await.unwrap();
-            assert_eq!(StatusCode::ACCEPTED, response.status());
-        }
-
-        tokio::time::sleep(Duration::from_secs(5)).await;
-
-        service_1.abort();
-        service_2.abort();
-    }
-
-    struct TestServiceState {
-        topic: String,
-        producer: crate::KafenceProducer,
-    }
-
-    pub async fn run_server(listener: TcpListener, kafence: Arc<Kafence>) {
-        println!("Preparing Service...");
-        kafence.stream().await.unwrap();
-        let state = Arc::new(TestServiceState {
-            topic: kafence.topic.clone(),
-            producer: kafence.producer().unwrap(),
-        });
-
-        let server = Server::from_tcp(listener)
-            .unwrap()
-            .serve(make_service_fn(move |_conn| {
-                let state = Arc::clone(&state);
-                async move {
-                    let state = Arc::clone(&state);
-                    Ok::<_, Infallible>(service_fn(move |request| {
-                        create_service(request, Arc::clone(&state))
-                    }))
-                }
-            }));
-        if let Err(e) = server.await {
-            println!("server error: {}", e);
-        }
-    }
-
-    async fn create_service(
-        req: Request<Body>,
-        state: Arc<TestServiceState>,
-    ) -> Result<Response<Body>, Infallible> {
-        let mut response = Response::new(Body::empty());
-        match (req.method(), req.uri().path()) {
-            (&Method::GET, "/") => {
-                *response.body_mut() = Body::from("Service is running");
-            }
-            (&Method::POST, "/") => {
-                let key = req
-                    .headers()
-                    .get("record-key")
-                    .and_then(|value| value.to_str().ok())
-                    .map(str::to_owned)
-                    .unwrap_or_else(|| format!("record_key_{}", Uuid::new_v4()));
-
-                match hyper::body::to_bytes(req.into_body()).await {
-                    Ok(body) => {
-                        let value = String::from_utf8_lossy(&body).into_owned();
-                        state
-                            .producer
-                            .strong_consistency(&state.topic, key.clone(), value)
-                            .await;
-                        *response.status_mut() = StatusCode::ACCEPTED;
-                        *response.body_mut() = Body::from(format!("published {key}"));
-                    }
-                    Err(e) => {
-                        *response.status_mut() = StatusCode::BAD_REQUEST;
-                        *response.body_mut() = Body::from(format!("invalid body: {e}"));
-                    }
-                }
-            }
-            _ => {
-                *response.status_mut() = StatusCode::NOT_FOUND;
-            }
-        };
-        Ok(response)
-    }
-
-    async fn create_topic_if_not_exists(
-        brokers: &str,
-        topic: &str,
-        partitions: u32,
-    ) -> anyhow::Result<()> {
-        if partitions == 0 {
-            anyhow::bail!("topic partitions must be greater than zero");
-        }
-
-        let partitions = i32::try_from(partitions)?;
-        let admin: AdminClient<DefaultClientContext> = ClientConfig::new()
-            .set("bootstrap.servers", brokers)
-            .set("session.timeout.ms", "6000")
-            .create()?;
-
-        //TODO:Make replication factor configurable
-        let new_topic = NewTopic::new(topic, partitions, TopicReplication::Fixed(1));
-        let admin_options = AdminOptions::new().operation_timeout(Some(Duration::from_secs(10)));
-
-        for result in admin.create_topics(&[new_topic], &admin_options).await? {
-            match result {
-                Ok(name) => {
-                    println!("Created topic name {}", name)
-                }
-                Err((_, RDKafkaErrorCode::TopicAlreadyExists)) => {}
-                Err((name, code)) => {
-                    anyhow::bail!("error creating topic {} with error {}", name, code)
-                }
-            }
-        }
-        Ok(())
+fn partition_for_key(key: &[u8], partition_count: i32) -> i32 {
+    unsafe {
+        rd_kafka_msg_partitioner_murmur2(
+            ptr::null(),
+            key.as_ptr().cast::<c_void>(),
+            key.len(),
+            partition_count,
+            ptr::null_mut(),
+            ptr::null_mut(),
+        )
     }
 }
+
+#[cfg(test)]
+mod tests;
